@@ -125,10 +125,23 @@ module DataBase =
             NbPeople    : NbPeople
         }
 
-    let toDB  = ()
+    ///Function to convert one Domain Record into records to insert into Database
+    let toDB  (time : TimeRecord) = 
+        match time.TimeEntry with
+            | MachineOnly duration -> 
+                [ {   Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter; 
+                    TimeType = Machine; Duration = duration; NbPeople = NbPeople 0. } ]
+            | MachineAndLabour (duration, nb) -> 
+                [ { Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter;
+                    TimeType = Machine; Duration = duration; NbPeople = NbPeople 0. } ; 
+                {   Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter; 
+                    TimeType = Machine; Duration = duration; NbPeople = nb } ]
+            | LabourOnly (duration, nb) -> 
+                [ {   Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter; 
+                    TimeType = Machine; Duration = duration; NbPeople = nb } ]
 
 module DTO =
-
+    ///Domain to store data deserialized from JSON format
     type TimeRecordDTO =
         {
             Site        : string
