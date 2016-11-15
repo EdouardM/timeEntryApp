@@ -5,8 +5,8 @@ module DomainTypes =
     
     //Domain Model:
     type TimeType = 
-            | Machine
-            | Labour
+            | MachineTime
+            | LabourTime
 
     type RecordStatus = | Entered | Validated
 
@@ -32,8 +32,6 @@ module DomainTypes =
             | false -> Failure <| sprintf "Can't find %s: %s" name id 
 
     let createSite = create Site "site"
-
-    type SiteAccess = | All | Site of Site
 
     type ShopFloor  = ShopFloor of string
 
@@ -71,22 +69,86 @@ module DomainTypes =
         | LabourOnly of Duration * NbPeople
     let createTimeEntry timeType nbPeople duration =
         match timeType, nbPeople with
-            | Machine, (NbPeople 0.)  -> MachineOnly duration
-            | Labour,  nbPeople       -> LabourOnly (duration, nbPeople)
-            | Machine, nbPeople       -> MachineAndLabour (duration, nbPeople) 
-
+            | MachineTime, (NbPeople 0.)  -> MachineOnly duration
+            | LabourTime,  nbPeople       -> LabourOnly (duration, nbPeople)
+            | MachineTime, nbPeople       -> MachineAndLabour (duration, nbPeople) 
 
     type WorkOrder = WorkOrder of string
-    type Event = Event of string 
-    let createWorkOrder = create WorkOrder "workorder"
-    let createEvent = create Event "event"
+    let createWorkOrder = create WorkOrder "work order number"
 
+    type ItemCode  = ItemCode of string
+    let createItemCode = create ItemCode "item code"
+
+    type ItemType  = ItemType of string
+    
+    let createItemType = create ItemCode "item type"
+
+    [<Measure>] type kg
+
+    type WeightProduced = WeightProduced of float<kg>
+
+    let createMeasure ty name (x:float<_>) =
+        function
+            | x when x < 0.<_> -> Failure <| sprintf "%s can't be negative. Input: %.2f" name x
+            | x -> Success (ty x)
+
+    let createWeightProduced = createMeasure WeightProduced "Weight" 
+
+    //Batch for Semi finished products
+    [<Measure>] type batch
+
+    //Consumer Units for finished products
+    [<Measure>] type CU
+
+    type QuantityProduced = 
+        | QuantitySF of float<batch> 
+        | QuantityPF of int<CU> 
+
+    type WorkOrderEntry =
+        {
+            WorkOrder           : WorkOrder
+            ItemCode            : ItemCode
+            WeightProduced      : WeightProduced
+            //QuantityProduced    : QuantityProduced
+        }
+    let newWorkOrderEntry workOrder itemCode weight quantity = 
+        { WorkOrder = workOrder; ItemCode = itemCode; WeightProduced = weight}
+
+
+    type Machine = Machine of string
+
+    let createMachine = create Machine "machine"
+
+    //In case of BreakDown we record addiional information
+    type BreakDownInfo = 
+        { 
+            Machine     : Machine 
+            Cause       : string
+            Solution    : string
+            Comments    : string 
+        }   
+    let createBreakDownInfo machine cause solution comments = 
+        { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
+
+    //Only some event allow Zero People => MachineOnly TimeType
+    type AllowZeroPeople = Yes | No
+    //Only some event allow Additional info: breakdowns
+    type HasEventInfo    = Yes | No 
+    
+    type Event = 
+        { 
+            Event           : string
+            AllowZeroPeople : AllowZeroPeople
+            HasEventInfo    : HasEventInfo 
+        }
+
+    type EventEntry = { Event: Event; EventInfo: BreakDownInfo option}
 
     type TimeAllocation = 
         //productive time record against work Order
-        | WorkOrder of WorkOrder
+        | WorkOrderEntry of WorkOrderEntry
         //improductive time recorded against event
-        | Event of Event * TimeType
+        | EventEntry of EventEntry
 
     //Domain model (pure)
     type TimeRecord =
@@ -102,9 +164,17 @@ module DomainTypes =
     let createTimeRecord site shopfloor workcenter allocation timeEntry =
         { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
 
+
+    (* 
+        Types for User information
+    *)
+
     type UserName = Login of string
 
     type AuthLevel = | Entry | Maintenance | Admin
+
+    type SiteAccess = | All | Site of Site
+
 
     type User =
         {
@@ -140,18 +210,37 @@ module DomainTypes =
             match time.TimeEntry with
                 //List of one record: Machine time
                 | MachineOnly duration -> 
-                    [ {   Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter; 
-                        TimeType = Machine; Duration = duration; NbPeople = NbPeople 0. } ]
+                    [ {   
+                        Site = time.Site; 
+                        ShopFloor = time.ShopFloor; 
+                        WorkCenter = time.WorkCenter; 
+                        TimeType = MachineTime; Duration = duration; 
+                        NbPeople = NbPeople 0. } ]
                 //List of two records: Machine & Labour time
                 | MachineAndLabour (duration, nb) -> 
-                    [ { Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter;
-                        TimeType = Machine; Duration = duration; NbPeople = NbPeople 0. } ;
-                    {   Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter; 
-                        TimeType = Labour ; Duration = duration; NbPeople = nb } ]
+                    [ { 
+                        Site = time.Site; 
+                        ShopFloor = time.ShopFloor; 
+                        WorkCenter = time.WorkCenter;
+                        TimeType = MachineTime; 
+                        Duration = duration; 
+                        NbPeople = NbPeople 0. } ;
+
+                    {   Site = time.Site; 
+                        ShopFloor = time.ShopFloor;
+                        WorkCenter = time.WorkCenter; 
+                        TimeType = LabourTime ; 
+                        Duration = duration;
+                        NbPeople = nb } ]
                 //List of one record: Labour time
                 | LabourOnly (duration, nb) -> 
-                    [ {   Site = time.Site; ShopFloor = time.ShopFloor; WorkCenter = time.WorkCenter; 
-                        TimeType = Labour; Duration = duration; NbPeople = nb } ]
+                    [ {   
+                        Site = time.Site; 
+                        ShopFloor = time.ShopFloor;
+                        WorkCenter = time.WorkCenter; 
+                        TimeType = LabourTime; 
+                        Duration = duration; 
+                        NbPeople = nb } ]
 
     module DTO =
         ///Domain to store data deserialized from JSON format
@@ -176,8 +265,8 @@ module DomainTypes =
                 let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
                 let timetypeResult = 
                     match dto.TimeType with
-                        | "Machine" -> Success Machine
-                        | "Labour"  -> Success Labour
+                        | "Machine" -> Success MachineTime
+                        | "Labour"  -> Success LabourTime
                         | ty         -> Failure <| sprintf "Wrong time type: %s" ty
 
                 let durationResult = createDuration dto.StartTime dto.EndTime
