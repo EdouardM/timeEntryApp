@@ -86,6 +86,7 @@ module DomainTypes =
         | MachineOnly of Duration
         | MachineAndLabour of Duration * NbPeople
         | LabourOnly of Duration * NbPeople
+
     let createTimeEntry timeType nbPeople duration =
         match timeType, nbPeople with
             | MachineTime, (NbPeople 0.)  -> MachineOnly duration
@@ -124,34 +125,38 @@ module DomainTypes =
     let createMachine = create Machine "machine"
 
     //In case of BreakDown we record addiional information
-    type BreakDownInfo = 
+    type EventInfo = 
         { 
             Machine     : Machine 
             Cause       : string
             Solution    : string
             Comments    : string 
         }   
-    let createBreakDownInfo machine cause solution comments = 
+    let createEventInfo machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
      
     type Event = 
-        { 
-            Event           : string
-            AllowZeroPeople : bool
-            HasEventInfo    : bool 
-        }
+        | ZeroPerson    of string
+        | WithInfo      of string
+        | WithoutInfo   of string
+
+    let createEvent event hasInfo allowZeropeople =
+        match hasInfo, allowZeropeople with
+            | false, true       -> Success (ZeroPerson event)
+            | true, false       -> Success (WithInfo event)
+            | false, false      -> Success (WithoutInfo event) 
+            | true, true        -> Failure "Event with zero person can't carry information."
     
-    let createEvent event allowzero hasinfo =
-        { Event = event; AllowZeroPeople = allowzero; HasEventInfo = hasinfo } 
-
-    type EventEntry = { Event: Event; EventInfo: BreakDownInfo option}
-
-    let createEventEntry (event:Event) (breakDownInfo: BreakDownInfo option) =
-        if event.HasEventInfo then
-            { Event = event; EventInfo = breakDownInfo }
-        else
-            { Event = event; EventInfo = None }
-
+    type EventEntry = 
+        | EventWithInfo         of Event * EventInfo 
+        | EventWithoutInfo      of Event
+        | EventZeroPerson       of Event 
+    let createEventEntry (event:Event) (eventInfo: EventInfo) =
+        match event with
+            | WithoutInfo ev        -> Success <| EventWithoutInfo event
+            | WithInfo ev           -> Success <| EventWithInfo (event, eventInfo)
+            | ZeroPerson ev         -> Success <| EventZeroPerson event
+            
     type TimeAllocation = 
         //productive time record against work Order
         | WorkOrderEntry of WorkOrderEntry
@@ -304,8 +309,6 @@ module DomainTypes =
                 <!> workorderResult
                 <*> itemCodeResult 
                 <*> weightResult 
-                
-
 
         type TimeRecordDTO =
             {
