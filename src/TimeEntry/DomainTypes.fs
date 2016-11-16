@@ -102,16 +102,13 @@ module DomainTypes =
     
     let createItemType = create ItemCode "item type"
 
-    [<Measure>] type kg
+    type Weight = Weight of float
 
-    type WeightProduced = WeightProduced of float<kg>
+    let createWeight w =
+            function
+            | h when h < 0  -> Failure "Weight must be positive."
+            | h -> Success (Weight w)
 
-    let createMeasure ty name (x:float<_>) =
-        function
-            | x when x < 0.<_> -> Failure <| sprintf "%s can't be negative. Input: %.2f" name x
-            | x -> Success (ty x)
-
-    let createWeightProduced = createMeasure WeightProduced "Weight" 
 
     //Batch for Semi finished products
     [<Measure>] type batch
@@ -119,7 +116,7 @@ module DomainTypes =
     //Consumer Units for finished products
     [<Measure>] type CU
 
-    type QuantityProduced = 
+    type Quantity = 
         | QuantitySF of float<batch> 
         | QuantityPF of int<CU> 
 
@@ -127,11 +124,11 @@ module DomainTypes =
         {
             WorkOrder           : WorkOrder
             ItemCode            : ItemCode
-            WeightProduced      : WeightProduced
-            //QuantityProduced    : QuantityProduced
+            Weight      : Weight
+            //Quantity    : Quantity
         }
     let createWorkOrderEntry workOrder itemCode weight quantity = 
-        { WorkOrder = workOrder; ItemCode = itemCode; WeightProduced = weight}
+        { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight}
 
 
     type Machine = Machine of string
