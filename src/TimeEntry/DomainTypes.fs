@@ -104,18 +104,18 @@ module DomainTypes =
 
     type Weight = Weight of float
 
-    let createWeight w =
+    let createWeight =
             function
-            | h when h < 0  -> Failure "Weight must be positive."
-            | h -> Success (Weight w)
+            | w when w < 0.  -> Failure "Weight must be positive."
+            | w -> Success (Weight w)
 
     type WorkOrderEntry =
         {
-            WorkOrder           : WorkOrder
-            ItemCode            : ItemCode
-            Weight      : Weight
+            WorkOrder       : WorkOrder
+            ItemCode        : ItemCode
+            Weight          : Weight
         }
-    let createWorkOrderEntry workOrder itemCode weight quantity = 
+    let createWorkOrderEntry workOrder itemCode weight = 
         { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight}
 
 
@@ -287,6 +287,26 @@ module DomainTypes =
                 <*> endHourResult
         
        
+        type WorkOrderDTO =
+            {
+                WorkOrder       : string
+                ItemCode        : string
+                Weight          : float
+            }
+        let workOrderFromDTO 
+            validWorkOrders
+            validItemCodes
+            (dto: WorkOrderDTO) =
+                let workorderResult  = createWorkOrder validWorkOrders dto.WorkOrder
+                let itemCodeResult   = createItemCode validItemCodes dto.ItemCode
+                let weightResult     = createWeight dto.Weight
+                createWorkOrderEntry
+                <!> workorderResult
+                <*> itemCodeResult 
+                <*> weightResult 
+                
+
+
         type TimeRecordDTO =
             {
                 Site        : string
