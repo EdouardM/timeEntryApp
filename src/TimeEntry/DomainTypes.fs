@@ -111,7 +111,7 @@ module DomainTypes =
             WeightProduced      : WeightProduced
             //QuantityProduced    : QuantityProduced
         }
-    let newWorkOrderEntry workOrder itemCode weight quantity = 
+    let createWorkOrderEntry workOrder itemCode weight quantity = 
         { WorkOrder = workOrder; ItemCode = itemCode; WeightProduced = weight}
 
 
@@ -129,18 +129,16 @@ module DomainTypes =
         }   
     let createBreakDownInfo machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
-
-    //Only some event allow Zero People => MachineOnly TimeType
-    type AllowZeroPeople = Yes | No
-    //Only some event allow Additional info: breakdowns
-    type HasEventInfo    = Yes | No 
-    
+     
     type Event = 
         { 
             Event           : string
-            AllowZeroPeople : AllowZeroPeople
-            HasEventInfo    : HasEventInfo 
+            AllowZeroPeople : bool
+            HasEventInfo    : bool 
         }
+    
+    let createEvent event allowzero hasinfo =
+        { Event = event; AllowZeroPeople = allowzero; HasEventInfo = hasinfo } 
 
     type EventEntry = { Event: Event; EventInfo: BreakDownInfo option}
 
