@@ -41,6 +41,25 @@ module DomainTypes =
 
     let createWorkCenter = create WorkCenter "workcenter"
 
+    [<Measure>] type hour
+
+    let createHour = 
+        function
+            | h when h < 0<hour>  -> Failure "Hour must be positive."
+            | h when h > 23<hour> -> Failure "Hour can't superior to 23"
+            | h -> Success h
+
+    type WorkCenterInfo = 
+        {
+            Site        : Site
+            WorkCenter  : WorkCenter
+            ShopFloor   : ShopFloor
+            StartHour   : int<hour>
+            EndHour     : int<hour>
+        }
+    let createWorkCenterInfo site shopFloor workCenter startTime endTime = 
+        { Site = site; WorkCenter = workCenter; ShopFloor = shopFloor; StartHour = startTime; EndHour = endTime }
+
     type Duration = 
         {
             StartTime   : DateTime
@@ -142,9 +161,9 @@ module DomainTypes =
 
     type EventEntry = { Event: Event; EventInfo: BreakDownInfo option}
 
-    let createEventEntry (event:Event) breakDownInfo =
+    let createEventEntry (event:Event) (breakDownInfo: BreakDownInfo option) =
         if event.HasEventInfo then
-            { Event = event; EventInfo = Some breakDownInfo }
+            { Event = event; EventInfo = breakDownInfo }
         else
             { Event = event; EventInfo = None }
 
@@ -154,20 +173,23 @@ module DomainTypes =
         //improductive time recorded against event
         | EventEntry of EventEntry
 
+    let createTimeAllocation allocation = 
+        match allocation with
+            | WorkOrderEntry w -> Success (WorkOrderEntry w)
+            | EventEntry e -> Success (EventEntry e)
+
+
     //Domain model (pure)
     type TimeRecord =
         {
-            Site        : Site
-            ShopFloor   : ShopFloor
-            WorkCenter  : WorkCenter
-            TimeEntry   : TimeEntry
-            Allocation  : TimeAllocation
-            Status      : RecordStatus
+            WorkCenterInfo  : WorkCenterInfo
+            TimeEntry       : TimeEntry
+            Allocation      : TimeAllocation
+            Status          : RecordStatus
         }
     
-    let createTimeRecord site shopfloor workcenter allocation timeEntry =
-        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
-
+    let createTimeRecord workcenterInfo allocation timeEntry =
+        { WorkCenterInfo = workcenterInfo; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
 
     (* 
         Types for User information
