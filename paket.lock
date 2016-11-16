@@ -1,5 +1,5 @@
 NUGET
   remote: https://www.nuget.org/api/v2
-  specs:
-    FAKE (4.43.0)
+    FAKE (4.43)
     FSharp.Core (4.0.0.1)
+    SQLProvider (1.0.37)
