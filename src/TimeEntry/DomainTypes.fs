@@ -142,6 +142,12 @@ module DomainTypes =
 
     type EventEntry = { Event: Event; EventInfo: BreakDownInfo option}
 
+    let createEventEntry (event:Event) breakDownInfo =
+        if event.HasEventInfo then
+            { Event = event; EventInfo = Some breakDownInfo }
+        else
+            { Event = event; EventInfo = None }
+
     type TimeAllocation = 
         //productive time record against work Order
         | WorkOrderEntry of WorkOrderEntry
