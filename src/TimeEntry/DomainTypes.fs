@@ -109,23 +109,11 @@ module DomainTypes =
             | h when h < 0  -> Failure "Weight must be positive."
             | h -> Success (Weight w)
 
-
-    //Batch for Semi finished products
-    [<Measure>] type batch
-
-    //Consumer Units for finished products
-    [<Measure>] type CU
-
-    type Quantity = 
-        | QuantitySF of float<batch> 
-        | QuantityPF of int<CU> 
-
     type WorkOrderEntry =
         {
             WorkOrder           : WorkOrder
             ItemCode            : ItemCode
             Weight      : Weight
-            //Quantity    : Quantity
         }
     let createWorkOrderEntry workOrder itemCode weight quantity = 
         { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight}
