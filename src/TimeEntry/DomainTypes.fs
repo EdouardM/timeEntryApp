@@ -41,21 +41,21 @@ module DomainTypes =
 
     let createWorkCenter = create WorkCenter "workcenter"
 
-    [<Measure>] type hour
+    type Hour = Hour of int
 
     let createHour = 
         function
-            | h when h < 0<hour>  -> Failure "Hour must be positive."
-            | h when h > 23<hour> -> Failure "Hour can't superior to 23"
-            | h -> Success h
+            | h when h < 0  -> Failure "Hour must be positive."
+            | h when h > 23 -> Failure "Hour can't superior to 23"
+            | h -> Success (Hour h)
 
     type WorkCenterInfo = 
         {
             Site        : Site
             WorkCenter  : WorkCenter
             ShopFloor   : ShopFloor
-            StartHour   : int<hour>
-            EndHour     : int<hour>
+            StartHour   : Hour
+            EndHour     : Hour
         }
     let createWorkCenterInfo site shopFloor workCenter startTime endTime = 
         { Site = site; WorkCenter = workCenter; ShopFloor = shopFloor; StartHour = startTime; EndHour = endTime }
@@ -182,14 +182,16 @@ module DomainTypes =
     //Domain model (pure)
     type TimeRecord =
         {
-            WorkCenterInfo  : WorkCenterInfo
+            Site            : Site
+            ShopFloor       : ShopFloor
+            WorkCenter      : WorkCenter
             TimeEntry       : TimeEntry
             Allocation      : TimeAllocation
             Status          : RecordStatus
         }
     
-    let createTimeRecord workcenterInfo allocation timeEntry =
-        { WorkCenterInfo = workcenterInfo; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
+    let createTimeRecord  site shopfloor workcenter allocation timeEntry =
+        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
 
     (* 
         Types for User information
@@ -237,39 +239,69 @@ module DomainTypes =
                 //List of one record: Machine time
                 | MachineOnly duration -> 
                     [ {   
-                        Site = time.Site; 
-                        ShopFloor = time.ShopFloor; 
-                        WorkCenter = time.WorkCenter; 
-                        TimeType = MachineTime; Duration = duration; 
-                        NbPeople = NbPeople 0. } ]
+                        Site        = time.Site 
+                        ShopFloor   = time.ShopFloor 
+                        WorkCenter  = time.WorkCenter 
+                        TimeType    = MachineTime
+                        Duration    = duration
+                        NbPeople    = NbPeople 0. } ]
                 //List of two records: Machine & Labour time
                 | MachineAndLabour (duration, nb) -> 
                     [ { 
-                        Site = time.Site; 
-                        ShopFloor = time.ShopFloor; 
-                        WorkCenter = time.WorkCenter;
-                        TimeType = MachineTime; 
-                        Duration = duration; 
-                        NbPeople = NbPeople 0. } ;
+                        Site        = time.Site
+                        ShopFloor   = time.ShopFloor 
+                        WorkCenter  = time.WorkCenter
+                        TimeType    = MachineTime 
+                        Duration    = duration
+                        NbPeople    = NbPeople 0. } ;
 
-                    {   Site = time.Site; 
-                        ShopFloor = time.ShopFloor;
-                        WorkCenter = time.WorkCenter; 
-                        TimeType = LabourTime ; 
-                        Duration = duration;
-                        NbPeople = nb } ]
+                        { 
+                        Site        = time.Site
+                        ShopFloor   = time.ShopFloor 
+                        WorkCenter  = time.WorkCenter
+                        TimeType    = MachineTime 
+                        Duration    = duration
+                        NbPeople    = nb }]
                 //List of one record: Labour time
                 | LabourOnly (duration, nb) -> 
                     [ {   
-                        Site = time.Site; 
-                        ShopFloor = time.ShopFloor;
-                        WorkCenter = time.WorkCenter; 
-                        TimeType = LabourTime; 
-                        Duration = duration; 
-                        NbPeople = nb } ]
+                        Site        = time.Site 
+                        ShopFloor   = time.ShopFloor
+                        WorkCenter  = time.WorkCenter
+                        TimeType    = LabourTime
+                        Duration    = duration 
+                        NbPeople    = nb } ]
 
     module DTO =
         ///Domain to store data deserialized from JSON format
+        type WorkCenterInfoDTO =
+            {
+                Site        : string
+                ShopFloor   : string
+                WorkCenter  : string
+                StartHour   : int
+                EndHour     : int
+
+            }
+        
+        let workCenterInfoFromDTO 
+            validSites
+            validShopFloors
+            validWorkCenters
+            (dto: WorkCenterInfoDTO) =
+                let siteResult = createSite validSites dto.Site
+                let shopfloorResult  = createShopfloor validShopFloors dto.ShopFloor
+                let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
+                let startHourResult  = createHour dto.StartHour
+                let endHourResult    = createHour dto.EndHour
+                createWorkCenterInfo 
+                <!> siteResult 
+                <*> shopfloorResult 
+                <*> workcenterResult 
+                <*> startHourResult 
+                <*> endHourResult
+        
+       
         type TimeRecordDTO =
             {
                 Site        : string
@@ -281,7 +313,7 @@ module DomainTypes =
                 NbPeople    : float
             }
         
-        let fromDTO 
+        let timeRecordFromDTO 
             validSites
             validShopFloors
             validWorkCenters
@@ -289,6 +321,7 @@ module DomainTypes =
                 let siteResult = createSite validSites dto.Site
                 let shopfloorResult  = createShopfloor validShopFloors dto.ShopFloor
                 let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
+                let workcenterInfoResult = createWorkCenterInfo <!> siteResult <*> shopfloorResult <*> workcenterResult
                 let timetypeResult = 
                     match dto.TimeType with
                         | "Machine" -> Success MachineTime
