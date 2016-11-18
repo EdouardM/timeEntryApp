@@ -1,4 +1,5 @@
 namespace TimeEntry
+
 module DomainTypes =
     open System
     open TimeEntry.Result
@@ -15,7 +16,6 @@ module DomainTypes =
 
     type NbPeople = NbPeople of float
     
-
     ///Create a valid number of people:
     ///Number of people can only be integer or half of integer and positive
     let createNbPeople nb = 
@@ -155,23 +155,20 @@ module DomainTypes =
         | EventWithoutInfo      of Event
         | EventZeroPerson       of Event
          
-    let createEventEntry (event:Event) (eventInfo: EventInfo) =
-        match event with
-            | WithoutInfo ev        -> Success <| EventWithoutInfo event
-            | WithInfo ev           -> Success <| EventWithInfo (event, eventInfo)
-            | ZeroPerson ev         -> Success <| EventZeroPerson event
+    let createEventEntry (event:Event) (eventInfo: EventInfo option) =
+        match event, eventInfo with
+            | WithoutInfo ev, None        -> Success <| EventWithoutInfo event
+            | WithInfo ev, Some info      -> Success <| EventWithInfo (event, info)
+            | ZeroPerson ev, None         -> Success <| EventZeroPerson event
+            | ZeroPerson ev, Some info    -> Failure "info not expected"
+            | WithoutInfo ev, Some info   -> Failure "info not expected"
+            | WithInfo ev, None           -> Failure "expecting information"
             
     type TimeAllocation = 
         //productive time record against work Order
         | WorkOrderEntry of WorkOrderEntry
         //improductive time recorded against event
         | EventEntry of EventEntry
-
-    let createTimeAllocation allocation = 
-        match allocation with
-            | WorkOrderEntry w -> Success (WorkOrderEntry w)
-            | EventEntry e -> Success (EventEntry e)
-
 
     //Domain model (pure)
     type TimeRecord =
@@ -215,134 +212,4 @@ module DomainTypes =
     type AddEntryData = EntryRequest -> Result<EntryResponse>
 
 
-    module DataBase =
-        //DataBase model (pure)
-        type DBTimeRecord =
-            {
-                Site        : Site
-                ShopFloor   : ShopFloor
-                WorkCenter  : WorkCenter
-                TimeType    : TimeType
-                Duration    : Duration
-                NbPeople    : NbPeople
-            }
-
-        ///Function to convert one Domain Record into records to insert into Database
-        let toDB  (time : TimeRecord) = 
-            match time.TimeEntry with
-                //List of one record: Machine time
-                | MachineOnly duration -> 
-                    [ {   
-                        Site        = time.Site 
-                        ShopFloor   = time.ShopFloor 
-                        WorkCenter  = time.WorkCenter 
-                        TimeType    = MachineTime
-                        Duration    = duration
-                        NbPeople    = NbPeople 0. } ]
-                //List of two records: Machine & Labour time
-                | MachineAndLabour (duration, nb) -> 
-                    [ { 
-                        Site        = time.Site
-                        ShopFloor   = time.ShopFloor 
-                        WorkCenter  = time.WorkCenter
-                        TimeType    = MachineTime 
-                        Duration    = duration
-                        NbPeople    = NbPeople 0. } ;
-
-                        { 
-                        Site        = time.Site
-                        ShopFloor   = time.ShopFloor 
-                        WorkCenter  = time.WorkCenter
-                        TimeType    = MachineTime 
-                        Duration    = duration
-                        NbPeople    = nb }]
-                //List of one record: Labour time
-                | LabourOnly (duration, nb) -> 
-                    [ {   
-                        Site        = time.Site 
-                        ShopFloor   = time.ShopFloor
-                        WorkCenter  = time.WorkCenter
-                        TimeType    = LabourTime
-                        Duration    = duration 
-                        NbPeople    = nb } ]
-
-    module DTO =
-        ///Domain to store data deserialized from JSON format
-        type WorkCenterInfoDTO =
-            {
-                Site        : string
-                ShopFloor   : string
-                WorkCenter  : string
-                StartHour   : int
-                EndHour     : int
-
-            }
-        
-        let workCenterInfoFromDTO 
-            validSites
-            validShopFloors
-            validWorkCenters
-            (dto: WorkCenterInfoDTO) =
-                let siteResult = createSite validSites dto.Site
-                let shopfloorResult  = createShopfloor validShopFloors dto.ShopFloor
-                let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
-                let startHourResult  = createHour dto.StartHour
-                let endHourResult    = createHour dto.EndHour
-                createWorkCenterInfo 
-                <!> siteResult 
-                <*> shopfloorResult 
-                <*> workcenterResult 
-                <*> startHourResult 
-                <*> endHourResult
-        
-       
-        type WorkOrderDTO =
-            {
-                WorkOrder       : string
-                ItemCode        : string
-                Weight          : float
-            }
-        let workOrderFromDTO 
-            validWorkOrders
-            validItemCodes
-            (dto: WorkOrderDTO) =
-                let workorderResult  = createWorkOrder validWorkOrders dto.WorkOrder
-                let itemCodeResult   = createItemCode validItemCodes dto.ItemCode
-                let weightResult     = createWeight dto.Weight
-                createWorkOrderEntry
-                <!> workorderResult
-                <*> itemCodeResult 
-                <*> weightResult 
-
-        type TimeRecordDTO =
-            {
-                Site        : string
-                ShopFloor   : string
-                WorkCenter  : string
-                TimeType    : string
-                StartTime   : DateTime
-                EndTime     : DateTime
-                NbPeople    : float
-            }
-        
-        let timeRecordFromDTO 
-            validSites
-            validShopFloors
-            validWorkCenters
-            (dto: TimeRecordDTO) =
-                let siteResult = createSite validSites dto.Site
-                let shopfloorResult  = createShopfloor validShopFloors dto.ShopFloor
-                let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
-                let workcenterInfoResult = createWorkCenterInfo <!> siteResult <*> shopfloorResult <*> workcenterResult
-                let timetypeResult = 
-                    match dto.TimeType with
-                        | "Machine" -> Success MachineTime
-                        | "Labour"  -> Success LabourTime
-                        | ty         -> Failure <| sprintf "Wrong time type: %s" ty
-
-                let durationResult = createDuration dto.StartTime dto.EndTime
-                let nbPeopleResult = createNbPeople dto.NbPeople
-
-                let timeEntryResult = createTimeEntry <!> timetypeResult <*> nbPeopleResult <*> durationResult
-                let timeRecordResult = createTimeRecord <!> siteResult <*> shopfloorResult <*> workcenterResult <*> timeEntryResult
-                timeRecordResult
+    
