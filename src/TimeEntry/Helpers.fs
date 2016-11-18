@@ -56,3 +56,32 @@ module ConstrainedString =
     /// Comparison
     let compareTo left right = 
         (value left).CompareTo (value right)
+
+
+    /// Canonicalizes a string before construction
+    /// * converts all whitespace to a space char
+    /// * trims both ends
+    let singleLineTrimmed s =
+        System.Text.RegularExpressions.Regex.Replace(s,"\s"," ").Trim()
+
+    /// A validation function based on length
+    let lengthValidator len (s:string) =
+        if s.Length <= len then Success s 
+        else Failure <| sprintf "Your input is longer than exepected. Limit: %d" len
+
+    /// A string of length 100
+    type String100 = String100 of string with
+        interface IWrappedString with
+            member this.Value = let (String100 s) = this in s
+
+    /// A constructor for strings of length 100
+    let string100 = create singleLineTrimmed (lengthValidator 100) String100
+
+    /// A string of length 100
+    type String4 = String4 of string with
+        interface IWrappedString with
+            member this.Value = let (String4 s) = this in s
+
+    /// A constructor for strings of length 100
+    let string4 = create singleLineTrimmed (lengthValidator 100) String100
+     
