@@ -1,9 +1,11 @@
 namespace TimeEntry
 module DomainTypes =
     open System
-    open Helpers
+    open TimeEntry.Result
     
     //Domain Model:
+    // http://fsharpforfunandprofit.com/ddd/
+
     type TimeType = 
             | MachineTime
             | LabourTime
@@ -150,7 +152,8 @@ module DomainTypes =
     type EventEntry = 
         | EventWithInfo         of Event * EventInfo 
         | EventWithoutInfo      of Event
-        | EventZeroPerson       of Event 
+        | EventZeroPerson       of Event
+         
     let createEventEntry (event:Event) (eventInfo: EventInfo) =
         match event with
             | WithoutInfo ev        -> Success <| EventWithoutInfo event
