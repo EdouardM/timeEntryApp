@@ -5,6 +5,7 @@ module Result =
     type FailureMessage = string
     type Result<'T> = | Success of 'T | Failure of FailureMessage
 
+    let retn x = Success x 
 
     let map f res = 
         match res with
