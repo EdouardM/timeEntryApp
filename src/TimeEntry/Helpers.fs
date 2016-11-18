@@ -1,5 +1,5 @@
 namespace TimeEntry
-module Helpers =
+module Result =
     open System
 
     type FailureMessage = string
@@ -23,11 +23,36 @@ module Helpers =
 
 
 module ConstrainedString = 
-    open Helpers
-    type ValidString = ValidString of string
+//https://fsharpforfunandprofit.com/posts/designing-with-types-more-semantic-types/
 
-    let createString50 length fieldname (s: string) = 
-        match s with
-            | s when s = null -> Failure <| sprintf "%s cannot be null." s 
-            | s when s.Length <= length -> Success (ValidString s)
-            | s -> Failure <| sprintf "Your input is too long. %d characters maximum." length 
+    open Result
+        /// An interface that all wrapped strings support
+    type IWrappedString = 
+        abstract Value : string
+
+    /// Create a wrapped value option
+    /// 1) canonicalize the input first
+    /// 2) If the validation succeeds, return Success of the given constructor
+    /// 3) If the validation fails, return Failure
+    /// Null values are never valid.
+    let create canonicalize validate ctor (s:string) = 
+        if s = null 
+        then Failure "Input cannot be null"
+        else
+            let s' = canonicalize s
+            validate s'
+
+    /// Apply the given function to the wrapped value
+    let apply f (s:IWrappedString) = 
+        s.Value |> f 
+
+    /// Get the wrapped value
+    let value s = apply id s
+
+    /// Equality test
+    let equals left right = 
+        (value left) = (value right)
+        
+    /// Comparison
+    let compareTo left right = 
+        (value left).CompareTo (value right)
