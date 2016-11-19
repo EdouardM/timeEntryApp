@@ -26,11 +26,7 @@ namespace TimeEntry
                     Solution    : string
                     Comments    : string
                 }
-
-            let toEventInfoDB (ev: EventEntry) =
-                ()
-
-
+            let toEventInfoDB (ev: EventEntry) =()
             let fromEventInfoDB (wo: DBEventInfo) =
                 //Return WorkOrder Entry
 
