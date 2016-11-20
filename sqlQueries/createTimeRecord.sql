@@ -1,22 +1,19 @@
 -- https://github.com/swlaschin/low-risk-ways-to-use-fsharp-at-work/blob/master/SqlInFsharp/CreateTables.sql
-USE timeentryapp
+USE timeentryapp;
 
 /* =====================================================
 Create Time Record table  
 ===================================================== */
 
-IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TimeRecord' AND TABLE_SCHEMA='dbo')
-   DROP TABLE dbo.TimeRecord
-GO
+DROP TABLE  IF EXISTS timerecord;
 
-CREATE TABLE TimeRecord (
-    TimeRecordId INT NOT NULL IDENTITY(1,1),
+CREATE TABLE timerecord (
+    TimeRecordId INT NOT NULL auto_increment,
     Site VARCHAR(4) NOT NULL,
     Shopfloor VARCHAR(4) NOT NULL,
     TimeType INT NOT NULL, 
     DurationMn INT NOT NULL,
-    NbPeople INT NOT NULL
-
-    CONSTRAINT PK_TimeRecord PRIMARY KEY CLUSTERED (TimeRecordId)
+    NbPeople INT NOT NULL,
+    CONSTRAINT PK_TimeRecord UNIQUE (TimeRecordId)
 );
 

@@ -8,7 +8,7 @@ let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeent
 
 let [<Literal>] ResolutionPath = __SOURCE_DIRECTORY__ + @"/../../packages/MySql.Data/lib/net45"
 
-type sql = SqlDataProvider< 
+type Sql = SqlDataProvider< 
               ConnectionString = ConnectionString,
               DatabaseVendor = Common.DatabaseProviderTypes.MYSQL,
               ResolutionPath = ResolutionPath,
@@ -16,7 +16,7 @@ type sql = SqlDataProvider<
               UseOptionTypes = true,
               Owner = "timeentryapp" >
 
-let ctx = sql.GetDataContext()
+let ctx = Sql.GetDataContext()
 
 //Create one record
 let timerecord = ctx.Timeentryapp.Timerecord.Create()
@@ -26,5 +26,7 @@ timerecord.Shopfloor <- Some "F211"
 timerecord.TimeType <- Some 1u
 timerecord.NbPeople <- Some 1u
 timerecord.DurationMn <- Some 120u 
+
+
 
 ctx.SubmitUpdates()
