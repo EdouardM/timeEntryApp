@@ -24,9 +24,11 @@ let timerecord = ctx.Timeentryapp.Timerecord.Create()
 timerecord.Site <- Some "F21"
 timerecord.Shopfloor <- Some "F211"
 timerecord.TimeType <- Some 1u
-timerecord.NbPeople <- Some 1u
+timerecord.NbPeople <- None
 timerecord.DurationMn <- Some 120u 
 
 
-
-ctx.SubmitUpdates()
+try 
+    ctx.SubmitUpdates()
+with
+    | ex -> printfn "%s" ex.Message
