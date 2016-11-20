@@ -2,6 +2,24 @@ namespace TimeEntry
     open DomainTypes
     module DataBase =
 
+            type DBWorkCenterInfo =
+                {
+                    Site        : string
+                    WorkCenter  : string
+                    ShopFloor   : string
+                    StartHour   : int
+                    EndHour     : int
+                }
+            
+            let toDBWorkCenterInfo (wcInfo: WorkCenterInfo) =
+                let (Site site)     = wcInfo.Site
+                let (WorkCenter wc) = wcInfo.WorkCenter
+                let (ShopFloor sf)  = wcInfo.ShopFloor
+                let (Hour startH)    = wcInfo.StartHour
+                let (Hour endH)      = wcInfo.EndHour
+                { Site = site; WorkCenter = wc; ShopFloor = sf; StartHour = startH; EndHour = endH}
+         
+            
             type DBWorkOrder =
                 {
                     WorkOrder : string

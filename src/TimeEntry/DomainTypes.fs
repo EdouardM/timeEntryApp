@@ -107,7 +107,7 @@ module DomainTypes =
 
     type AuthLevel = | Entry | Maintenance | Admin
 
-    type SiteAccess = | All | Site of Site
+    type SiteAccess = | All | SiteOnly of Site
 
 
     type User =
