@@ -1,8 +1,6 @@
 // reference the type provider dll
-#r "../../packages/SQLProvider/lib/FSharp.Data.SqlProvider.dll"
-#r "../../packages/MySql.Data/lib/net45/MySql.Data.dll" 
+#r "../../packages/SQLProvider/lib/FSharp.Data.SqlProvider.dll" 
 open FSharp.Data.Sql
-open MySql.Data
 //Connection string described here: https://www.connectionstrings.com/mysql/
 let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeentryapp;User=root;Password="
 
@@ -20,4 +18,13 @@ type sql = SqlDataProvider<
 
 let ctx = sql.GetDataContext()
 
+//Create one record
+let timerecord = ctx.Timeentryapp.Timerecord.Create()
 
+timerecord.Site <- Some "F21"
+timerecord.Shopfloor <- Some "F211"
+timerecord.TimeType <- Some 1u
+timerecord.NbPeople <- Some 1u
+timerecord.DurationMn <- Some 120u 
+
+ctx.SubmitUpdates()
