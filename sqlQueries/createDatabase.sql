@@ -10,4 +10,3 @@ CREATE DATABASE timeentryapp;
 --https://dev.mysql.com/doc/refman/5.5/en/creating-tables.html
 USE timeentryapp; 
 --SHOW TABLES;
-

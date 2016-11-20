@@ -42,6 +42,7 @@
     <None Include="App.config" />
     <Compile Include="Helpers.fs" />
     <Compile Include="DomainTypes.fs" />
+    <Compile Include="Constructors.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DTOTypes.fs" />
   </ItemGroup>
