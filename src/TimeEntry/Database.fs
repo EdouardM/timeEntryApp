@@ -7,11 +7,12 @@ namespace TimeEntry
 
             type DBWorkCenterInfo =
                 {
-                    Site        : string
-                    WorkCenter  : string
-                    ShopFloor   : string
-                    StartHour   : int
-                    EndHour     : int
+                    //WorkCenterId : int
+                    Site         : string
+                    WorkCenter   : string
+                    ShopFloor    : string
+                    StartHour    : int
+                    EndHour      : int
                 }
             
             let toDBWorkCenterInfo (wcInfo: WorkCenterInfo) =
@@ -52,8 +53,14 @@ namespace TimeEntry
                 let (Weight w) = wo.Weight
                 { WorkOrder = strWo; ItemCode = strItem; Weight = w}
 
-            let fromWorkOrderDB (wo: DBWorkOrder) = ()
-                //Return WorkOrder Entry Result
+            let fromWorkOrderDB 
+                workOrders
+                itemCodes
+                (wo: DBWorkOrder) =
+                let workOrderRes = createWorkOrder workOrders wo.WorkOrder
+                let itemCodeRes  = createItemCode itemCodes wo.ItemCode
+                let weightRes = createWeight wo.Weight
+                createWorkOrderEntry <!> workOrderRes <*> itemCodeRes <*> weightRes 
 
             type DBEventInfo =
                 {
