@@ -1,5 +1,8 @@
 namespace TimeEntry
+    open TimeEntry.Result
     open DomainTypes
+    open Constructors
+
     module DataBase =
 
             type DBWorkCenterInfo =
@@ -19,6 +22,22 @@ namespace TimeEntry
                 let (Hour endH)      = wcInfo.EndHour
                 { Site = site; WorkCenter = wc; ShopFloor = sf; StartHour = startH; EndHour = endH}
          
+            let fromDBWorkCenterInfo 
+                sites
+                shopfloors
+                workcenters
+                (wcInfo: DBWorkCenterInfo) =
+                    let siteRes = createSite sites wcInfo.Site
+                    let shopfloorRes = createShopfloor shopfloors wcInfo.Site
+                    let workcenterRes = createWorkCenter workcenters wcInfo.WorkCenter
+                    let starthourRes = createHour wcInfo.StartHour
+                    let endhourRes   = createHour wcInfo.EndHour
+                    createWorkCenterInfo <!> siteRes
+                    <*> shopfloorRes
+                    <*> workcenterRes
+                    <*> starthourRes
+                    <*> endhourRes 
+
             
             type DBWorkOrder =
                 {
@@ -47,6 +66,7 @@ namespace TimeEntry
             let toEventInfoDB (ev: EventEntry) =()
             let fromEventInfoDB (wo: DBEventInfo) =
                 //Return WorkOrder Entry
+                ()
 
             //DataBase model (pure)
             type DBTimeRecord =

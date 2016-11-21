@@ -21,11 +21,11 @@ let ctx = Sql.GetDataContext()
 //Create one record
 let timerecord = ctx.Timeentryapp.Timerecord.Create()
 
-timerecord.Site <- Some "F21"
-timerecord.Shopfloor <- Some "F211"
-timerecord.TimeType <- Some 1u
-timerecord.NbPeople <- None
-timerecord.DurationMn <- Some 120u 
+timerecord.Site <- "F21"
+timerecord.Shopfloor <- "F211"
+timerecord.TimeType <- 1u
+timerecord.NbPeople <- 0u
+timerecord.DurationMn <- 120u 
 
 
 try 

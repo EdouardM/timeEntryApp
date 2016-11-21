@@ -1,6 +1,8 @@
 namespace TimeEntry
     module DTO =
+        open Result
         open DomainTypes
+        open Constructors
         ///Domain to store data deserialized from JSON format
         type WorkCenterInfoDTO =
             {
