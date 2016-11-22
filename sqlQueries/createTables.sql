@@ -32,6 +32,7 @@ CREATE TABLE workcenter (
     ItemCode VARCHAR(6) NOT NULL,
     Weight FLOAT(4,4),
     Unit VARCHAR(2),
+    WorkOrderStatus ENUM('open','closed'),
     PRIMARY KEY (WorkOrderId)
 );
 

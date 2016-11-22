@@ -59,11 +59,16 @@ module DomainTypes =
         | Kg of Weight
         | Gr of Weight
 
+    type WorkOrderStatus =
+        | Open
+        | Closed
+
     type WorkOrderEntry =
         {
             WorkOrder       : WorkOrder
             ItemCode        : ItemCode
             Weight          : WeightWithUnit
+            Status          : WorkOrderStatus
         }
 
     type Machine = Machine of string

@@ -46,6 +46,7 @@ namespace TimeEntry
                     ItemCode  : string
                     Weight    : float
                     Unit      : string
+                    Status    : string
                 }
 
             let toWorkOrderDB (wo: WorkOrderEntry) =
@@ -55,6 +56,10 @@ namespace TimeEntry
                     match wo.Weight with
                         | Kg (Weight w) -> "KG", w
                         | Gr (Weight w) -> "GR", w
+                let closed =
+                    match wo.Status with
+                        | Open   -> 0
+                        | Closed -> 1
 
                 { WorkOrder = strWo; ItemCode = strItem; Weight = weight; Unit = unit}
 
