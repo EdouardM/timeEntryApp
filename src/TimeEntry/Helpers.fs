@@ -84,5 +84,11 @@ module ConstrainedString =
             member this.Value = let (String4 s) = this in s
 
     /// A constructor for strings of length 100
-    let string4 = create singleLineTrimmed (lengthValidator 100) String100
-     
+    let string4 = create singleLineTrimmed (lengthValidator 4) String4
+
+    type String3 = String3 of string with
+        interface IWrappedString with
+            member this.Value = let (String3 s) = this in s
+    let string3 = create singleLineTrimmed (lengthValidator 3) String3
+
+    

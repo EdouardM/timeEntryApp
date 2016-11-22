@@ -68,6 +68,13 @@ module Constructors =
             function
             | w when w < 0.  -> Failure "Weight must be positive."
             | w -> Success (Weight w)
+
+    let createWeightWithUnit weight = 
+        function 
+            | "KG" -> Kg <!> createWeight weight 
+            | "GR" -> Gr <!> createWeight weight
+            | _  -> Failure "Undefined unit of measure for weight."
+
     let createWorkOrderEntry workOrder itemCode weight = 
         { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight}
 

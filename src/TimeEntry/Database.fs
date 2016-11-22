@@ -45,13 +45,18 @@ namespace TimeEntry
                     WorkOrder : string
                     ItemCode  : string
                     Weight    : float
+                    Unit      : string
                 }
 
             let toWorkOrderDB (wo: WorkOrderEntry) =
                 let (WorkOrder strWo) = wo.WorkOrder
                 let (ItemCode strItem) = wo.ItemCode
-                let (Weight w) = wo.Weight
-                { WorkOrder = strWo; ItemCode = strItem; Weight = w}
+                let unit, weight = 
+                    match wo.Weight with
+                        | Kg (Weight w) -> "KG", w
+                        | Gr (Weight w) -> "GR", w
+
+                { WorkOrder = strWo; ItemCode = strItem; Weight = weight; Unit = unit}
 
             let fromWorkOrderDB 
                 workOrders
@@ -59,18 +64,20 @@ namespace TimeEntry
                 (wo: DBWorkOrder) =
                 let workOrderRes = createWorkOrder workOrders wo.WorkOrder
                 let itemCodeRes  = createItemCode itemCodes wo.ItemCode
-                let weightRes = createWeight wo.Weight
-                createWorkOrderEntry <!> workOrderRes <*> itemCodeRes <*> weightRes 
+                let weightWithUnitRes = createWeightWithUnit wo.Weight wo.Unit
+                createWorkOrderEntry <!> workOrderRes <*> itemCodeRes <*> weightWithUnitRes 
 
             type DBEventInfo =
                 {
-                    Event       : string
-                    Machine     : string
-                    Cause       : string
-                    Solution    : string
-                    Comments    : string
+                    Event       : string 
+                    Machine     : string option
+                    Cause       : string option
+                    Solution    : string option
+                    Comments    : string option
                 }
-            let toEventInfoDB (ev: EventEntry) =()
+            let toEventInfoDB (ev: EventEntry) = ()
+
+
             let fromEventInfoDB (wo: DBEventInfo) =
                 //Return WorkOrder Entry
                 ()

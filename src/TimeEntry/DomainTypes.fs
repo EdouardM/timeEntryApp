@@ -52,13 +52,18 @@ module DomainTypes =
 
     type ItemType  = ItemType of string
     
+
     type Weight = Weight of float
+    
+    type WeightWithUnit  = 
+        | Kg of Weight
+        | Gr of Weight
 
     type WorkOrderEntry =
         {
             WorkOrder       : WorkOrder
             ItemCode        : ItemCode
-            Weight          : Weight
+            Weight          : WeightWithUnit
         }
 
     type Machine = Machine of string
@@ -73,13 +78,13 @@ module DomainTypes =
         }   
 
     type Event = 
-        | ZeroPerson    of string
-        | WithInfo      of string
-        | WithoutInfo   of string
+        | ZeroPerson    of string * TimeType
+        | WithInfo      of string * TimeType
+        | WithoutInfo   of string * TimeType
     
     type EventEntry = 
         | EventWithInfo         of Event * EventInfo 
-        | EventWithoutInfo      of Event
+        | EventWithoutInfo      of Event 
         | EventZeroPerson       of Event
                      
     type TimeAllocation = 

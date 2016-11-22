@@ -16,9 +16,24 @@ CREATE TABLE workcenter (
     StartTime INT NOT NULL, 
     EndTime INT NOT NULL,
     NbPeople INT NOT NULL,
-    CONSTRAINT PK_TimeRecord UNIQUE (WorkCenterId)
+    PRIMARY KEY (WorkCenterId)
 );
 
+
+
+/* =====================================================
+Create Work Orders table  
+===================================================== */
+
+DROP TABLE  IF EXISTS workcenter;
+
+CREATE TABLE workcenter (
+    WorkOrderId INT NOT NULL auto_increment,
+    ItemCode VARCHAR(6) NOT NULL,
+    Weight FLOAT(4,4),
+    Unit VARCHAR(2),
+    PRIMARY KEY (WorkOrderId)
+);
 
 /* =====================================================
 Create Time Record table  
@@ -33,6 +48,6 @@ CREATE TABLE timerecord (
     TimeType INT NOT NULL, 
     DurationMn INT NOT NULL,
     NbPeople INT NOT NULL,
-    CONSTRAINT PK_TimeRecord UNIQUE (TimeRecordId)
+    PRIMARY KEY (TimeRecordId)
 );
 
