@@ -75,8 +75,10 @@ module Constructors =
             | "GR" -> Gr <!> createWeight weight
             | _  -> Failure "Undefined unit of measure for weight."
 
-    let createWorkOrderEntry workOrder itemCode weight = 
-        { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight}
+    let createWorkOrderEntry workOrder itemCode weight status = 
+        { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight; Status = status}
+
+    let createEvent = create Event "event"
 
     let createMachine = create Machine "machine"
 

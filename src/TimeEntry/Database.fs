@@ -46,7 +46,7 @@ namespace TimeEntry
                     ItemCode  : string
                     Weight    : float
                     Unit      : string
-                    Status    : string
+                    WorkOrderStatus    : string
                 }
 
             let toWorkOrderDB (wo: WorkOrderEntry) =
@@ -56,12 +56,16 @@ namespace TimeEntry
                     match wo.Weight with
                         | Kg (Weight w) -> "KG", w
                         | Gr (Weight w) -> "GR", w
-                let closed =
+                let status =
                     match wo.Status with
-                        | Open   -> 0
-                        | Closed -> 1
+                        | Open   -> "open"
+                        | Closed -> "closed"
 
-                { WorkOrder = strWo; ItemCode = strItem; Weight = weight; Unit = unit}
+                { WorkOrder = strWo; 
+                ItemCode = strItem; 
+                Weight = weight; 
+                Unit = unit; 
+                WorkOrderStatus = status}
 
             let fromWorkOrderDB 
                 workOrders
@@ -72,20 +76,69 @@ namespace TimeEntry
                 let weightWithUnitRes = createWeightWithUnit wo.Weight wo.Unit
                 createWorkOrderEntry <!> workOrderRes <*> itemCodeRes <*> weightWithUnitRes 
 
-            type DBEventInfo =
+
+            type DBEvent =
                 {
-                    Event       : string 
+                    Event : string
+                    HasInfo : bool
+                    AllowZeroPerson : bool
+                }
+
+            let toDBEvent =
+                function
+                    | WithInfo event    -> { Event = event; HasInfo = true; AllowZeroPerson = false }
+                    | WithoutInfo event -> { Event = event; HasInfo = false; AllowZeroPerson = false }
+                    | ZeroPerson event  ->  { Event = event; HasInfo = false; AllowZeroPerson = true }
+            let fromDBEvent (event: DBEvent) =
+                match event.HasInfo, event.AllowZeroPerson with
+                    | true, false -> WithInfo event.Event
+                    | false, true -> ZeroPerson event.Event
+                    | false, false -> WithoutInfo event.Event
+                    | true, true -> failwith "CRACK"
+
+            type DBEventEntry =
+                {
+                    Event       : DBEvent 
                     Machine     : string option
                     Cause       : string option
                     Solution    : string option
                     Comments    : string option
                 }
-            let toEventInfoDB (ev: EventEntry) = ()
-
-
-            let fromEventInfoDB (wo: DBEventInfo) =
-                //Return WorkOrder Entry
-                ()
+            let toDBEventEntry = 
+                function
+                    | EventWithInfo (ev, info) -> 
+                        let  (Machine machine) = info.Machine
+                        let cause   = info.Cause
+                        let solution = info.Solution
+                        let comments = info.Comments
+                        {   Event = toDBEvent ev; 
+                            Machine = Some machine; 
+                            Cause = Some cause; 
+                            Solution = Some solution; 
+                            Comments = Some comments
+                        }
+                    | EventWithoutInfo (ev) -> 
+                        {   Event = toDBEvent ev; 
+                            Machine = None; 
+                            Cause = None; 
+                            Solution = None; 
+                            Comments = None
+                        }
+                    | EventZeroPerson (ev) ->
+                        {   Event = toDBEvent ev; 
+                            Machine = None; 
+                            Cause = None; 
+                            Solution = None; 
+                            Comments = None
+                        }
+                     
+            let fromDBEventEntry 
+                (events 
+                (ev: DBEventEntry) =
+                let eventRes = createEvent events ev.Event
+                let machineRes = createMachine machines ev.Machine
+                createEventEntry <!> eventRes <*> machineRes 
+                
 
             //DataBase model (pure)
             type DBTimeRecord =

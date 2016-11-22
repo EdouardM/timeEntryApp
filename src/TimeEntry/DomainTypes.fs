@@ -83,10 +83,11 @@ module DomainTypes =
         }   
 
     type Event = 
-        | ZeroPerson    of string * TimeType
-        | WithInfo      of string * TimeType
-        | WithoutInfo   of string * TimeType
-    
+            | ZeroPerson    of string
+            | WithInfo      of string
+            | WithoutInfo   of string 
+ 
+
     type EventEntry = 
         | EventWithInfo         of Event * EventInfo 
         | EventWithoutInfo      of Event 
