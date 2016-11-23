@@ -22,6 +22,15 @@ module Result =
     let (<!>) = map
     let (<*>) = apply
 
+    let bind f xRes =
+        match xRes with
+            | Success x -> f x
+            | Failure msg -> Failure msg  
+
+    let fromOption msg = 
+        function
+            | Some x -> Success x
+            | None   -> Failure msg 
 
 module ConstrainedString = 
 //https://fsharpforfunandprofit.com/posts/designing-with-types-more-semantic-types/

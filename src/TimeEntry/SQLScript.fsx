@@ -18,6 +18,22 @@ type Sql = SqlDataProvider<
 
 let ctx = Sql.GetDataContext()
 
+
+(*
+    query {
+    for student in db.Student do
+    join selection in db.CourseSelection
+        on (student.StudentID = selection.StudentID)
+    select (student, selection)
+}
+*)
+let q = query {
+        from event in ctx.Event 
+        join eventEntry in ctx.EventEntry
+        on (event.Id = eventEntry.EventId)
+        select event, eventEntry
+}
+
 //Create one record
 let timerecord = ctx.Timeentryapp.Timerecord.Create()
 

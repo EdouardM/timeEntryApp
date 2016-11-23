@@ -15,6 +15,8 @@ namespace TimeEntry
                     EndHour      : int
                 }
             
+            type GetAllWorkCenters = unit -> DBWorkCenterInfo list
+
             let toDBWorkCenterInfo (wcInfo: WorkCenterInfo) =
                 let (Site site)     = wcInfo.Site
                 let (WorkCenter wc) = wcInfo.WorkCenter
@@ -40,13 +42,15 @@ namespace TimeEntry
                     <*> endhourRes 
 
             
-            type DBWorkOrder =
+            type DBWorkOrderEntry =
                 {
                     WorkOrder : string
                     ItemCode  : string
                     Weight    : float
                     Unit      : string
                     WorkOrderStatus    : string
+                    User     : string
+                    // lastupdated
                 }
 
             let toWorkOrderDB (wo: WorkOrderEntry) =
@@ -70,11 +74,16 @@ namespace TimeEntry
             let fromWorkOrderDB 
                 workOrders
                 itemCodes
-                (wo: DBWorkOrder) =
+                (wo: DBWorkOrderEntry) =
                 let workOrderRes = createWorkOrder workOrders wo.WorkOrder
                 let itemCodeRes  = createItemCode itemCodes wo.ItemCode
                 let weightWithUnitRes = createWeightWithUnit wo.Weight wo.Unit
-                createWorkOrderEntry <!> workOrderRes <*> itemCodeRes <*> weightWithUnitRes 
+                let statusRes = createWorkOrderStatus wo.WorkOrderStatus
+                createWorkOrderEntry 
+                <!> workOrderRes 
+                <*> itemCodeRes 
+                <*> weightWithUnitRes
+                <*> statusRes  
 
 
             type DBEvent =
@@ -91,10 +100,10 @@ namespace TimeEntry
                     | ZeroPerson event  ->  { Event = event; HasInfo = false; AllowZeroPerson = true }
             let fromDBEvent (event: DBEvent) =
                 match event.HasInfo, event.AllowZeroPerson with
-                    | true, false -> WithInfo event.Event
-                    | false, true -> ZeroPerson event.Event
-                    | false, false -> WithoutInfo event.Event
-                    | true, true -> failwith "CRACK"
+                    | true, false   -> Success (WithInfo event.Event)
+                    | false, true   -> Success (ZeroPerson event.Event)
+                    | false, false  -> Success (WithoutInfo event.Event)
+                    | true, true    -> Failure "Event cannot require information and allow zero person."
 
             type DBEventEntry =
                 {
@@ -132,13 +141,25 @@ namespace TimeEntry
                             Comments = None
                         }
                      
-            let fromDBEventEntry 
-                (events 
-                (ev: DBEventEntry) =
-                let eventRes = createEvent events ev.Event
-                let machineRes = createMachine machines ev.Machine
-                createEventEntry <!> eventRes <*> machineRes 
+            let fromDBEventEntry  
+                machines
+                (eventEntry: DBEventEntry) =
+                let eventRes = fromDBEvent eventEntry.Event
+   
+                let machineRes   = 
+                        eventEntry.Machine
+                        |> fromOption "Machine missing"
+                        |> bind (createMachine machines)
+
+                let causeRes     = fromOption "Cause missing" eventEntry.Cause
+                let solutionRes  = fromOption "Cause missing" eventEntry.Solution
+                let commentsRes  = fromOption "Comments missing" eventEntry.Comments
                 
+                let eventInfoResOpt = 
+                            createEventInfo <!> machineRes <*> causeRes <*> solutionRes <*> commentsRes
+                            |> Result.map Some             
+
+                createEventEntry <!> eventRes <*> eventInfoResOpt
 
             //DataBase model (pure)
             type DBTimeRecord =
@@ -150,14 +171,14 @@ namespace TimeEntry
                     DurationMn  : int
                     NbPeople    : NbPeople
                     Allocation  : string // String workOrder or Event
-                    WorOrder    : DBWorkOrder option
-                    Event       : DBEventInfo option
+                    WorOrder    : DBWorkOrderEntry option
+                    Event       : DBEventEntry option
                 }
-
+            
             let allocationToString =
                 function
-                    | WorkOrderEntry wo -> "WorkOrder"
-                    | EventEntry ev     -> "Event"
+                    | WorkOrderEntry wo -> "workorder"
+                    | EventEntry ev     -> "event"
 
 
             ///Function to convert one Domain Record into records to insert into Database
@@ -203,4 +224,5 @@ namespace TimeEntry
                             Duration    = duration 
                             NbPeople    = nb } ]
             
+
             let fromTimeRecordDB (time: DBTimeRecord) = ()

@@ -110,6 +110,25 @@ module DomainTypes =
             Status          : RecordStatus
         }
     
+    type TimeRecordId = int
+
+    //return id of record and record
+    type GetTimeRecordsByWorkCenter = WorkCenter -> (TimeRecordId * TimeRecord) list
+    //update one record 
+    type UpdateTimeRecord = TimeRecordId -> TimeRecord -> Result<unit>
+
+    let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
+        let timerecordId = jsonObj.Id
+        let dto = jsonObj.DTO
+        let timerecord = fromDTO dto
+        log user timestamp timerecord
+
+        let dbRes = updatetimerecord user timestamp timerecordId timerecord
+        match dbRes with
+            | Success res -> HTTP 200 //ok
+            | Failure msg -> HTTP 404 //failure
+
+
     (* 
         Types for User information
     *)
