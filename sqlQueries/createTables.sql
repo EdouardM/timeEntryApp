@@ -16,6 +16,7 @@ CREATE TABLE WorkCenter (
     StartTime INT NOT NULL, 
     EndTime INT NOT NULL,
     NbPeople INT NOT NULL,
+    Active BIT(1),
     PRIMARY KEY (WorkCenterId)
 );
 
@@ -28,12 +29,19 @@ DROP TABLE  IF EXISTS WorkOrderEntry;
 
 CREATE TABLE WorkOrderEntry (
     WorkOrderId INT NOT NULL auto_increment,
+    WorkCenterId INT,
     ItemCode VARCHAR(6) NOT NULL,
     Weight FLOAT(4,4),
     Unit VARCHAR(2),
     WorkOrderStatus ENUM('open','closed'),
+    TotalLabourTimeHr INT(4),
+    Active BIT(1),
+    UserName VARCHAR(10) NOT NULL,
+    LastUpdate TIMESTAMP,
     PRIMARY KEY (WorkOrderId)
 );
+
+CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenterId);
 
 
 /* =====================================================
@@ -47,6 +55,7 @@ CREATE TABLE Event (
     Event VARCHAR(4) NOT NULL,
     HasInfo INT(1) NOT NULL,
     AllowZeroPerson INT(1) NOT NULL,
+    Active BIT(1),
     PRIMARY KEY (EventId)
 );
 
@@ -67,6 +76,7 @@ CREATE TABLE EventEntry (
     PRIMARY KEY (EventEntryId)
 );
 
+-- Look for Foreign Key: check for existence of event when inserting event entry
 CREATE INDEX EventId ON EventEntry (EventId);
 
 /* =====================================================
