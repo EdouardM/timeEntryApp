@@ -75,17 +75,20 @@ module Constructors =
             | "GR" -> Gr <!> createWeight weight
             | _  -> Failure "Undefined unit of measure for weight."
 
+    let createWorkOrderStatus =
+        function
+            | "open"    ->  Success Open
+            | "closed"  ->  Success Closed
+            | _         ->  Failure "Invalid workorder status."
+
+
     let createWorkOrderEntry workOrder itemCode weight status = 
         { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight; Status = status}
-
-    let createEvent = create Event "event"
 
     let createMachine = create Machine "machine"
 
     let createEventInfo machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
-     
-
     let createEvent event hasInfo allowZeropeople =
         match hasInfo, allowZeropeople with
             | false, true       -> Success (ZeroPerson event)
