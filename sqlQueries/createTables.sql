@@ -12,11 +12,10 @@ CREATE TABLE WorkCenter (
     WorkCenterId INT NOT NULL auto_increment,
     Site VARCHAR(4) NOT NULL,
     WorkCenter VARCHAR(4) NOT NULL,
-    Shopfloor VARCHAR(4) NOT NULL,
+    Shopfloor VARCHAR(5) NOT NULL,
     StartTime INT NOT NULL, 
     EndTime INT NOT NULL,
-    NbPeople INT NOT NULL,
-    Active BIT(1),
+    Active TINYINT(1) NOT NULL,
     PRIMARY KEY (WorkCenterId)
 );
 
@@ -29,19 +28,18 @@ DROP TABLE  IF EXISTS WorkOrderEntry;
 
 CREATE TABLE WorkOrderEntry (
     WorkOrderId INT NOT NULL auto_increment,
+    WorkOrder VACHAR(10) NOT NULL,
     WorkCenterId INT,
     ItemCode VARCHAR(6) NOT NULL,
-    Weight FLOAT(4,4),
-    Unit VARCHAR(2),
     WorkOrderStatus ENUM('open','closed'),
-    TotalLabourTimeHr INT(4),
-    Active BIT(1),
-    UserName VARCHAR(10) NOT NULL,
-    LastUpdate TIMESTAMP,
+    TotalMachineTimeHr FLOAT(4,4) NOT NULL,
+    TotalLabourTimeHr FLOAT(4,4) NOT NULL,
+    Active TINYINT(1) NOT NULL,
     PRIMARY KEY (WorkOrderId)
 );
 
 CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenterId);
+CREATE INDEX UserId ON WorkOrderEntry (UserId);
 
 
 /* =====================================================
@@ -55,7 +53,7 @@ CREATE TABLE Event (
     Event VARCHAR(4) NOT NULL,
     HasInfo INT(1) NOT NULL,
     AllowZeroPerson INT(1) NOT NULL,
-    Active BIT(1),
+    Active TINYINT(1) NOT NULL,
     PRIMARY KEY (EventId)
 );
 
@@ -73,11 +71,15 @@ CREATE TABLE EventEntry (
     Cause VARCHAR(50),
     Solution VARCHAR(50),
     Comments VARCHAR(200),
+    Active TINYINT(1) NOT NULL,
+    PRIMARY KEY (WorkOrderId)
+
     PRIMARY KEY (EventEntryId)
 );
 
 -- Look for Foreign Key: check for existence of event when inserting event entry
 CREATE INDEX EventId ON EventEntry (EventId);
+CREATE INDEX UserId ON EventEntry (UserId);
 
 /* =====================================================
 Create Time Record table  
@@ -85,13 +87,19 @@ Create Time Record table
 
 DROP TABLE  IF EXISTS timerecord;
 
-CREATE TABLE timerecord (
+CREATE TABLE Timerecord (
     TimeRecordId INT NOT NULL auto_increment,
     Site VARCHAR(4) NOT NULL,
     Shopfloor VARCHAR(4) NOT NULL,
-    TimeType INT NOT NULL, 
-    DurationMn INT NOT NULL,
-    NbPeople INT NOT NULL,
+    TimeType ENUM('machine', 'labour') NOT NULL, 
+    DurationHr FLOAT(4,4) NOT NULL,
+    --Only one decimal because nbpeople can be multiple of 0.5 only 
+    NbPeople FLOAT(2,1) NOT NULL,
+    WorkOrderId INT,
+    EnventEntryId INT,
+    Allocation ENUM('workorder','event') NOT NULL,
+    Active TINYINT(1) NOT NULL,
+    UserId INT NOT NULL,
+    LastUpdate TIMESTAMP NOT NULL,
     PRIMARY KEY (TimeRecordId)
 );
-
