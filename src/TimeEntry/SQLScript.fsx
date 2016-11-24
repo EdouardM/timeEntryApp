@@ -17,7 +17,20 @@ type Sql = SqlDataProvider<
               Owner = "timeentryapp" >
 
 let ctx = Sql.GetDataContext()
+let t = ctx.Timeentryapp.Workcenter.Create()
 
+//Create one record
+t.Site <- "F21"
+t.Shopfloor <- "F211"
+t.WorkCenter <- "BOX"
+t.StartTime <- 5u
+t.EndTime <- 5u
+t.Active <- 1y
+
+try 
+    ctx.SubmitUpdates()
+with
+    | ex -> printfn "%s" ex.Message
 
 (*
     query {
@@ -27,6 +40,9 @@ let ctx = Sql.GetDataContext()
     select (student, selection)
 }
 *)
+
+let wo = ctx.Timeentryapp.Workorderentry.Create()
+
 let q = query {
         from event in ctx.Event 
         join eventEntry in ctx.EventEntry
@@ -34,17 +50,3 @@ let q = query {
         select event, eventEntry
 }
 
-//Create one record
-let timerecord = ctx.Timeentryapp.Timerecord.Create()
-
-timerecord.Site <- "F21"
-timerecord.Shopfloor <- "F211"
-timerecord.TimeType <- 1u
-timerecord.NbPeople <- 0u
-timerecord.DurationMn <- 120u 
-
-
-try 
-    ctx.SubmitUpdates()
-with
-    | ex -> printfn "%s" ex.Message

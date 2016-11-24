@@ -52,13 +52,6 @@ module DomainTypes =
 
     type ItemType  = ItemType of string
     
-
-    type Weight = Weight of float
-    
-    type WeightWithUnit  = 
-        | Kg of Weight
-        | Gr of Weight
-
     type WorkOrderStatus =
         | Open
         | Closed
@@ -66,8 +59,10 @@ module DomainTypes =
     type WorkOrderEntry =
         {
             WorkOrder       : WorkOrder
+            WorkCenter      : WorkCenter              
             ItemCode        : ItemCode
-            Weight          : WeightWithUnit
+            TotalMachineTime: float
+            TotalLabourTime : float
             Status          : WorkOrderStatus
         }
 
