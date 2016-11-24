@@ -40,7 +40,6 @@ namespace TimeEntry
                     <*> workcenterRes
                     <*> starthourRes
                     <*> endhourRes 
-
             
             type DBWorkOrderEntry =
                 {
@@ -49,8 +48,6 @@ namespace TimeEntry
                     Weight    : float
                     Unit      : string
                     WorkOrderStatus    : string
-                    User     : string
-                    // lastupdated
                 }
 
             let toWorkOrderDB (wo: WorkOrderEntry) =
@@ -168,11 +165,12 @@ namespace TimeEntry
                     ShopFloor   : ShopFloor
                     WorkCenter  : WorkCenter
                     TimeType    : TimeType
-                    DurationMn  : int
+                    DurationHr  : float
                     NbPeople    : NbPeople
                     Allocation  : string // String workOrder or Event
                     WorOrder    : DBWorkOrderEntry option
                     Event       : DBEventEntry option
+                    Status      : string
                 }
             
             let allocationToString =
@@ -193,7 +191,7 @@ namespace TimeEntry
                             ShopFloor   = time.ShopFloor 
                             WorkCenter  = time.WorkCenter 
                             TimeType    = MachineTime
-                            DurationMn    = int duration.Duration.TotalMinutes
+                            DurationHr    = int duration.Duration.TotalMinutes
                             NbPeople    = NbPeople 0.
                             Allocation  = allocation
                              } ]
@@ -204,7 +202,7 @@ namespace TimeEntry
                             ShopFloor   = time.ShopFloor 
                             WorkCenter  = time.WorkCenter
                             TimeType    = MachineTime 
-                            DurationMn    = int duration.Duration.TotalMinutes
+                            DurationHr    = int duration.Duration.TotalMinutes
                             NbPeople    = NbPeople 0. } ;
 
                             { 
