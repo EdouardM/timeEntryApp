@@ -64,26 +64,26 @@ module Constructors =
     let createItemCode = create ItemCode "item code"
     let createItemType = create ItemCode "item type"
 
-    let createWeight =
-            function
-            | w when w < 0.  -> Failure "Weight must be positive."
-            | w -> Success (Weight w)
-
-    let createWeightWithUnit weight = 
-        function 
-            | "KG" -> Kg <!> createWeight weight 
-            | "GR" -> Gr <!> createWeight weight
-            | _  -> Failure "Undefined unit of measure for weight."
-
     let createWorkOrderStatus =
         function
             | "open"    ->  Success Open
             | "closed"  ->  Success Closed
             | _         ->  Failure "Invalid workorder status."
 
+    let createTimeHr = 
+        function 
+            | t when t < 0.  -> Failure "Time must be positive."
+            | t -> Success (TimeHr t)
 
-    let createWorkOrderEntry workOrder itemCode weight status = 
-        { WorkOrder = workOrder; ItemCode = itemCode; Weight = weight; Status = status}
+    let createWorkOrderEntry workOrder workCenter itemCode totalMachine totalLabour status = 
+        { 
+            WorkOrder = workOrder; 
+            WorkCenter = workCenter; 
+            ItemCode = itemCode; 
+            TotalMachineTimeHr = totalMachine; 
+            TotalLabourTimeHr = totalLabour; 
+            Status = status
+        }
 
     let createMachine = create Machine "machine"
 
