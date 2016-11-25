@@ -44,42 +44,51 @@ namespace TimeEntry
             type DBWorkOrderEntry =
                 {
                     WorkOrder : string
+                    WorkCenter : string
                     ItemCode  : string
-                    Weight    : float
-                    Unit      : string
+                    TotalMachineTimeHr : float
+                    TotalLabourTimeHr : float
                     WorkOrderStatus    : string
                 }
 
             let toWorkOrderDB (wo: WorkOrderEntry) =
                 let (WorkOrder strWo) = wo.WorkOrder
+                let (WorkCenter strWc) = wo.WorkCenter
                 let (ItemCode strItem) = wo.ItemCode
-                let unit, weight = 
-                    match wo.Weight with
-                        | Kg (Weight w) -> "KG", w
-                        | Gr (Weight w) -> "GR", w
                 let status =
                     match wo.Status with
                         | Open   -> "open"
                         | Closed -> "closed"
 
-                { WorkOrder = strWo; 
-                ItemCode = strItem; 
-                Weight = weight; 
-                Unit = unit; 
-                WorkOrderStatus = status}
+                let (TimeHr totalMachine) = wo.TotalMachineTimeHr
+                let (TimeHr totalLabour)  = wo.TotalLabourTimeHr
+
+                { 
+                    WorkOrder = strWo; 
+                    WorkCenter = strWc;
+                    ItemCode = strItem; 
+                    TotalMachineTimeHr = totalMachine;
+                    TotalLabourTimeHr = totalLabour;
+                    WorkOrderStatus = status
+                }
 
             let fromWorkOrderDB 
                 workOrders
+                workCenters
                 itemCodes
                 (wo: DBWorkOrderEntry) =
                 let workOrderRes = createWorkOrder workOrders wo.WorkOrder
+                let workCenterRes = createWorkCenter workCenters wo.WorkCenter
                 let itemCodeRes  = createItemCode itemCodes wo.ItemCode
-                let weightWithUnitRes = createWeightWithUnit wo.Weight wo.Unit
+                let totalMachineTimeHrRes = createTimeHr wo.TotalMachineTimeHr
+                let totalLabourTimeHrRes = createTimeHr wo.TotalLabourTimeHr
                 let statusRes = createWorkOrderStatus wo.WorkOrderStatus
                 createWorkOrderEntry 
-                <!> workOrderRes 
-                <*> itemCodeRes 
-                <*> weightWithUnitRes
+                <!> workOrderRes
+                <*> workCenterRes
+                <*> itemCodeRes
+                <*> totalMachineTimeHrRes
+                <*> totalLabourTimeHrRes
                 <*> statusRes  
 
 
