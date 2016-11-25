@@ -27,7 +27,7 @@ Create Work Orders Entry table
 DROP TABLE  IF EXISTS WorkOrderEntry;
 
 CREATE TABLE WorkOrderEntry (
-    WorkOrderId INT NOT NULL auto_increment,
+    WorkOrderEntryId INT NOT NULL auto_increment,
     WorkOrder VACHAR(10) NOT NULL,
     WorkCenterId INT,
     ItemCode VARCHAR(6) NOT NULL,
@@ -39,7 +39,6 @@ CREATE TABLE WorkOrderEntry (
 );
 
 CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenterId);
-CREATE INDEX UserId ON WorkOrderEntry (UserId);
 
 
 /* =====================================================
@@ -95,7 +94,7 @@ CREATE TABLE Timerecord (
     DurationHr FLOAT(4,4) NOT NULL,
     --Only one decimal because nbpeople can be multiple of 0.5 only 
     NbPeople FLOAT(2,1) NOT NULL,
-    WorkOrderId INT,
+    WorkOrderEntryId INT,
     EnventEntryId INT,
     Allocation ENUM('workorder','event') NOT NULL,
     Active TINYINT(1) NOT NULL,
@@ -103,3 +102,7 @@ CREATE TABLE Timerecord (
     LastUpdate TIMESTAMP NOT NULL,
     PRIMARY KEY (TimeRecordId)
 );
+
+CREATE INDEX UserId ON WorkOrderEntry (UserId);
+CREATE INDEX WorkOrderEntryId ON WorkOrderEntry (WorkOrderEntryId);
+CREATE INDEX EventEntryId ON WorkOrderEntry (EventEntryId);
