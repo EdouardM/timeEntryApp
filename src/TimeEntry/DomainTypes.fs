@@ -56,14 +56,16 @@ module DomainTypes =
         | Open
         | Closed
 
+    type TimeHr = TimeHr of float
+
     type WorkOrderEntry =
         {
-            WorkOrder       : WorkOrder
-            WorkCenter      : WorkCenter              
-            ItemCode        : ItemCode
-            TotalMachineTime: float
-            TotalLabourTime : float
-            Status          : WorkOrderStatus
+            WorkOrder           : WorkOrder
+            WorkCenter          : WorkCenter              
+            ItemCode            : ItemCode
+            TotalMachineTimeHr  : TimeHr
+            TotalLabourTimeHr   : TimeHr
+            Status              : WorkOrderStatus
         }
 
     type Machine = Machine of string
