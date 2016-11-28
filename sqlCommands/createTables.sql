@@ -13,8 +13,8 @@ CREATE TABLE WorkCenter (
     Site VARCHAR(4) NOT NULL,
     WorkCenter VARCHAR(4) NOT NULL,
     Shopfloor VARCHAR(5) NOT NULL,
-    StartTime INT NOT NULL, 
-    EndTime INT NOT NULL,
+    StartHour INT NOT NULL, 
+    EndHour INT NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (WorkCenterId)
 );
@@ -50,8 +50,8 @@ DROP TABLE  IF EXISTS Event;
 CREATE TABLE Event (
     EventId INT NOT NULL auto_increment,
     Event VARCHAR(4) NOT NULL,
-    HasInfo INT(1) NOT NULL,
-    AllowZeroPerson INT(1) NOT NULL,
+    HasInfo TINYINT(1) NOT NULL,
+    AllowZeroPerson TINYINT(1) NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (EventId)
 );

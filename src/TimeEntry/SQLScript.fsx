@@ -3,11 +3,14 @@
 
 #load "./Helpers.fs" 
 #load "./DomainTypes.fs"
+#load "./Constructors.fs"
 #load "./Database.fs"
 
 open FSharp.Data.Sql
 open TimeEntry.Result
+open TimeEntry.Conversions
 open TimeEntry.DomainTypes
+open TimeEntry.Constructors
 open TimeEntry.DataBase
 
 
@@ -27,20 +30,128 @@ type Sql = SqlDataProvider<
               Owner = "timeentryapp" >
 
 let ctx = Sql.GetDataContext()
-let t = ctx.Timeentryapp.Workcenter.Create()
 
-//Create one record
-t.Site <- "F21"
-t.Shopfloor <- "F211"
-t.WorkCenter <- "BOX"
-t.StartTime <- 5u
-t.EndTime <- 5u
-t.Active <- 1y
+(* WORKCENTER FUNCTIONS  *)
 
-try 
-    ctx.SubmitUpdates()
-with
-    | ex -> printfn "%s" ex.Message
+//Insert new workcenter in DB
+type InsertWorkCenter = WorkCenterInfo -> Result<unit>
+
+let insertWorkCenter workcenterInfo = 
+    let wc = ctx.Timeentryapp.Workcenter.Create()
+    let dbWc = toDBWorkCenterInfo workcenterInfo
+    wc.Site <- dbWc.Site
+    wc.Shopfloor <- dbWc.ShopFloor
+    wc.WorkCenter <- dbWc.WorkCenter
+    wc.StartHour <- dbWc.StartHour
+    wc.EndHour <- dbWc.EndHour
+    wc.Active <- 1y
+    
+    try 
+        ctx.SubmitUpdates()
+        |> Success
+    with
+    | ex -> Failure <| sprintf "%s" ex.Message
+
+type GetWorkCenterCodes = unit -> string list
+
+let getWorkCenterCodes () =
+    query {
+        for workcenter in ctx.Timeentryapp.Workcenter do
+            select workcenter.WorkCenter
+    }
+    |> Seq.toArray
+
+type GetWorkCenterById = WorkCenterId -> WorkCenterInfo
+
+let getWorkCenter id = 
+    query {
+        for workcenter in ctx.Timeentryapp.Workcenter do
+            where (workcenter.WorkCenterId = id)
+            select workcenter
+    }
+    |> Seq.head
+
+
+type UpdateWorkCenter = WorkCenterId -> WorkCenterInfo -> Result<unit>
+let updateWorkCenter workcenterId workcenterinfo = 
+    let wc = getWorkCenter workcenterId
+    let dbWc = toDBWorkCenterInfo workcenterinfo
+    wc.Site <- dbWc.Site
+    wc.Shopfloor <- dbWc.ShopFloor
+    wc.WorkCenter <- dbWc.WorkCenter
+    wc.StartHour <- dbWc.StartHour
+    wc.EndHour <- dbWc.EndHour
+    
+    try 
+        ctx.SubmitUpdates()
+        |> Success
+    with
+    | ex -> Failure <| sprintf "%s" ex.Message
+
+type DeleteWorkCenter = WorkCenterId -> Result<unit>
+
+let deleteWorkCenter workcenterId  = 
+    let wc = getWorkCenter workcenterId
+    wc.Active <- 0y
+    
+    try 
+        ctx.SubmitUpdates()
+        |> Success
+    with
+    | ex -> Failure <| sprintf "%s" ex.Message
+
+(* EVENT FUNCTIONS  *)
+
+//Insert new workcenter in DB
+type InsertEvent = Event -> Result<unit>
+
+let insertEvent event = 
+    let ev = ctx.Timeentryapp.Event.Create()
+    let dbev = toDBEvent event
+    ev.Event    <- dbev.Event
+    ev.HasInfo  <- boolToSbyte dbev.HasInfo
+    ev.AllowZeroPerson <- boolToSbyte dbev.AllowZeroPerson
+    ev.Active <- 1y
+    
+    try 
+        ctx.SubmitUpdates()
+        |> Success
+    with
+    | ex -> Failure <| sprintf "%s" ex.Message
+
+type GetEventList = unit -> string list
+let getEventCodes () =
+    query {
+        for event in ctx.Timeentryapp.Event do
+            select event.Event
+    }
+    |> Seq.toArray
+
+type GetEventById = EventId -> WorkCenterInfo
+
+let getEvent id = 
+    query {
+        for event in ctx.Timeentryapp.Event do
+            where (event.EventId = id)
+            select event
+    }
+    |> Seq.head
+
+type UpdateEvent = EventId -> Event -> Result<unit>
+let updateEvent eventId event = 
+    let ev = getEvent eventId
+    let dbEv = toDBEvent event
+    ev.Event    <- dbEv.Event
+    ev.HasInfo  <- boolToSbyte dbEv.HasInfo
+    ev.AllowZeroPerson <- boolToSbyte dbEv.AllowZeroPerson
+    ev.Active <- 1y
+    
+    try 
+        ctx.SubmitUpdates()
+        |> Success
+    with
+    | ex -> Failure <| sprintf "%s" ex.Message
+
 
 (*
     query {
@@ -52,11 +163,11 @@ with
 *)
 
 let wo = ctx.Timeentryapp.Workorderentry.Create()
-
+(*
 let q = query {
         from event in ctx.Event 
         join eventEntry in ctx.EventEntry
         on (event.Id = eventEntry.EventId)
         select event, eventEntry
 }
-
+*)

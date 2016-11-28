@@ -32,6 +32,12 @@ module Result =
             | Some x -> Success x
             | None   -> Failure msg 
 
+module Conversions = 
+    
+    let boolToSbyte = function
+        | true -> 1y
+        | false -> 0y
+
 module ConstrainedString = 
 //https://fsharpforfunandprofit.com/posts/designing-with-types-more-semantic-types/
 

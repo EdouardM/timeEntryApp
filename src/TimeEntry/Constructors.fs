@@ -31,8 +31,7 @@ module Constructors =
 
     let createHour = 
         function
-            | h when h < 0  -> Failure "Hour must be positive."
-            | h when h > 23 -> Failure "Hour can't superior to 23"
+            | h when h > 23u -> Failure "Hour can't be bigger than 23"
             | h -> Success (Hour h)
 
     let createWorkCenterInfo site shopFloor workCenter startTime endTime = 

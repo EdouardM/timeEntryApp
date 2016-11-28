@@ -11,8 +11,8 @@ namespace TimeEntry
                     Site         : string
                     WorkCenter   : string
                     ShopFloor    : string
-                    StartHour    : int
-                    EndHour      : int
+                    StartHour    : uint32
+                    EndHour      : uint32
                 }
             
             type GetAllWorkCenters = unit -> DBWorkCenterInfo list

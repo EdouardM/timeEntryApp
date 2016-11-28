@@ -22,7 +22,7 @@ module DomainTypes =
 
     type WorkCenter  = WorkCenter of string
     
-    type Hour = Hour of int
+    type Hour = Hour of uint32
 
     type WorkCenterInfo = 
         {
@@ -33,7 +33,7 @@ module DomainTypes =
             EndHour     : Hour
         }
 
-    type WorkCenterInfoId = int
+    type WorkCenterId = uint32
     
     type Duration = 
         {
@@ -89,6 +89,7 @@ module DomainTypes =
             | WithInfo      of string
             | WithoutInfo   of string 
  
+    type EventId = uint32
 
     type EventEntry = 
         | EventWithInfo         of Event * EventInfo 
@@ -113,7 +114,7 @@ module DomainTypes =
         }
     
     type TimeRecordId = int
-
+(*
     let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
         let timerecordId = jsonObj.Id
         let dto = jsonObj.DTO
@@ -125,7 +126,7 @@ module DomainTypes =
             | Success res -> HTTP 200 //ok
             | Failure msg -> HTTP 404 //failure
 
-
+*)
     (* 
         Types for User information
     *)
