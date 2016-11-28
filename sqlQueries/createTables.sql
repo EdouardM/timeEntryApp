@@ -97,6 +97,7 @@ CREATE TABLE Timerecord (
     WorkOrderEntryId INT,
     EnventEntryId INT,
     Allocation ENUM('workorder','event') NOT NULL,
+    RecordStatus ENUM('entered', 'validated') NOT NULL,
     Active TINYINT(1) NOT NULL,
     UserId INT NOT NULL,
     LastUpdate TIMESTAMP NOT NULL,

@@ -51,7 +51,7 @@ namespace TimeEntry
                     WorkOrderStatus    : string
                 }
 
-            let toWorkOrderDB (wo: WorkOrderEntry) =
+            let toDBWorkOrderEntry (wo: WorkOrderEntry) =
                 let (WorkOrder strWo) = wo.WorkOrder
                 let (WorkCenter strWc) = wo.WorkCenter
                 let (ItemCode strItem) = wo.ItemCode
@@ -72,7 +72,7 @@ namespace TimeEntry
                     WorkOrderStatus = status
                 }
 
-            let fromWorkOrderDB 
+            let fromDBWorkOrderEntry
                 workOrders
                 workCenters
                 itemCodes
@@ -170,16 +170,16 @@ namespace TimeEntry
             //DataBase model (pure)
             type DBTimeRecord =
                 {
-                    Site        : Site
-                    ShopFloor   : ShopFloor
-                    WorkCenter  : WorkCenter
-                    TimeType    : TimeType
-                    DurationHr  : float
-                    NbPeople    : NbPeople
-                    Allocation  : string // String workOrder or Event
-                    WorOrder    : DBWorkOrderEntry option
-                    Event       : DBEventEntry option
-                    Status      : string
+                    Site            : string
+                    ShopFloor       : string
+                    WorkCenter      : string
+                    TimeType        : string
+                    DurationHr      : float
+                    NbPeople        : float
+                    Allocation      : string
+                    WorkOrderEntry   : DBWorkOrderEntry option
+                    EventEntry      : DBEventEntry option
+                    Status          : string
                 }
             
             let allocationToString =
@@ -187,49 +187,79 @@ namespace TimeEntry
                     | WorkOrderEntry wo -> "workorder"
                     | EventEntry ev     -> "event"
 
+            let updateAllocation allocation timeRecord = 
+                match allocation with
+                    | WorkOrderEntry wo ->
+                        { timeRecord with WorkOrderEntry = toDBWorkOrderEntry wo |> Some}
+                    | EventEntry ev     ->
+                        { timeRecord with EventEntry = toDBEventEntry ev |> Some}
+
+            let recordStatusToString = 
+                function
+                    | Entered   -> "entered"
+                    | Validated -> "validated"
 
             ///Function to convert one Domain Record into records to insert into Database
             let toTimeRecordDB  (time : TimeRecord) = 
-                let allocation = allocationToString time.Allocation
+                let (Site site) = time.Site
+                let (ShopFloor shopfloor) = time.ShopFloor
+                let (WorkCenter workcenter) = time.WorkCenter
+                let status = recordStatusToString time.Status
 
                 match time.TimeEntry with
                     //List of one record: Machine time
-                    | MachineOnly duration -> 
-                        [ {   
-                            Site        = time.Site 
-                            ShopFloor   = time.ShopFloor 
-                            WorkCenter  = time.WorkCenter 
-                            TimeType    = MachineTime
-                            DurationHr    = int duration.Duration.TotalMinutes
-                            NbPeople    = NbPeople 0.
-                            Allocation  = allocation
-                             } ]
+                    | MachineOnly duration ->
+                        let machineRecord = {   
+                            Site            = site
+                            ShopFloor       = shopfloor 
+                            WorkCenter      = workcenter 
+                            TimeType        = "machine"
+                            DurationHr      = duration.ToHr
+                            NbPeople        = 0.
+                            Allocation      = allocationToString time.Allocation
+                            WorkOrderEntry  = None
+                            EventEntry      = None
+                            Status          = status
+                             }
+                        let machineRecord' = updateAllocation time.Allocation machineRecord
+                        [machineRecord']
+
                     //List of two records: Machine & Labour time
-                    | MachineAndLabour (duration, nb) -> 
-                        [ { 
-                            Site        = time.Site
-                            ShopFloor   = time.ShopFloor 
-                            WorkCenter  = time.WorkCenter
-                            TimeType    = MachineTime 
-                            DurationHr    = int duration.Duration.TotalMinutes
-                            NbPeople    = NbPeople 0. } ;
-
+                    | MachineAndLabour (duration, nbPeople) ->
+                        let (NbPeople nb) = nbPeople
+                        let machineRecord = 
                             { 
-                            Site        = time.Site
-                            ShopFloor   = time.ShopFloor 
-                            WorkCenter  = time.WorkCenter
-                            TimeType    = LabourTime 
-                            DurationMn    = int duration.Duration.TotalMinutes
-                            NbPeople    = nb }]
-                    //List of one record: Labour time
-                    | LabourOnly (duration, nb) -> 
-                        [ {   
-                            Site        = time.Site 
-                            ShopFloor   = time.ShopFloor
-                            WorkCenter  = time.WorkCenter
-                            TimeType    = LabourTime
-                            Duration    = duration 
-                            NbPeople    = nb } ]
-            
+                            Site        = site
+                            ShopFloor   = shopfloor 
+                            WorkCenter  = workcenter
+                            TimeType    = "machine" 
+                            DurationHr  = duration.ToHr
+                            NbPeople    = 0.
+                            Allocation  = allocationToString time.Allocation
+                            WorkOrderEntry = None
+                            EventEntry  = None
+                            Status      =  status }
+                        let labourRecord = {machineRecord with TimeType = "labour"; NbPeople = nb}
 
+                        [machineRecord; labourRecord] 
+                        |> List.map (updateAllocation time.Allocation)
+
+                    //List of one record: Labour time
+                    | LabourOnly (duration, nbPeople) -> 
+                        let (NbPeople nb) = nbPeople
+                        let labourRecord = 
+                            { 
+                            Site        = site
+                            ShopFloor   = shopfloor 
+                            WorkCenter  = workcenter
+                            TimeType    = "labour" 
+                            DurationHr  = duration.ToHr
+                            NbPeople    = nb
+                            Allocation  = allocationToString time.Allocation
+                            WorkOrderEntry = None
+                            EventEntry  = None
+                            Status      =  status }
+                        let labourRecord' = updateAllocation time.Allocation labourRecord
+                        [labourRecord']
+        
             let fromTimeRecordDB (time: DBTimeRecord) = ()

@@ -39,7 +39,10 @@ module DomainTypes =
             EndTime     : DateTime
         }
         with
-            member x.Duration = x.EndTime - x.StartTime 
+            member x.Duration = x.EndTime - x.StartTime
+            member x.ToHr =  
+                let minutes = (float x.Duration.TotalMinutes)
+                System.Math.Round(minutes / 60., 4)
 
     type TimeEntry = 
         | MachineOnly of Duration
