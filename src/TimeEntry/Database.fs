@@ -104,6 +104,7 @@ namespace TimeEntry
                     | WithInfo event    -> { Event = event; HasInfo = true; AllowZeroPerson = false }
                     | WithoutInfo event -> { Event = event; HasInfo = false; AllowZeroPerson = false }
                     | ZeroPerson event  ->  { Event = event; HasInfo = false; AllowZeroPerson = true }
+            
             let fromDBEvent (event: DBEvent) =
                 match event.HasInfo, event.AllowZeroPerson with
                     | true, false   -> Success (WithInfo event.Event)

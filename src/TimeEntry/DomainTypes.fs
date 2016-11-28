@@ -111,12 +111,7 @@ module DomainTypes =
         }
     
     type TimeRecordId = int
-
-    //return id of record and record
-    type GetTimeRecordsByWorkCenter = WorkCenter -> (TimeRecordId * TimeRecord) list
-    //update one record 
-    type UpdateTimeRecord = TimeRecordId -> TimeRecord -> Result<unit>
-
+       
     let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
         let timerecordId = jsonObj.Id
         let dto = jsonObj.DTO

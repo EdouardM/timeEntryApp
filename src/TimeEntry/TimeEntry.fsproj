@@ -44,6 +44,7 @@
     <Compile Include="DomainTypes.fs" />
     <Compile Include="Constructors.fs" />
     <Compile Include="Database.fs" />
+    <Compile Include="DatabaseAPI.fs" />
     <Compile Include="DTOTypes.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
