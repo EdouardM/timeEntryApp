@@ -1,7 +1,7 @@
 namespace TimeEntry
     open TimeEntry.Result
-    open DomainTypes
-    open Constructors
+    open TimeEntry.DomainTypes
+    open TimeEntry.Constructors
 
     module DataBase =
 

@@ -33,6 +33,8 @@ module DomainTypes =
             EndHour     : Hour
         }
 
+    type WorkCenterInfoId = int
+    
     type Duration = 
         {
             StartTime   : DateTime
@@ -111,7 +113,7 @@ module DomainTypes =
         }
     
     type TimeRecordId = int
-       
+
     let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
         let timerecordId = jsonObj.Id
         let dto = jsonObj.DTO

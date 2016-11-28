@@ -1,6 +1,16 @@
 // reference the type provider dll
-#r "../../packages/SQLProvider/lib/FSharp.Data.SqlProvider.dll" 
+#r "../../packages/SQLProvider/lib/FSharp.Data.SqlProvider.dll"
+
+#load "./Helpers.fs" 
+#load "./DomainTypes.fs"
+#load "./Database.fs"
+
 open FSharp.Data.Sql
+open TimeEntry.Result
+open TimeEntry.DomainTypes
+open TimeEntry.DataBase
+
+
 //Connection string described here: https://www.connectionstrings.com/mysql/
 let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeentryapp;User=root;Password="
 
