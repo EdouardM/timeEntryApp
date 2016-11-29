@@ -19,6 +19,7 @@ CREATE TABLE WorkCenter (
     PRIMARY KEY (WorkCenterId)
 );
 
+CREATE UNIQUE INDEX WorkCenter ON WorkCenter (Site, Shopfloor, WorkCenter);
 
 /* =====================================================
 Create Work Orders Entry table  
@@ -39,6 +40,7 @@ CREATE TABLE WorkOrderEntry (
 );
 
 CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenterId);
+CREATE UNIQUE INDEX WorkOrder ON WorkOrderEntry (WorkOrder);
 
 
 /* =====================================================
@@ -55,6 +57,8 @@ CREATE TABLE Event (
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (EventId)
 );
+
+CREATE UNIQUE INDEX Event ON Event (Event);
 
 
 /* =====================================================
