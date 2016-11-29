@@ -1,6 +1,7 @@
 namespace TimeEntry
     open System
     open TimeEntry.Result
+    open TimeEntry.Option
     open TimeEntry.DomainTypes
     open TimeEntry.Constructors
 
@@ -165,9 +166,10 @@ namespace TimeEntry
                 
                 let eventInfoResOpt = 
                             createEventInfo <!> machineRes <*> causeRes <*> solutionRes <*> commentsRes
-                            |> Result.map Some             
-
+                            |> Result.map Some
+                                         
                 createEventEntry <!> eventRes <*> eventInfoResOpt
+                |> Result.flatten
 
             //DataBase model (pure)
             type DBTimeRecord =
@@ -276,6 +278,7 @@ namespace TimeEntry
                 shopfloors
                 workcenters
                 workorders
+                machines
                 itemcodes
                 (time: DBTimeRecord) =
                     let siteRes = createSite sites time.Site
@@ -289,12 +292,18 @@ namespace TimeEntry
                     let timeEntryRes = createTimeEntry <!> timeTypeRes <*> nbPeopleRes <*> durationRes
 
                     let workOrderEntryResOpt = 
-                        fromOption "Work Order Entry missing" time.WorkOrderEntry
-                        |> Result.map (fromDBWorkOrderEntry workorders workcenters itemcodes) 
+                        Option.map (fromDBWorkOrderEntry workorders workcenters itemcodes) time.WorkOrderEntry
+                    
+                    let eventEntryResOpt = Option.map (fromDBEventEntry machines) time.EventEntry
 
-                    let allocationRes = createAllocation <!> workOrderEntryResOpt 
+                    let allocationRes = 
+                        maybe {
+                            let! workOrderEntryRes = workOrderEntryResOpt
+                            let! eventEntryRes = eventEntryResOpt
+                            return createAllocation <!> workOrderEntryRes <*> eventEntryRes
+                        }
+
                     createTimeRecord 
                     <!> siteRes
                     <*> shopFloorRes
                     <*> workCenterRes
-

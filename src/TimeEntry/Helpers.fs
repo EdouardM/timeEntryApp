@@ -1,12 +1,24 @@
 namespace TimeEntry
+
+module Option = 
+    type MaybeBuilder() = 
+        member this.Return x = Some x
+        member this.Bind(x,f) = Option.bind f x 
+    let maybe = new MaybeBuilder()
+
 module Result =
     open System
 
     type FailureMessage = string
     type Result<'T> = | Success of 'T | Failure of FailureMessage
 
-    let retn x = Success x 
+    let retn x = Success x  
 
+    let flatten  = 
+        function 
+            | Success (Success x) -> (Success x)
+            | Success (Failure msg) -> Failure msg 
+            | Failure msg -> Failure msg
     let map f res = 
         match res with
             | Success x -> Success (f x)
@@ -28,7 +40,7 @@ module Result =
             | Failure msg -> Failure msg  
 
     let (>>=) = bind
-
+    
     let fromOption msg = 
         function
             | Some x -> Success x
