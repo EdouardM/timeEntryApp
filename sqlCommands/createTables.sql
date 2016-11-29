@@ -87,9 +87,10 @@ CREATE TABLE TimeRecord (
     TimeRecordId INT NOT NULL auto_increment,
     Site VARCHAR(4) NOT NULL,
     Shopfloor VARCHAR(4) NOT NULL,
-    TimeType ENUM('machine', 'labour') NOT NULL, 
-    DurationHr FLOAT(4,4) NOT NULL,
-    --Only one decimal because nbpeople can be multiple of 0.5 only 
+    TimeType ENUM('machine', 'labour') NOT NULL,
+    StartTime TIMESTAMP NOT NULL,
+    EndTime TIMESTAMP NOT NULL, 
+    DurationHr FLOAT(4,4) NOT NULL, 
     NbPeople FLOAT(2,1) NOT NULL,
     WorkOrderEntryId INT,
     EventEntryId INT,

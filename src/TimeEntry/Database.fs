@@ -1,4 +1,5 @@
 namespace TimeEntry
+    open System
     open TimeEntry.Result
     open TimeEntry.DomainTypes
     open TimeEntry.Constructors
@@ -175,6 +176,8 @@ namespace TimeEntry
                     ShopFloor       : string
                     WorkCenter      : string
                     TimeType        : string
+                    StartTime       : DateTime
+                    EndTime         : DateTime
                     DurationHr      : float
                     NbPeople        : float
                     Allocation      : string
@@ -215,6 +218,8 @@ namespace TimeEntry
                             ShopFloor       = shopfloor 
                             WorkCenter      = workcenter 
                             TimeType        = "machine"
+                            StartTime       = duration.StartTime
+                            EndTime         = duration.EndTime
                             DurationHr      = duration.ToHr
                             NbPeople        = 0.
                             Allocation      = allocationToString time.Allocation
@@ -234,6 +239,8 @@ namespace TimeEntry
                             ShopFloor   = shopfloor 
                             WorkCenter  = workcenter
                             TimeType    = "machine" 
+                            StartTime   = duration.StartTime
+                            EndTime     = duration.EndTime
                             DurationHr  = duration.ToHr
                             NbPeople    = 0.
                             Allocation  = allocationToString time.Allocation
@@ -254,6 +261,8 @@ namespace TimeEntry
                             ShopFloor   = shopfloor 
                             WorkCenter  = workcenter
                             TimeType    = "labour" 
+                            StartTime   = duration.StartTime
+                            EndTime     = duration.EndTime
                             DurationHr  = duration.ToHr
                             NbPeople    = nb
                             Allocation  = allocationToString time.Allocation
@@ -261,6 +270,31 @@ namespace TimeEntry
                             EventEntry  = None
                             Status      =  status }
                         let labourRecord' = updateAllocation time.Allocation labourRecord
-                        [labourRecord']
-        
-            let fromTimeRecordDB (time: DBTimeRecord) = ()
+                        [labourRecord']    
+            let fromTimeRecordDB 
+                sites
+                shopfloors
+                workcenters
+                workorders
+                itemcodes
+                (time: DBTimeRecord) =
+                    let siteRes = createSite sites time.Site
+                    let shopFloorRes = createShopfloor shopfloors time.ShopFloor
+                    let workCenterRes = createWorkCenter workcenters time.WorkCenter
+                    
+                    let timeTypeRes = createTimeType time.TimeType
+                    let durationRes = createDuration time.StartTime time.EndTime
+                    let nbPeopleRes = createNbPeople time.NbPeople
+
+                    let timeEntryRes = createTimeEntry <!> timeTypeRes <*> nbPeopleRes <*> durationRes
+
+                    let workOrderEntryResOpt = 
+                        fromOption "Work Order Entry missing" time.WorkOrderEntry
+                        |> Result.map (fromDBWorkOrderEntry workorders workcenters itemcodes) 
+
+                    let allocationRes = createAllocation <!> workOrderEntryResOpt 
+                    createTimeRecord 
+                    <!> siteRes
+                    <*> shopFloorRes
+                    <*> workCenterRes
+

@@ -107,3 +107,16 @@ module Constructors =
 
     let createTimeRecord  site shopfloor workcenter allocation timeEntry =
         { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
+
+
+    let createTimeType = 
+        function
+            | "machine" -> Success MachineTime
+            | "labour"  -> Success LabourTime
+            | _ -> Failure "Invalid Time Type"
+
+    let createAllocation workorderEntry eventEntry allocation = 
+        match allocation with
+            | "workoder" -> WorkOrderEntry workorderEntry |> Success
+            | "event" ->  EventEntry eventEntry |> Success
+            | _ -> Failure "Invalid allocation"

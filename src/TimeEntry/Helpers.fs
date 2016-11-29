@@ -27,6 +27,8 @@ module Result =
             | Success x -> f x
             | Failure msg -> Failure msg  
 
+    let (>>=) = bind
+
     let fromOption msg = 
         function
             | Some x -> Success x
