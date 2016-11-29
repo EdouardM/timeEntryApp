@@ -1,5 +1,6 @@
 namespace TimeEntry
     module DTO =
+        open System
         open Result
         open DomainTypes
         open Constructors
