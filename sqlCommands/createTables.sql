@@ -19,7 +19,7 @@ CREATE TABLE WorkCenter (
     PRIMARY KEY (WorkCenterId)
 );
 
-CREATE UNIQUE INDEX WorkCenter ON WorkCenter (Site, Shopfloor, WorkCenter);
+CREATE UNIQUE INDEX WorkCenter ON WorkCenter (WorkCenter);
 
 /* =====================================================
 Create Work Orders Entry table  
@@ -30,9 +30,9 @@ DROP TABLE  IF EXISTS WorkOrderEntry;
 CREATE TABLE WorkOrderEntry (
     WorkOrderEntryId INT NOT NULL auto_increment,
     WorkOrder VARCHAR(10) NOT NULL,
-    WorkCenterId INT,
+    WorkCenterId INT NOT NULL,
     ItemCode VARCHAR(6) NOT NULL,
-    WorkOrderStatus ENUM('open','closed'),
+    WorkOrderStatus ENUM('open','closed') NOT NULL,
     TotalMachineTimeHr FLOAT(4,4) NOT NULL,
     TotalLabourTimeHr FLOAT(4,4) NOT NULL,
     Active TINYINT(1) NOT NULL,

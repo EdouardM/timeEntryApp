@@ -73,6 +73,8 @@ module DomainTypes =
             Status              : WorkOrderStatus
         }
 
+    type WorkOrderEntryId = uint32
+
     type Machine = Machine of string
 
     //In case of BreakDown we record addiional information
