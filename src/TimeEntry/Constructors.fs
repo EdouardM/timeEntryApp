@@ -117,6 +117,6 @@ module Constructors =
 
     let createAllocation workorderEntry eventEntry allocation = 
         match allocation with
-            | "workoder" -> WorkOrderEntry workorderEntry |> Success
-            | "event" ->  EventEntry eventEntry |> Success
+            | "workoder" -> Success (WorkOrderEntry workorderEntry)
+            | "event"    -> Success (EventEntry eventEntry)
             | _ -> Failure "Invalid allocation"
