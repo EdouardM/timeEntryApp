@@ -114,9 +114,4 @@ module Constructors =
             | "machine" -> Success MachineTime
             | "labour"  -> Success LabourTime
             | _ -> Failure "Invalid Time Type"
-
-    let createAllocation workorderEntry eventEntry allocation = 
-        match allocation with
-            | "workoder" -> Success (WorkOrderEntry workorderEntry)
-            | "event"    -> Success (EventEntry eventEntry)
-            | _ -> Failure "Invalid allocation"
+            

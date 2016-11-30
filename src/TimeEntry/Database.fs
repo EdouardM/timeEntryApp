@@ -9,7 +9,6 @@ namespace TimeEntry
 
             type DBWorkCenterInfo =
                 {
-                    //WorkCenterId : int
                     Site         : string
                     WorkCenter   : string
                     ShopFloor    : string
@@ -206,7 +205,7 @@ namespace TimeEntry
                     | Validated -> "validated"
 
             ///Function to convert one Domain Record into records to insert into Database
-            let toTimeRecordDB  (time : TimeRecord) = 
+            let toDBTimeRecord  (time : TimeRecord) = 
                 let (Site site) = time.Site
                 let (ShopFloor shopfloor) = time.ShopFloor
                 let (WorkCenter workcenter) = time.WorkCenter
@@ -273,6 +272,7 @@ namespace TimeEntry
                             Status      =  status }
                         let labourRecord' = updateAllocation time.Allocation labourRecord
                         [labourRecord']    
+            
             let fromTimeRecordDB 
                 sites
                 shopfloors
@@ -291,19 +291,27 @@ namespace TimeEntry
 
                     let timeEntryRes = createTimeEntry <!> timeTypeRes <*> nbPeopleRes <*> durationRes
 
-                    let workOrderEntryResOpt = 
-                        Option.map (fromDBWorkOrderEntry workorders workcenters itemcodes) time.WorkOrderEntry
-                    
-                    let eventEntryResOpt = Option.map (fromDBEventEntry machines) time.EventEntry
+                    match time.WorkOrderEntry, time.EventEntry with
+                        | Some wo, None -> 
+                            let workOrderEntryRes = (fromDBWorkOrderEntry workorders workcenters itemcodes) wo
+                            let allocationRes = Result.map WorkOrderEntry workOrderEntryRes
+                            createTimeRecord
+                            <!> siteRes
+                            <*> shopFloorRes
+                            <*> workCenterRes
+                            <*> allocationRes
+                            <*> timeEntryRes
+                        | None, Some ev -> 
+                            let eventEntryRes = (fromDBEventEntry machines) ev
+                            let allocationRes = Result.map EventEntry eventEntryRes
+                            createTimeRecord
+                            <!> siteRes
+                            <*> shopFloorRes
+                            <*> workCenterRes
+                            <*> allocationRes
+                            <*> timeEntryRes
+                        | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
+                        | None, None       -> Failure "Both Workorder and Event entry are missing."
 
-                    let allocationRes = 
-                        maybe {
-                            let! workOrderEntryRes = workOrderEntryResOpt
-                            let! eventEntryRes = eventEntryResOpt
-                            return createAllocation <!> workOrderEntryRes <*> eventEntryRes
-                        }
 
-                    createTimeRecord 
-                    <!> siteRes
-                    <*> shopFloorRes
-                    <*> workCenterRes
+ 
