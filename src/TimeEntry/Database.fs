@@ -7,37 +7,53 @@ namespace TimeEntry
 
     module DataBase =
 
-            type DBWorkCenterInfo =
+            type DBShopFloorInfo = 
                 {
                     Site         : string
-                    WorkCenter   : string
                     ShopFloor    : string
-                    StartHour    : uint32
-                    EndHour      : uint32
                 }
             
-            type GetAllWorkCenters = unit -> DBWorkCenterInfo list
+            let toDBShopfloorInfo (sfinfo: ShopFloorInfo) =
+                let (Site site)     = sfinfo.Site
+                let (ShopFloor sf)  = sfinfo.ShopFloor
+                { Site = site; ShopFloor = sf }
+         
+            let fromDBShopfloorInfo 
+                sites
+                shopfloors
+                (sfinfo: DBShopFloorInfo) =
+                    let siteRes = createSite sites sfinfo.Site
+                    let shopfloorRes = createShopfloor shopfloors sfinfo.ShopFloor
+                    createShopfloorInfo 
+                    <!> siteRes
+                    <*> shopfloorRes
 
+            type DBWorkCenterInfo =
+                {
+                    WorkCenter      : string
+                    ShopFloorInfo   : DBShopFloorInfo
+                    StartHour       : uint32
+                    EndHour         : uint32
+                }
+            
             let toDBWorkCenterInfo (wcInfo: WorkCenterInfo) =
-                let (Site site)     = wcInfo.Site
                 let (WorkCenter wc) = wcInfo.WorkCenter
-                let (ShopFloor sf)  = wcInfo.ShopFloor
-                let (Hour startH)    = wcInfo.StartHour
-                let (Hour endH)      = wcInfo.EndHour
-                { Site = site; WorkCenter = wc; ShopFloor = sf; StartHour = startH; EndHour = endH}
+                let sf              = toDBShopfloorInfo wcInfo.ShopFloorInfo
+                let (Hour startH)   = wcInfo.StartHour
+                let (Hour endH)     = wcInfo.EndHour
+                { WorkCenter = wc; ShopFloorInfo = sf; StartHour = startH; EndHour = endH}
          
             let fromDBWorkCenterInfo 
                 sites
                 shopfloors
                 workcenters
                 (wcInfo: DBWorkCenterInfo) =
-                    let siteRes = createSite sites wcInfo.Site
-                    let shopfloorRes = createShopfloor shopfloors wcInfo.Site
+                    let shopfloorInfoRes = fromDBShopfloorInfo sites shopfloors wcInfo.ShopFloorInfo 
                     let workcenterRes = createWorkCenter workcenters wcInfo.WorkCenter
                     let starthourRes = createHour wcInfo.StartHour
                     let endhourRes   = createHour wcInfo.EndHour
-                    createWorkCenterInfo <!> siteRes
-                    <*> shopfloorRes
+                    createWorkCenterInfo
+                    <!> shopfloorInfoRes
                     <*> workcenterRes
                     <*> starthourRes
                     <*> endhourRes 

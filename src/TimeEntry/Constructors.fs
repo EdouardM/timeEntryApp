@@ -26,7 +26,10 @@ module Constructors =
 
     let createShopfloor = create ShopFloor "shopfloor"
 
-    
+
+    let createShopfloorInfo site shopfloor = 
+        { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
+
     let createWorkCenter = create WorkCenter "workcenter"
 
     let createHour = 
@@ -34,9 +37,8 @@ module Constructors =
             | h when h > 23u -> Failure "Hour can't be bigger than 23"
             | h -> Success (Hour h)
 
-    let createWorkCenterInfo site shopFloor workCenter startTime endTime = 
-        { Site = site; WorkCenter = workCenter; ShopFloor = shopFloor; StartHour = startTime; EndHour = endTime }
-
+    let createWorkCenterInfo shopFloor workCenter startTime endTime = 
+        { WorkCenter = workCenter; ShopFloorInfo = shopFloor; StartHour = startTime; EndHour = endTime }
     
     let createDuration (startTime: DateTime) (endTime: DateTime) =
         if     startTime.Year >= 2010 
@@ -114,4 +116,3 @@ module Constructors =
             | "machine" -> Success MachineTime
             | "labour"  -> Success LabourTime
             | _ -> Failure "Invalid Time Type"
-            

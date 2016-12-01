@@ -20,20 +20,23 @@ module DomainTypes =
     
     type ShopFloor  = ShopFloor of string
 
+    type ShopFloorInfo = 
+        {
+            Site : Site
+            ShopFloor : ShopFloor
+        }
+
     type WorkCenter  = WorkCenter of string
     
     type Hour = Hour of uint32
 
     type WorkCenterInfo = 
         {
-            Site        : Site
-            WorkCenter  : WorkCenter
-            ShopFloor   : ShopFloor
-            StartHour   : Hour
-            EndHour     : Hour
+            WorkCenter      : WorkCenter
+            ShopFloorInfo   : ShopFloorInfo
+            StartHour       : Hour
+            EndHour         : Hour
         }
-
-    type WorkCenterId = uint32
     
     type Duration = 
         {
