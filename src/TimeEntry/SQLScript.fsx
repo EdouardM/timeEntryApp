@@ -29,63 +29,266 @@ type Sql = SqlDataProvider<
               UseOptionTypes = true,
               Owner = "timeentryapp" >
 
-let ctx = Sql.GetDataContext()
+type Activation = 
+    | Activate
+    | Desactivate
+    with
+        member x.State =
+            match x with 
+                | Activate -> "active"
+                | Desactivate -> "inactive"
+
+let flags = 
+        function
+        | Activate -> 0y, 1y
+        | Desactivate -> 1y, 0y
+
+(* SITE FUNCTIONS *)
+type GetSiteCodes = unit -> string list
+
+///Returns a list of codes of active sites
+let getSiteCodes: GetSiteCodes =
+    fun () ->
+        let ctx = Sql.GetDataContext()
+        query {
+            for site in ctx.Timeentryapp.Site do
+                where (site.Active = 1y)
+                select site.Site
+        }
+        |> Seq.toList
+
+getSiteCodes()
+
+type InsertSite = string -> Result<unit>
+
+///Inserts a new site
+let insertSite: InsertSite =
+    fun site ->
+        let ctx = Sql.GetDataContext()
+        let dbs = ctx.Timeentryapp.Site.Create()
+        dbs.Site <- site
+        dbs.Active <- 1y
+        
+        try
+            ctx.SubmitUpdates()
+            |> Success
+        with 
+            ex -> Failure ex.Message
+
+insertSite ("F23")
+getSiteCodes()
+
+type ToggleSite = Activation -> Site -> Result<unit>
+let toggleSite: ToggleSite =
+    fun activation site -> 
+        let (Site s) = site
+        let ctx = Sql.GetDataContext()
+        let current, future = flags activation
+        let dbsOpt = 
+            query {
+                for site in ctx.Timeentryapp.Site do
+                    where (site.Site = s && site.Active = current)
+                    select site
+            }
+            |> Seq.tryHead
+        match dbsOpt with
+            | Some dbs -> 
+                dbs.Active <- future
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                    ex -> Failure ex.Message
+            | None -> Failure <| sprintf "Site \'%s\' is missing or %s." s activation.State
+
+///Desactivates a site if active
+type DeleteSite = Site -> Result<unit>
+let deleteSite: DeleteSite  = toggleSite Desactivate
+
+type ActivateSite = Site -> Result<unit>
+let activateSite: ActivateSite = toggleSite Activate
+
+
+deleteSite (Site "F23")
+activateSite(Site "F23")
+getSiteCodes()
+
+
+(* SHOPFLOOR FUNCTIONS *)
+type GetShopfloorCodes = unit -> string list
+
+///Returns a list of codes of active shopfloors
+let getShopFloorCodes: GetShopfloorCodes =
+    fun () ->
+        let ctx = Sql.GetDataContext()
+        query {
+            for shopfloor in ctx.Timeentryapp.Shopfloor do
+                where (shopfloor.Active = 1y)
+                select shopfloor.Shopfloor
+        }
+        |> Seq.toList
+
+getShopFloorCodes()
+
+type GetShopFloorInfo = ShopFloor -> Result<DBShopFloorInfo>
+
+let getShopFloorInfo: GetShopFloorInfo =
+    fun shopfloor ->
+        let (ShopFloor sf) = shopfloor
+        let ctx = Sql.GetDataContext()
+        query {
+            for shopfloor in ctx.Timeentryapp.Shopfloor do
+                where (shopfloor.Active = 1y && shopfloor.Shopfloor = sf)
+                select shopfloor
+        }
+        |> Seq.map(fun dbsf -> 
+            {
+                DBShopFloorInfo.Site = dbsf.Site
+                ShopFloor = dbsf.Shopfloor
+            })
+        |> Seq.toList
+        |> (function 
+        | [] -> Failure <| sprintf "Shopfloor not found for: %s" sf
+        | [x] -> Success x
+        | x::xs -> Failure <| sprintf "More than one shopfloor found for: %s" sf)
+
+getShopFloorInfo(ShopFloor "F211A")
+
+
+type InsertShopfloor = ShopFloorInfo -> Result<unit>
+
+///Inserts a new shopfloor
+let insertShopfloor: InsertShopfloor =
+    fun shopfloorinfo ->
+        let sf = toDBShopfloorInfo shopfloorinfo 
+        let ctx = Sql.GetDataContext()
+        let dbsf = ctx.Timeentryapp.Shopfloor.Create()
+        dbsf.Site       <- sf.Site 
+        dbsf.Shopfloor  <- sf.ShopFloor
+        dbsf.Active     <- 1y
+        
+        try
+            ctx.SubmitUpdates()
+            |> Success
+        with 
+            ex -> Failure ex.Message
+
+insertShopfloor ({Site = Site "F23"; ShopFloor = ShopFloor "F231A"})
+getShopFloorCodes()
+
+
+type ToggleShopfloor = Activation -> ShopFloor -> Result<unit>
+
+let toggleShopfloor: ToggleShopfloor =
+    fun activation shopfloor -> 
+        let (ShopFloor s) = shopfloor
+        let ctx = Sql.GetDataContext()
+        let current, future = flags activation
+        let dbsOpt = 
+            query {
+                for shopfloor in ctx.Timeentryapp.Shopfloor do
+                    where (shopfloor.Shopfloor = s && shopfloor.Active = current)
+                    select shopfloor
+            }
+            |> Seq.tryHead
+
+        match dbsOpt with
+            | Some dbs -> 
+                dbs.Active <- future
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                    ex -> Failure ex.Message
+            | None -> Failure <| sprintf "Shopfloor \'%s\' is missing or %s." s activation.State
+
+///Desactivates a site if active
+type DeleteShopfloor = ShopFloor -> Result<unit>
+let deleteShopfloor: DeleteShopfloor  = toggleShopfloor Desactivate
+
+type ActivateShopfloor = ShopFloor -> Result<unit>
+let activateShopfloor: ActivateShopfloor = toggleShopfloor Activate
+
+
+deleteShopfloor(ShopFloor "F231A")
+activateShopfloor(ShopFloor "F231A")
+
+getShopFloorCodes()
 
 (* WORKCENTER FUNCTIONS  *)
 
 type GetWorkCenterCodes = unit -> string list
+let getWorkCenterCodes: GetWorkCenterCodes =
+    fun () -> 
+        let ctx = Sql.GetDataContext()
+        query {
+            for workcenter in ctx.Timeentryapp.Workcenter do
+                where (workcenter.Active = 1y)
+                select workcenter.WorkCenter
+        }
+        |> Seq.toList
 
-let getWorkCenterCodes () =
-    query {
-        for workcenter in ctx.Timeentryapp.Workcenter do
-            select workcenter.WorkCenter
-    }
-    |> Seq.toArray
+getWorkCenterCodes()
 
+
+type GetWorkCenter = WorkCenter -> Result<DBWorkCenterInfo>
+
+let getWorkCenter: GetWorkCenter =
+    fun workcenter -> 
+        let (WorkCenter wc) = workcenter
+        let ctx = Sql.GetDataContext()
+        query {
+            for workcenter in ctx.Timeentryapp.Workcenter do
+                join shopfloor in ctx.Timeentryapp.Shopfloor on (workcenter.Shopfloor = shopfloor.Shopfloor)
+                where (workcenter.WorkCenter = wc)
+                select (workcenter, shopfloor)
+        }
+        |> Seq.map (fun (wc, sf) -> 
+            {
+                        DBWorkCenterInfo.WorkCenter   = wc.WorkCenter
+                        ShopFloorInfo    = { Site = sf.Site; ShopFloor = sf.Shopfloor}
+                        StartHour    = wc.StartHour
+                        EndHour      = wc.EndHour
+            }
+        )
+        |> Seq.toList
+        |> (function 
+                | [] -> Failure <| sprintf "Workcenter not found for: %s" wc
+                | [x] -> Success x
+                | x::xs -> Failure <| sprintf "More than one workcenter found for: %s" wc)
+
+
+getWorkCenter (WorkCenter "F1")
 
 //Insert new workcenter in DB
 type InsertWorkCenter = WorkCenterInfo -> Result<unit>
 
-let insertWorkCenter workcenterInfo = 
-    let wc = ctx.Timeentryapp.Workcenter.Create()
-    let dbWc = toDBWorkCenterInfo workcenterInfo
-    wc.Site <- dbWc.Site
-    wc.Shopfloor <- dbWc.ShopFloor
-    wc.WorkCenter <- dbWc.WorkCenter
-    wc.StartHour <- dbWc.StartHour
-    wc.EndHour <- dbWc.EndHour
-    wc.Active <- 1y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+let insertWorkCenter: InsertWorkCenter =
+    fun workcenterInfo -> 
+        let ctx = Sql.GetDataContext()
+        let wc = ctx.Timeentryapp.Workcenter.Create()
+        let dbWc = toDBWorkCenterInfo workcenterInfo
+        wc.Shopfloor    <- dbWc.ShopFloorInfo.ShopFloor
+        wc.WorkCenter   <- dbWc.WorkCenter
+        wc.StartHour    <- dbWc.StartHour
+        wc.EndHour      <- dbWc.EndHour
+        wc.Active       <- 1y
+        
+        try 
+            ctx.SubmitUpdates()
+            |> Success
+        with
+        | ex -> Failure <| sprintf "%s" ex.Message
 
+let sf:ShopFloorInfo = {Site = Site "F21"; ShopFloor = ShopFloor "F211A"}
+let wc: WorkCenterInfo = { ShopFloorInfo = sf ; WorkCenter = WorkCenter "LB3"; StartHour = Hour 4u; EndHour = Hour 23u }
 
-type GetWorkCenterById = WorkCenterId -> WorkCenterInfo
-
-let getWorkCenterById id = 
-    query {
-        for workcenter in ctx.Timeentryapp.Workcenter do
-            where (workcenter.WorkCenterId = id)
-            select workcenter
-    }
-    |> Seq.head
-
-type GetWorkCenterByCode = WorkCenter -> WorkCenterInfo
-
-let getWorkCenterByCode code =
-    query {
-        for workcenter in ctx.Timeentryapp.Workcenter do
-            where (workcenter.WorkCenter = code)
-            select workcenter
-    }
-    |> Seq.head
-
+insertWorkCenter wc
+getWorkCenterCodes()
 
 type UpdateWorkCenter = WorkCenterId -> WorkCenterInfo -> Result<unit>
 let updateWorkCenter workcenterId workcenterinfo = 
+    let ctx = Sql.GetDataContext()
     let wc = getWorkCenterById workcenterId
     let dbWc = toDBWorkCenterInfo workcenterinfo
     wc.Site <- dbWc.Site
@@ -103,6 +306,7 @@ let updateWorkCenter workcenterId workcenterinfo =
 type DeleteWorkCenter = WorkCenterId -> Result<unit>
 
 let deleteWorkCenter workcenterId  = 
+    let ctx = Sql.GetDataContext()
     let wc = getWorkCenterById workcenterId
     wc.Active <- 0y
     
@@ -117,7 +321,8 @@ let deleteWorkCenter workcenterId  =
 //Insert new workcenter in DB
 type InsertEvent = Event -> Result<unit>
 
-let insertEvent event = 
+let insertEvent event =
+    let ctx = Sql.GetDataContext()
     let ev = ctx.Timeentryapp.Event.Create()
     let dbev = toDBEvent event
     ev.Event    <- dbev.Event
@@ -133,6 +338,7 @@ let insertEvent event =
 
 type GetEventList = unit -> string list
 let getEventCodes () =
+    let ctx = Sql.GetDataContext()
     query {
         for event in ctx.Timeentryapp.Event do
             select event.Event
@@ -142,6 +348,7 @@ let getEventCodes () =
 type GetEventById = EventId -> WorkCenterInfo
 
 let getEventById id = 
+    let ctx = Sql.GetDataContext()
     query {
         for event in ctx.Timeentryapp.Event do
             where (event.EventId = id)
@@ -151,6 +358,7 @@ let getEventById id =
 
 type GetEventByCode = Event -> EventEntry
 let getEventByCode code = 
+    let ctx = Sql.GetDataContext()
     query {
         for event in ctx.Timeentryapp.Event do
             where (event.Event = code)
@@ -160,6 +368,7 @@ let getEventByCode code =
 
 type UpdateEvent = EventId -> Event -> Result<unit>
 let updateEvent eventId event = 
+    let ctx = Sql.GetDataContext()
     let ev = getEventById eventId
     let dbEv = toDBEvent event
     ev.Event    <- dbEv.Event
@@ -178,7 +387,8 @@ let updateEvent eventId event =
 
 //Insert new workcenter in DB
 type InsertWorkOrder = WorkOrderEntry -> Result<unit>
-let insertWorkOrderEntry workOrderEntry  = 
+let insertWorkOrderEntry workOrderEntry  =
+    let ctx = Sql.GetDataContext()
     let wo = ctx.Timeentryapp.Workorderentry.Create()
     let dbwo = toDBWorkOrderEntry workOrderEntry
     let workcenter = getWorkCenterByCode dbwo.WorkCenter
@@ -200,6 +410,7 @@ let insertWorkOrderEntry workOrderEntry  =
 
 type GetWorkOrderList = unit -> string list
 let getWorkOrderCodes () =
+    let ctx = Sql.GetDataContext()
     query {
         for workOrderEntry in ctx.Timeentryapp.Workorderentry do
             select workOrderEntry.WorkOrder
@@ -209,6 +420,7 @@ let getWorkOrderCodes () =
 type GetWorkOrderById = WorkOrderEntryId -> WorkOrderEntry
 
 let getWorkOrderById id = 
+    let ctx = Sql.GetDataContext()
     query {
         for workOrderEntry in ctx.Timeentryapp.Workorderentry do
             where (workOrderEntry.WorkOrderEntryId = id)
@@ -220,7 +432,8 @@ let getWorkOrderById id =
 
 //Insert new workcenter in DB
 type InsertEventEntry = EventEntry -> Result<unit>
-let insertEventEntry eventEntry  = 
+let insertEventEntry eventEntry  =
+    let ctx = Sql.GetDataContext()
     let ev = ctx.Timeentryapp.Evententry.Create()
     let dbev = toDBEventEntry eventEntry
     let event = getEventByCode (dbev.Event.Event)
@@ -239,6 +452,7 @@ let insertEventEntry eventEntry  =
     | ex -> Failure <| sprintf "%s" ex.Message
 
 let getEventEntryById id = 
+    let ctx = Sql.GetDataContext()
     query {
         for eventEntry in ctx.Timeentryapp.Evententry do
             where (eventEntry.EventEntryId = id)
@@ -247,7 +461,8 @@ let getEventEntryById id =
     |> Seq.head
 
 
-let updateEventEntry eventId eventEntry = 
+let updateEventEntry eventId eventEntry =
+    let ctx = Sql.GetDataContext()
     let ev = getEventEntryById eventId
     let dbev = toDBEventEntry eventEntry
     let event = getEventByCode (dbev.Event.Event)
@@ -265,6 +480,36 @@ let updateEventEntry eventId eventEntry =
     with
     | ex -> Failure <| sprintf "%s" ex.Message
 
+(* Time Record Functions *)
+
+type InsertTimeRecord = TimeRecord -> Result<unit>
+let insertTimeRecord : InsertTimeRecord =
+    fun timeRecord -> 
+        let ctx = Sql.GetDataContext()
+        let dbrecords = toDBTimeRecord timeRecord
+        dbrecords
+        |> List.map(fun record -> 
+            let tr = ctx.Timeentryapp.Timerecord.Create()
+            tr.Site         <- record.Site
+            tr.Shopfloor    <- record.ShopFloor
+            tr.TimeType     <- record.TimeType
+            tr.StartTime    <- record.StartTime
+            tr.EndTime      <- record.EndTime
+            tr.DurationHr   <- record.DurationHr
+            tr.Allocation   <- record.Allocation
+            tr.WorkOrderEntry
+
+    EndTime TIMESTAMP NOT NULL, 
+    DurationHr FLOAT(4,4) NOT NULL, 
+    NbPeople FLOAT(2,1) NOT NULL,
+    WorkOrderEntryId INT,
+    EventEntryId INT,
+    Allocation ENUM('workorder','event') NOT NULL,
+    RecordStatus ENUM('entered', 'validated') NOT NULL,
+    Active TINYINT(1) NOT NULL,
+    UserId INT NOT NULL,
+    LastUpdate TIMESTAMP NOT NULL,
+        )  
 
 (*
     query {
