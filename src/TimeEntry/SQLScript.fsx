@@ -286,35 +286,73 @@ let wc: WorkCenterInfo = { ShopFloorInfo = sf ; WorkCenter = WorkCenter "LB3"; S
 insertWorkCenter wc
 getWorkCenterCodes()
 
-type UpdateWorkCenter = WorkCenterId -> WorkCenterInfo -> Result<unit>
-let updateWorkCenter workcenterId workcenterinfo = 
-    let ctx = Sql.GetDataContext()
-    let wc = getWorkCenterById workcenterId
-    let dbWc = toDBWorkCenterInfo workcenterinfo
-    wc.Site <- dbWc.Site
-    wc.Shopfloor <- dbWc.ShopFloor
-    wc.WorkCenter <- dbWc.WorkCenter
-    wc.StartHour <- dbWc.StartHour
-    wc.EndHour <- dbWc.EndHour
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+type UpdateWorkCenter = WorkCenter -> WorkCenterInfo -> Result<unit>
+let updateWorkCenter: UpdateWorkCenter =
+    fun workcenter workcenterinfo ->
+        let (WorkCenter wc) = workcenter  
+        let ctx = Sql.GetDataContext()
+        let ctx = Sql.GetDataContext()
+        let wcinfoRes = 
+            query {
+                for workcenter in ctx.Timeentryapp.Workcenter do
+                    where (workcenter.WorkCenter = wc && workcenter.Active = 1y)
+                    select workcenter
+            }
+            |> Seq.toList
+            |> (function 
+                    | [] -> Failure <| sprintf "Workcenter not found for: %s" wc
+                    | [w] -> Success w
+                    | x::xs -> Failure <| sprintf "More than one workcenter found for: %s" wc)
 
-type DeleteWorkCenter = WorkCenterId -> Result<unit>
 
-let deleteWorkCenter workcenterId  = 
-    let ctx = Sql.GetDataContext()
-    let wc = getWorkCenterById workcenterId
-    wc.Active <- 0y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+        let dbWc = toDBWorkCenterInfo workcenterinfo
+        match wcinfoRes with
+            | Success wcinfo -> 
+                wcinfo.Shopfloor <- dbWc.ShopFloorInfo.ShopFloor
+                wcinfo.WorkCenter <- dbWc.WorkCenter
+                wcinfo.StartHour <- dbWc.StartHour
+                wcinfo.EndHour <- dbWc.EndHour
+                
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                | ex -> Failure <| sprintf "%s" ex.Message
+            | Failure msg -> Failure msg
+        
+
+type ToggleWorkCenter = Activation -> WorkCenter -> Result<unit>
+let toggleWorkCenter: ToggleWorkCenter =
+    fun activation workcenter -> 
+        let (WorkCenter wc) = workcenter
+        let ctx = Sql.GetDataContext()
+        let current, future = flags activation
+        let dbsOpt = 
+            query {
+                for workcenter in ctx.Timeentryapp.Workcenter do
+                    where (workcenter.WorkCenter = wc && workcenter.Active = current)
+                    select workcenter
+            }
+            |> Seq.tryHead
+
+        match dbsOpt with
+            | Some dbs -> 
+                dbs.Active <- future
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                    ex -> Failure ex.Message
+            | None -> Failure <| sprintf "Workcenter \'%s\' is missing or %s." wc activation.State
+
+///Desactivates a site if active
+type DeleteWorkCenter = WorkCenter -> Result<unit>
+let deleteWorkCenter: DeleteWorkCenter  = toggleWorkCenter Desactivate
+
+type ActivateWorkCenter = WorkCenter -> Result<unit>
+let activateWorkCenter: ActivateWorkCenter = toggleWorkCenter Activate
+
+//Test to write
 
 (* EVENT FUNCTIONS  *)
 
