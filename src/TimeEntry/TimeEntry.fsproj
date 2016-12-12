@@ -37,9 +37,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <Reference Include="FSharp.Data.SqlProvider">
-      <HintPath>..\..\packages\SQLProvider\lib\FSharp.Data.SqlProvider.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -129,4 +126,11 @@
       </ItemGroup>
     </When>
   </Choose>
+  <ItemGroup>
+    <Reference Include="FSharp.Data.SqlProvider">
+      <HintPath>..\..\packages\SQLProvider\lib\FSharp.Data.SqlProvider.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+  </ItemGroup>
 </Project>
