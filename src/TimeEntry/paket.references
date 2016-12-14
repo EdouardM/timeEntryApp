@@ -1,2 +1,4 @@
 FSharp.Core
-SQLprovider
+SQLProvider
+MySQL.Data
+FSharp.Configuration

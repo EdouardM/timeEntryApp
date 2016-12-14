@@ -80,8 +80,8 @@ CREATE TABLE WorkOrderEntry (
     WorkCenter VARCHAR(4) NOT NULL,
     ItemCode VARCHAR(6) NOT NULL,
     WorkOrderStatus ENUM('open','closed') NOT NULL,
-    TotalMachineTimeHr FLOAT(4,4) NOT NULL,
-    TotalLabourTimeHr FLOAT(4,4) NOT NULL,
+    TotalMachineTimeHr FLOAT(7,4) NOT NULL,
+    TotalLabourTimeHr FLOAT(7,4) NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (WorkOrder)
 );
@@ -92,7 +92,7 @@ CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenter);
 Create Event table  
 ===================================================== */
 
-DROP TABLE  IF EXISTS Event;
+DROP TABLE  IF EXISTS Event;    
 
 CREATE TABLE Event (
     Event VARCHAR(4) NOT NULL,
@@ -142,7 +142,7 @@ CREATE TABLE TimeRecord (
     EndTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01', 
     DurationHr FLOAT(4,4) NOT NULL, 
     NbPeople FLOAT(2,1) NOT NULL,
-    WorkOrderEntryId INT,
+    WorkOrder VARCHAR(10),
     EventEntryId INT,
     Allocation ENUM('workorder','event') NOT NULL,
     RecordStatus ENUM('entered', 'validated') NOT NULL,

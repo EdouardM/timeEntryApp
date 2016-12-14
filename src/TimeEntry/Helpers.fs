@@ -52,6 +52,10 @@ module Conversions =
         | true -> 1y
         | false -> 0y
 
+    let sbyteTobool = function
+        | 0y -> false
+        | _  -> true
+
 module ConstrainedString = 
 //https://fsharpforfunandprofit.com/posts/designing-with-types-more-semantic-types/
 

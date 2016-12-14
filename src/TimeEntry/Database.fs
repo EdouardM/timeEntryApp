@@ -63,8 +63,8 @@ namespace TimeEntry
                     WorkOrder : string
                     WorkCenter : string
                     ItemCode  : string
-                    TotalMachineTimeHr : float
-                    TotalLabourTimeHr : float
+                    TotalMachineTimeHr : float32
+                    TotalLabourTimeHr : float32
                     WorkOrderStatus    : string
                 }
 

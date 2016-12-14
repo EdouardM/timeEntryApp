@@ -64,7 +64,7 @@ module DomainTypes =
         | Open
         | Closed
 
-    type TimeHr = TimeHr of float
+    type TimeHr = TimeHr of float32
 
     type WorkOrderEntry =
         {
@@ -94,12 +94,13 @@ module DomainTypes =
             | WithInfo      of string
             | WithoutInfo   of string 
  
-    type EventId = uint32
 
     type EventEntry = 
         | EventWithInfo         of Event * EventInfo 
         | EventWithoutInfo      of Event 
         | EventZeroPerson       of Event
+
+    type EventEntryId = uint32
                      
     type TimeAllocation = 
         //productive time record against work Order

@@ -34,8 +34,14 @@ module Constructors =
 
     let createHour = 
         function
-            | h when h > 23u -> Failure "Hour can't be bigger than 23"
+            | h when h > 23u -> Failure "Hour can't be bigger than 23."
             | h -> Success (Hour h)
+
+    let createTimeHr = 
+        function
+            | h when h < 0.f        -> Failure "Total hour can't be negative."
+            | h when h > 999.9999f  -> Failure "Total hour can't be bigger than 999.9999 hr."
+            | h -> Success (TimeHr h)
 
     let createWorkCenterInfo shopFloor workCenter startTime endTime = 
         { WorkCenter = workCenter; ShopFloorInfo = shopFloor; StartHour = startTime; EndHour = endTime }
@@ -71,11 +77,6 @@ module Constructors =
             | "closed"  ->  Success Closed
             | _         ->  Failure "Invalid workorder status."
 
-    let createTimeHr = 
-        function 
-            | t when t < 0.  -> Failure "Time must be positive."
-            | t -> Success (TimeHr t)
-
     let createWorkOrderEntry workOrder workCenter itemCode totalMachine totalLabour status = 
         { 
             WorkOrder = workOrder; 
@@ -96,6 +97,17 @@ module Constructors =
             | true, false       -> Success (WithInfo event)
             | false, false      -> Success (WithoutInfo event) 
             | true, true        -> Failure "Event with zero person can't carry information."
+
+
+    let extractEvent = function 
+            | WithInfo ev -> ev
+            | ZeroPerson ev -> ev
+            | WithoutInfo ev -> ev
+
+    let extractEventfromEntry = function
+            | EventWithInfo (ev, info) -> ev
+            | EventWithoutInfo ev -> ev
+            | EventZeroPerson ev -> ev
 
     let createEventEntry (event:Event) (eventInfo: EventInfo option) =
         match event, eventInfo with

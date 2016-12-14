@@ -1,5 +1,8 @@
 // reference the type provider dll
 #r "../../packages/SQLProvider/lib/FSharp.Data.SqlProvider.dll"
+#r "System.Configuration"
+#r "../../packages/FSharp.Configuration/lib/net40/FSharp.Configuration.dll"
+
 
 #load "./Helpers.fs" 
 #load "./DomainTypes.fs"
@@ -14,20 +17,27 @@ open TimeEntry.Constructors
 open TimeEntry.DataBase
 
 
+
+open System.Configuration
+open FSharp.Configuration
+
+let t = ConfigurationManager.ConnectionStrings.Item("Dev").ConnectionString
+
 //Connection string described here: https://www.connectionstrings.com/mysql/
 let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeentryapp;User=root;Password="
 
 //Path to mysql ODBC divers: http://fsprojects.github.io/SQLProvider/core/parameters.html
-
 let [<Literal>] ResolutionPath = __SOURCE_DIRECTORY__ + @"/../../packages/MySql.Data/lib/net45"
 
-type Sql = SqlDataProvider< 
-              ConnectionString = ConnectionString,
-              DatabaseVendor = Common.DatabaseProviderTypes.MYSQL,
-              ResolutionPath = ResolutionPath,
-              IndividualsAmount = 1000,
-              UseOptionTypes = true,
-              Owner = "timeentryapp" >
+type Sql = SqlDataProvider<
+            ConnectionString = ConnectionString,
+            DatabaseVendor = Common.DatabaseProviderTypes.MYSQL,
+            ResolutionPath = ResolutionPath,
+            IndividualsAmount = 1000,
+            UseOptionTypes = true,
+            Owner = "timeentryapp" >
+let t = ConfigurationManager.ConnectionStrings |> Seq.cast<ConnectionStringSettings>
+t |> Seq.iter (fun conn -> printfn "%s" conn.ConnectionString)
 
 type Activation = 
     | Activate
@@ -43,76 +53,12 @@ let flags =
         | Activate -> 0y, 1y
         | Desactivate -> 1y, 0y
 
-(* SITE FUNCTIONS *)
-type GetSiteCodes = unit -> string list
 
-///Returns a list of codes of active sites
-let getSiteCodes: GetSiteCodes =
-    fun () ->
-        let ctx = Sql.GetDataContext()
-        query {
-            for site in ctx.Timeentryapp.Site do
-                where (site.Active = 1y)
-                select site.Site
-        }
-        |> Seq.toList
-
-getSiteCodes()
-
-type InsertSite = string -> Result<unit>
-
-///Inserts a new site
-let insertSite: InsertSite =
-    fun site ->
-        let ctx = Sql.GetDataContext()
-        let dbs = ctx.Timeentryapp.Site.Create()
-        dbs.Site <- site
-        dbs.Active <- 1y
-        
-        try
-            ctx.SubmitUpdates()
-            |> Success
-        with 
-            ex -> Failure ex.Message
-
-insertSite ("F23")
-getSiteCodes()
-
-type ToggleSite = Activation -> Site -> Result<unit>
-let toggleSite: ToggleSite =
-    fun activation site -> 
-        let (Site s) = site
-        let ctx = Sql.GetDataContext()
-        let current, future = flags activation
-        let dbsOpt = 
-            query {
-                for site in ctx.Timeentryapp.Site do
-                    where (site.Site = s && site.Active = current)
-                    select site
-            }
-            |> Seq.tryHead
-        match dbsOpt with
-            | Some dbs -> 
-                dbs.Active <- future
-                try 
-                    ctx.SubmitUpdates()
-                    |> Success
-                with
-                    ex -> Failure ex.Message
-            | None -> Failure <| sprintf "Site \'%s\' is missing or %s." s activation.State
-
-///Desactivates a site if active
-type DeleteSite = Site -> Result<unit>
-let deleteSite: DeleteSite  = toggleSite Desactivate
-
-type ActivateSite = Site -> Result<unit>
-let activateSite: ActivateSite = toggleSite Activate
-
-
-deleteSite (Site "F23")
-activateSite(Site "F23")
-getSiteCodes()
-
+let onlyOne name key = 
+    function
+        | [] -> Failure <| sprintf "%s not found for: %s" name key
+        | [x] -> Success x
+        | x::xs -> Failure <| sprintf "More than one %s found for: %s" name key
 
 (* SHOPFLOOR FUNCTIONS *)
 type GetShopfloorCodes = unit -> string list
@@ -203,16 +149,15 @@ let toggleShopfloor: ToggleShopfloor =
             | None -> Failure <| sprintf "Shopfloor \'%s\' is missing or %s." s activation.State
 
 ///Desactivates a site if active
-type DeleteShopfloor = ShopFloor -> Result<unit>
-let deleteShopfloor: DeleteShopfloor  = toggleShopfloor Desactivate
+type DesactivateShopfloor = ShopFloor -> Result<unit>
+let desactivateShopfloor: DesactivateShopfloor  = toggleShopfloor Desactivate
 
 type ActivateShopfloor = ShopFloor -> Result<unit>
 let activateShopfloor: ActivateShopfloor = toggleShopfloor Activate
 
 
-deleteShopfloor(ShopFloor "F231A")
+desactivateShopfloor(ShopFloor "F231A")
 activateShopfloor(ShopFloor "F231A")
-
 getShopFloorCodes()
 
 (* WORKCENTER FUNCTIONS  *)
@@ -289,10 +234,9 @@ getWorkCenterCodes()
 type UpdateWorkCenter = WorkCenter -> WorkCenterInfo -> Result<unit>
 let updateWorkCenter: UpdateWorkCenter =
     fun workcenter workcenterinfo ->
-        let (WorkCenter wc) = workcenter  
+        let (WorkCenter wc) = workcenter
         let ctx = Sql.GetDataContext()
-        let ctx = Sql.GetDataContext()
-        let wcinfoRes = 
+        let wcinfoRes =
             query {
                 for workcenter in ctx.Timeentryapp.Workcenter do
                     where (workcenter.WorkCenter = wc && workcenter.Active = 1y)
@@ -303,7 +247,6 @@ let updateWorkCenter: UpdateWorkCenter =
                     | [] -> Failure <| sprintf "Workcenter not found for: %s" wc
                     | [w] -> Success w
                     | x::xs -> Failure <| sprintf "More than one workcenter found for: %s" wc)
-
 
         let dbWc = toDBWorkCenterInfo workcenterinfo
         match wcinfoRes with
@@ -346,82 +289,172 @@ let toggleWorkCenter: ToggleWorkCenter =
             | None -> Failure <| sprintf "Workcenter \'%s\' is missing or %s." wc activation.State
 
 ///Desactivates a site if active
-type DeleteWorkCenter = WorkCenter -> Result<unit>
-let deleteWorkCenter: DeleteWorkCenter  = toggleWorkCenter Desactivate
+type DesactivateWorkCenter = WorkCenter -> Result<unit>
+let desactivateWorkCenter: DesactivateWorkCenter  = toggleWorkCenter Desactivate
 
 type ActivateWorkCenter = WorkCenter -> Result<unit>
 let activateWorkCenter: ActivateWorkCenter = toggleWorkCenter Activate
 
 //Test to write
+getWorkCenterCodes()
+desactivateWorkCenter (WorkCenter "F1")
+activateWorkCenter (WorkCenter "F1")
+
 
 (* EVENT FUNCTIONS  *)
+type GetEventCodes = unit -> string list
+let getEventCodes: GetEventCodes =
+    fun () -> 
+        let ctx = Sql.GetDataContext()
+        query {
+            for event in ctx.Timeentryapp.Event do
+                where (event.Active = 1y)
+                select event.Event
+        }
+        |> Seq.toList
+
+getEventCodes()
 
 //Insert new workcenter in DB
 type InsertEvent = Event -> Result<unit>
 
-let insertEvent event =
-    let ctx = Sql.GetDataContext()
-    let ev = ctx.Timeentryapp.Event.Create()
-    let dbev = toDBEvent event
-    ev.Event    <- dbev.Event
-    ev.HasInfo  <- boolToSbyte dbev.HasInfo
-    ev.AllowZeroPerson <- boolToSbyte dbev.AllowZeroPerson
-    ev.Active <- 1y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+let insertEvent: InsertEvent =
+    fun event -> 
+        let ctx = Sql.GetDataContext()
+        let ev = ctx.Timeentryapp.Event.Create()
+        let dbev = toDBEvent event
+        ev.Event    <- dbev.Event
+        ev.HasInfo  <- boolToSbyte dbev.HasInfo
+        ev.AllowZeroPerson <- boolToSbyte dbev.AllowZeroPerson
+        ev.Active <- 1y
+        
+        try 
+            ctx.SubmitUpdates()
+            |> Success
+        with
+        | ex -> Failure <| sprintf "%s" ex.Message
 
-type GetEventList = unit -> string list
-let getEventCodes () =
-    let ctx = Sql.GetDataContext()
-    query {
-        for event in ctx.Timeentryapp.Event do
-            select event.Event
-    }
-    |> Seq.toArray
 
-type GetEventById = EventId -> WorkCenterInfo
+let ev = ZeroPerson "NET"
+insertEvent(ev)
+getEventCodes()
 
-let getEventById id = 
-    let ctx = Sql.GetDataContext()
-    query {
-        for event in ctx.Timeentryapp.Event do
-            where (event.EventId = id)
-            select event
-    }
-    |> Seq.head
 
-type GetEventByCode = Event -> EventEntry
-let getEventByCode code = 
-    let ctx = Sql.GetDataContext()
-    query {
-        for event in ctx.Timeentryapp.Event do
-            where (event.Event = code)
-            select event
-    }
-    |> Seq.head
+type GetEvent = Event -> Result<DBEvent>
 
-type UpdateEvent = EventId -> Event -> Result<unit>
-let updateEvent eventId event = 
-    let ctx = Sql.GetDataContext()
-    let ev = getEventById eventId
-    let dbEv = toDBEvent event
-    ev.Event    <- dbEv.Event
-    ev.HasInfo  <- boolToSbyte dbEv.HasInfo
-    ev.AllowZeroPerson <- boolToSbyte dbEv.AllowZeroPerson
-    ev.Active <- 1y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+let getEvent: GetEvent =
+    fun ev ->
+        let  e = extractEvent ev  
+        let ctx = Sql.GetDataContext()
+        query {
+            for event in ctx.Timeentryapp.Event do
+                where (event.Event = e && event.Active = 1y)
+                select event
+        }
+        |> Seq.map (fun (event) -> 
+                {
+                            DBEvent.Event   = event.Event
+                            HasInfo      = sbyteTobool event.HasInfo
+                            AllowZeroPerson = sbyteTobool event.AllowZeroPerson
+                }
+            )
+        |> Seq.toList
+        |> onlyOne "Event" e
+
+//TESTS
+getEvent (WithInfo "NET")
+getEvent (ZeroPerson "EOD")
+
+type UpdateEvent = Event -> Result<unit>
+let updateEvent: UpdateEvent =
+    fun ev -> 
+        let  e = extractEvent ev  
+        let ctx = Sql.GetDataContext()
+        let eventRes = 
+            query {
+                for event in ctx.Timeentryapp.Event do
+                    where (event.Event = e && event.Active = 1y)
+                    select event
+            }
+            |> Seq.toList
+            |> (function 
+                    | [] -> Failure <| sprintf "Event not found for: %s" e
+                    | [x] -> Success x
+                    | x::xs -> Failure <| sprintf "More than one event found for: %s" e)
+
+        let dbev = toDBEvent ev
+        match eventRes with
+            | Success event -> 
+                event.HasInfo <- boolToSbyte  dbev.HasInfo
+                event.AllowZeroPerson <- boolToSbyte dbev.AllowZeroPerson
+                
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                | ex -> Failure <| sprintf "%s" ex.Message
+            | Failure msg -> Failure msg
+        
+
+updateEvent (WithoutInfo "NET")
+getEvent(WithoutInfo "NET")
+
+updateEvent (WithInfo "NET")
+getEvent(WithoutInfo "NET")
+
+
+type ToggleEvent = Activation -> Event -> Result<unit>
+let toggleEvent: ToggleEvent =
+    fun activation event -> 
+        let ev = extractEvent event
+        let ctx = Sql.GetDataContext()
+        let current, future = flags activation
+        let dbsOpt = 
+            query {
+                for event in ctx.Timeentryapp.Event do
+                    where (event.Event = ev && event.Active = current)
+                    select event
+            }
+            |> Seq.tryHead
+
+        match dbsOpt with
+            | Some dbs -> 
+                dbs.Active <- future
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                    ex -> Failure ex.Message
+            | None -> Failure <| sprintf "Event \'%s\' is missing or %s." ev activation.State
+
+type DesactivateEvent = Event -> Result<unit>
+let desactivateEvent: DesactivateEvent  = toggleEvent Desactivate
+
+type ActivateEvent = Event -> Result<unit>
+let activateEvent: ActivateEvent = toggleEvent Activate
+
+desactivateEvent (WithInfo "NET")
+activateEvent    (WithInfo "NET")
+
+updateEvent (WithoutInfo "NET")
+getEvent (WithoutInfo "NET")
 
 
 (* WorkOrderEntry Functions *)
+
+type GetWorkOrderCodes = unit -> string list
+let getWorkOrderCodes: GetWorkOrderCodes =
+    fun () -> 
+        let ctx = Sql.GetDataContext()
+        query {
+            for workorder in ctx.Timeentryapp.Workorderentry do
+                where (workorder.Active = 1y)
+                select workorder.WorkOrder
+        }
+        |> Seq.toList
+
+getWorkOrderCodes()
+
 
 //Insert new workcenter in DB
 type InsertWorkOrder = WorkOrderEntry -> Result<unit>
@@ -429,114 +462,208 @@ let insertWorkOrderEntry workOrderEntry  =
     let ctx = Sql.GetDataContext()
     let wo = ctx.Timeentryapp.Workorderentry.Create()
     let dbwo = toDBWorkOrderEntry workOrderEntry
-    let workcenter = getWorkCenterByCode dbwo.WorkCenter
+    let workcenterRes = getWorkCenter workOrderEntry.WorkCenter
+    match workcenterRes with
+        | Success wc -> 
+            wo.WorkOrder            <- dbwo.WorkOrder
+            wo.ItemCode             <- dbwo.ItemCode
+            wo.WorkCenter           <- wc.WorkCenter
+            wo.WorkOrderStatus      <- dbwo.WorkOrderStatus
+            wo.TotalMachineTimeHr   <- (float32 0.)
+            wo.TotalLabourTimeHr    <- (float32 0.)
+            wo.Active <- 1y
+            
+            try 
+                ctx.SubmitUpdates()
+                |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+        | Failure msg -> Failure msg
 
-    wo.WorkOrder    <- dbwo.WorkOrder
-    wo.ItemCode  <- dbwo.ItemCode
-    wo.WorkCenterId <- workcenter.WorkCenterId
-    wo.WorkOrderStatus <- dbwo.WorkOrderStatus
-    wo.TotalMachineTimeHr <- (float32 0.)
-    wo.TotalLabourTimeHr <- (float32 0.)
-    wo.Active <- 1y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+
+let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
+getWorkCenterCodes()
+insertWorkOrderEntry wo1
+getWorkOrderCodes()
 
 
-type GetWorkOrderList = unit -> string list
-let getWorkOrderCodes () =
-    let ctx = Sql.GetDataContext()
-    query {
-        for workOrderEntry in ctx.Timeentryapp.Workorderentry do
-            select workOrderEntry.WorkOrder
-    }
-    |> Seq.toArray
+type GetWorkOrder = WorkOrder -> Result<DBWorkOrderEntry>
+let getWorkOrder: GetWorkOrder =
+    fun workOrder ->
+        let (WorkOrder wo) = workOrder 
+        let ctx = Sql.GetDataContext()
+        query {
+            for workorder in ctx.Timeentryapp.Workorderentry do
+                where (workorder.WorkOrder = wo && workorder.Active = 1y)
+                select workorder
+        }
+        |> Seq.map(fun workorder -> 
+            {
+                DBWorkOrderEntry.WorkOrder   = workorder.WorkOrder
+                WorkCenter                   = workorder.WorkCenter
+                ItemCode                     = workorder.ItemCode
+                TotalMachineTimeHr           = workorder.TotalMachineTimeHr
+                TotalLabourTimeHr            = workorder.TotalLabourTimeHr
+                WorkOrderStatus              =  workorder.WorkOrderStatus
+            }
+        )
+        |> Seq.toList
+        |> onlyOne "WorkOrder" wo
 
-type GetWorkOrderById = WorkOrderEntryId -> WorkOrderEntry
+getWorkOrder (WorkOrder "12243")
 
-let getWorkOrderById id = 
-    let ctx = Sql.GetDataContext()
-    query {
-        for workOrderEntry in ctx.Timeentryapp.Workorderentry do
-            where (workOrderEntry.WorkOrderEntryId = id)
-            select workOrderEntry
-    }
-    |> Seq.head
+getWorkOrder (WorkOrder "12242")
+
+
+type UpdateWorkOrderEntry = WorkOrderEntry -> Result<unit>
+let updateWorkOrderEntry: UpdateWorkOrderEntry =
+    fun workOrderEntry -> 
+        let (WorkOrder wo) =  workOrderEntry.WorkOrder
+        let ctx = Sql.GetDataContext()
+        let workOrderEntryRes = 
+            query {
+                for workorder in ctx.Timeentryapp.Workorderentry do
+                    where (workorder.WorkOrder = wo && workorder.Active = 1y)
+                    select workorder
+            }
+            |> Seq.toList
+            |> onlyOne "WokOrder" wo
+
+        let dbwo = toDBWorkOrderEntry workOrderEntry
+        match workOrderEntryRes with
+            | Success wo -> 
+                wo.WorkCenter            <- dbwo.WorkCenter
+                wo.ItemCode              <- dbwo.ItemCode
+                wo.TotalMachineTimeHr    <- dbwo.TotalMachineTimeHr
+                wo.TotalLabourTimeHr     <- dbwo.TotalLabourTimeHr
+                wo.WorkOrderStatus       <- dbwo.WorkOrderStatus
+                
+                try 
+                    ctx.SubmitUpdates()
+                    |> Success
+                with
+                | ex -> Failure <| sprintf "%s" ex.Message
+            | Failure msg -> Failure msg
+
+let wo1' = {wo1 with TotalMachineTimeHr = TimeHr 1000.f}
+updateWorkOrderEntry wo1'
+getWorkOrder (WorkOrder "12243")
+
 
 (* EventEntry Functions *)
 
 //Insert new workcenter in DB
 type InsertEventEntry = EventEntry -> Result<unit>
-let insertEventEntry eventEntry  =
-    let ctx = Sql.GetDataContext()
-    let ev = ctx.Timeentryapp.Evententry.Create()
-    let dbev = toDBEventEntry eventEntry
-    let event = getEventByCode (dbev.Event.Event)
+let insertEventEntry: InsertEventEntry =
+    fun eventEntry  ->
+        let e = extractEventfromEntry eventEntry
+        let ctx = Sql.GetDataContext()
+        let ev = ctx.Timeentryapp.Evententry.Create()
+        let dbev = toDBEventEntry eventEntry
+        let eventRes = getEvent e
+        match eventRes with
+        | Success event -> 
+            ev.Event    <- event.Event
+            ev.Machine  <- dbev.Machine
+            ev.Cause    <- dbev.Cause
+            ev.Solution <- dbev.Solution
+            ev.Comments <- dbev.Comments
+            ev.Active   <- 1y
+            
+            try 
+                ctx.SubmitUpdates()
+                |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+        | Failure msg -> Failure msg
 
-    ev.EventId  <- event.EventId
-    ev.Machine  <- dbev.Machine
-    ev.Cause    <- dbev.Cause
-    ev.Solution <- dbev.Solution
-    ev.Comments <- dbev.Comments
-    ev.Active <- 1y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+let eventEntry = EventWithoutInfo (WithoutInfo "NET")
 
-let getEventEntryById id = 
-    let ctx = Sql.GetDataContext()
-    query {
-        for eventEntry in ctx.Timeentryapp.Evententry do
-            where (eventEntry.EventEntryId = id)
-            select eventEntry
-    }
-    |> Seq.head
+insertEventEntry eventEntry
+
+type GetEventEntry = EventEntryId -> Result<DBEventEntry>
+
+let getEventEntry: GetEventEntry = 
+    fun eventId -> 
+        let ctx = Sql.GetDataContext()
+        query {
+                for evententry in ctx.Timeentryapp.Evententry do
+                    join event in ctx.Timeentryapp.Event on (evententry.Event = event.Event)
+                    where (evententry.EventEntryId = eventId && evententry.Active = 1y)
+                    select (event, evententry)
+            }
+            |> Seq.map(fun (event, evententry) -> 
+                {
+                    Event = { DBEvent.Event = event.Event;
+                            HasInfo =  sbyteTobool event.HasInfo; 
+                            AllowZeroPerson = sbyteTobool event.AllowZeroPerson }
+                    Machine = evententry.Machine  
+                    Cause   = evententry.Cause
+                    Comments = evententry.Comments
+                    Solution = evententry.Solution
+                })
+            |> Seq.toList
+            |> onlyOne "EventEntry" (string eventId)
 
 
-let updateEventEntry eventId eventEntry =
-    let ctx = Sql.GetDataContext()
-    let ev = getEventEntryById eventId
-    let dbev = toDBEventEntry eventEntry
-    let event = getEventByCode (dbev.Event.Event)
 
-    ev.EventId  <- event.EventId
-    ev.Machine  <- dbev.Machine
-    ev.Cause    <- dbev.Cause
-    ev.Solution <- dbev.Solution
-    ev.Comments <- dbev.Comments
-    ev.Active   <- 1y
-    
-    try 
-        ctx.SubmitUpdates()
-        |> Success
-    with
-    | ex -> Failure <| sprintf "%s" ex.Message
+getEventEntry (2u)
+
+type UpdatEventEntry = EventEntryId -> EventEntry -> Result<unit>
+
+let updateEventEntry: UpdatEventEntry =
+    fun eventId eventEntry ->
+        let ctx = Sql.GetDataContext()
+        let dbev = toDBEventEntry eventEntry
+        
+        let eventEntryRes = 
+            query {
+                for evententry in ctx.Timeentryapp.Evententry do
+                    where (evententry.EventEntryId = eventId && evententry.Active = 1y)
+                    select evententry
+            }
+            |> Seq.toList
+            |> onlyOne "EventEntry" (string eventId)
+
+        match eventEntryRes with
+            | Success ev -> 
+                    ev.Machine  <- dbev.Machine
+                    ev.Cause    <- dbev.Cause
+                    ev.Solution <- dbev.Solution
+                    ev.Comments <- dbev.Comments
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                    | ex -> Failure <| sprintf "%s" ex.Message
+            | Failure msg -> Failure msg
 
 (* Time Record Functions *)
 
 type InsertTimeRecord = TimeRecord -> Result<unit>
 let insertTimeRecord : InsertTimeRecord =
-    fun timeRecord -> 
+    fun timeRecord ->
         let ctx = Sql.GetDataContext()
-        let dbrecords = toDBTimeRecord timeRecord
+        let dbrecords =      timeRecord
         dbrecords
         |> List.map(fun record -> 
             let tr = ctx.Timeentryapp.Timerecord.Create()
-            tr.Site         <- record.Site
-            tr.Shopfloor    <- record.ShopFloor
-            tr.TimeType     <- record.TimeType
-            tr.StartTime    <- record.StartTime
-            tr.EndTime      <- record.EndTime
-            tr.DurationHr   <- record.DurationHr
-            tr.Allocation   <- record.Allocation
-            tr.WorkOrderEntry
-
+            tr.Site             <- record.Site
+            tr.Shopfloor        <- record.ShopFloor
+            tr.TimeType         <- record.TimeType
+            tr.StartTime        <- record.StartTime
+            tr.EndTime          <- record.EndTime
+            tr.DurationHr       <- record.DurationHr
+            tr.Allocation       <- record.Allocation
+            tr.WorkOrder        <- record.DBWorkOrderEntry.WorkOrder
+            try 
+                        ctx.SubmitUpdates()
+                        |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+            )
+        //Update work ORder to add time...
+(*
     EndTime TIMESTAMP NOT NULL, 
     DurationHr FLOAT(4,4) NOT NULL, 
     NbPeople FLOAT(2,1) NOT NULL,
@@ -548,7 +675,7 @@ let insertTimeRecord : InsertTimeRecord =
     UserId INT NOT NULL,
     LastUpdate TIMESTAMP NOT NULL,
         )  
-
+*)
 (*
     query {
     for student in db.Student do
