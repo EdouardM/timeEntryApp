@@ -15,10 +15,10 @@ module Constructors =
     ///Create a valid number of people:
     ///Number of people can only be integer or half of integer and positive
     let createNbPeople nb = 
-        if nb >= 0. then
+        if nb >= 0.f then
             let r = floor nb
             let d = nb - r
-            if d >= 0.5 then Success (NbPeople (r + 0.5))
+            if d >= 0.5f then Success (NbPeople (r + 0.5f))
             else Success(NbPeople r)
         else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
 
@@ -62,7 +62,7 @@ module Constructors =
 
     let createTimeEntry timeType nbPeople duration =
         match timeType, nbPeople with
-            | MachineTime, (NbPeople 0.)  -> MachineOnly duration
+            | MachineTime, (NbPeople 0.f)  -> MachineOnly duration
             | LabourTime,  nbPeople       -> LabourOnly (duration, nbPeople)
             | MachineTime, nbPeople       -> MachineAndLabour (duration, nbPeople) 
 

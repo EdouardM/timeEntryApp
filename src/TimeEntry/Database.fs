@@ -195,10 +195,10 @@ namespace TimeEntry
                     TimeType        : string
                     StartTime       : DateTime
                     EndTime         : DateTime
-                    DurationHr      : float
-                    NbPeople        : float
+                    DurationHr      : float32
+                    NbPeople        : float32
                     Allocation      : string
-                    WorkOrderEntry   : DBWorkOrderEntry option
+                    WorkOrderEntry  : DBWorkOrderEntry option
                     EventEntry      : DBEventEntry option
                     Status          : string
                 }
@@ -237,8 +237,8 @@ namespace TimeEntry
                             TimeType        = "machine"
                             StartTime       = duration.StartTime
                             EndTime         = duration.EndTime
-                            DurationHr      = duration.ToHr
-                            NbPeople        = 0.
+                            DurationHr      = float32 duration.ToHr
+                            NbPeople        = 0.f
                             Allocation      = allocationToString time.Allocation
                             WorkOrderEntry  = None
                             EventEntry      = None
@@ -258,8 +258,8 @@ namespace TimeEntry
                             TimeType    = "machine" 
                             StartTime   = duration.StartTime
                             EndTime     = duration.EndTime
-                            DurationHr  = duration.ToHr
-                            NbPeople    = 0.
+                            DurationHr  = float32 duration.ToHr
+                            NbPeople    = 0.f
                             Allocation  = allocationToString time.Allocation
                             WorkOrderEntry = None
                             EventEntry  = None
@@ -280,7 +280,7 @@ namespace TimeEntry
                             TimeType    = "labour" 
                             StartTime   = duration.StartTime
                             EndTime     = duration.EndTime
-                            DurationHr  = duration.ToHr
+                            DurationHr  = float32 duration.ToHr
                             NbPeople    = nb
                             Allocation  = allocationToString time.Allocation
                             WorkOrderEntry = None

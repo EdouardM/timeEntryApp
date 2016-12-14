@@ -1,3 +1,5 @@
+-- https://github.com/fsprojects/SQLProvider/tree/master/src/DatabaseScripts/MySql
+
 -- https://github.com/swlaschin/low-risk-ways-to-use-fsharp-at-work/blob/master/SqlInFsharp/CreateTables.sql
 USE timeentryapp;
 
@@ -140,20 +142,37 @@ CREATE TABLE TimeRecord (
     TimeType ENUM('machine', 'labour') NOT NULL,
     StartTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
     EndTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01', 
-    DurationHr FLOAT(4,4) NOT NULL, 
-    NbPeople FLOAT(2,1) NOT NULL,
+    DurationHr FLOAT(7,4) NOT NULL, 
+    Allocation ENUM('workorder','event') NOT NULL,
+    NbPeople FLOAT(3,1) NOT NULL,
     WorkOrder VARCHAR(10),
     EventEntryId INT,
-    Allocation ENUM('workorder','event') NOT NULL,
     RecordStatus ENUM('entered', 'validated') NOT NULL,
     Active TINYINT(1) NOT NULL,
-    UserId INT NOT NULL,
+    --TODO Add user who created / modified record
+    --UserId INT NOT NULL,
     LastUpdate TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
     PRIMARY KEY (TimeRecordId)
 );
 
 CREATE INDEX SiteId ON TimeRecord (Site);
 CREATE INDEX ShopfloorId ON TimeRecord (Shopfloor);
-CREATE INDEX UserId ON TimeRecord (UserId);
-CREATE INDEX WorkOrderEntryId ON TimeRecord (WorkOrderEntryId);
+-- CREATE INDEX UserId ON TimeRecord (UserId);
+CREATE INDEX WorkOrderEntryId ON TimeRecord (WorkOrder);
 CREATE INDEX EventEntryId ON TimeRecord (EventEntryId);
+
+
+/* =====================================================
+Create User table  
+===================================================== */
+
+DROP TABLE  IF EXISTS TimeRecord;
+
+CREATE TABLE User (
+    UserId INT NOT NULL auto_increment,
+    UserRealName VARCHAR(50) NOT NULL,
+    AllSites TINYINT(1) NOT NULL,
+    Site VARCHAR(4) NOT NULL,
+    AuthLevel ENUM('user', 'approver', 'admin') NOT NULL,
+    Active TINYINT(1) NOT NULL
+    PRIMARY KEY (UserId));

@@ -46,6 +46,16 @@ module Result =
             | Some x -> Success x
             | None   -> Failure msg 
 
+    //https://fsharpforfunandprofit.com/posts/elevated-world-4/#traverse    
+    let rec traverse f list = 
+        let cons head tail = head::tail
+        match list with
+            | [] -> retn []
+            | head::tail -> retn cons <*> (f head) <*> (traverse f tail)
+    
+    //https://fsharpforfunandprofit.com/posts/elevated-world-4/#sequence
+    let sequence x = traverse id x
+
 module Conversions = 
     
     let boolToSbyte = function

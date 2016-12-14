@@ -497,16 +497,7 @@ let getWorkOrder: GetWorkOrder =
                 where (workorder.WorkOrder = wo && workorder.Active = 1y)
                 select workorder
         }
-        |> Seq.map(fun workorder -> 
-            {
-                DBWorkOrderEntry.WorkOrder   = workorder.WorkOrder
-                WorkCenter                   = workorder.WorkCenter
-                ItemCode                     = workorder.ItemCode
-                TotalMachineTimeHr           = workorder.TotalMachineTimeHr
-                TotalLabourTimeHr            = workorder.TotalLabourTimeHr
-                WorkOrderStatus              =  workorder.WorkOrderStatus
-            }
-        )
+        |> Seq.map(fun workorder -> workorder.MapTo<DBWorkOrderEntry>())
         |> Seq.toList
         |> onlyOne "WorkOrder" wo
 
@@ -551,6 +542,13 @@ getWorkOrder (WorkOrder "12243")
 
 
 (* EventEntry Functions *)
+let lastEventEntryId() = 
+    let ctx = Sql.GetDataContext()
+    query {
+        for evententry in ctx.Timeentryapp.Evententry do
+            select evententry.EventEntryId
+            last }
+
 
 //Insert new workcenter in DB
 type InsertEventEntry = EventEntry -> Result<unit>
@@ -610,7 +608,6 @@ let getEventEntry: GetEventEntry =
 getEventEntry (2u)
 
 type UpdatEventEntry = EventEntryId -> EventEntry -> Result<unit>
-
 let updateEventEntry: UpdatEventEntry =
     fun eventId eventEntry ->
         let ctx = Sql.GetDataContext()
@@ -640,56 +637,47 @@ let updateEventEntry: UpdatEventEntry =
 
 (* Time Record Functions *)
 
-type InsertTimeRecord = TimeRecord -> Result<unit>
+let insertDBTimeRecord : Sql.dataContext -> DBTimeRecord ->  EventEntryId option -> Result<unit> = 
+    fun ctx record eventId -> 
+        let wo = Option.map(fun dbwo -> dbwo.WorkOrder) record.WorkOrderEntry
+        let tr = ctx.Timeentryapp.Timerecord.Create()
+        tr.Site             <- record.Site
+        tr.Shopfloor        <- record.ShopFloor
+        tr.TimeType         <- record.TimeType
+        tr.StartTime        <- record.StartTime
+        tr.EndTime          <- record.EndTime
+        tr.DurationHr       <- record.DurationHr
+        tr.Allocation       <- record.Allocation
+        tr.NbPeople         <- record.NbPeople
+        tr.WorkOrder        <- wo
+        tr.EventEntryId     <- eventId
+        tr.RecordStatus     <- record.Status
+        tr.LastUpdate       <- System.DateTime.Now
+        try 
+                    ctx.SubmitUpdates()
+                    |> Success
+        with
+        | ex -> Failure <| sprintf "%s" ex.Message
+
+type InsertTimeRecord = TimeRecord -> Result<unit> list
+
 let insertTimeRecord : InsertTimeRecord =
     fun timeRecord ->
         let ctx = Sql.GetDataContext()
-        let dbrecords =      timeRecord
-        dbrecords
-        |> List.map(fun record -> 
-            let tr = ctx.Timeentryapp.Timerecord.Create()
-            tr.Site             <- record.Site
-            tr.Shopfloor        <- record.ShopFloor
-            tr.TimeType         <- record.TimeType
-            tr.StartTime        <- record.StartTime
-            tr.EndTime          <- record.EndTime
-            tr.DurationHr       <- record.DurationHr
-            tr.Allocation       <- record.Allocation
-            tr.WorkOrder        <- record.DBWorkOrderEntry.WorkOrder
-            try 
-                        ctx.SubmitUpdates()
-                        |> Success
-            with
-            | ex -> Failure <| sprintf "%s" ex.Message
-            )
-        //Update work ORder to add time...
-(*
-    EndTime TIMESTAMP NOT NULL, 
-    DurationHr FLOAT(4,4) NOT NULL, 
-    NbPeople FLOAT(2,1) NOT NULL,
-    WorkOrderEntryId INT,
-    EventEntryId INT,
-    Allocation ENUM('workorder','event') NOT NULL,
-    RecordStatus ENUM('entered', 'validated') NOT NULL,
-    Active TINYINT(1) NOT NULL,
-    UserId INT NOT NULL,
-    LastUpdate TIMESTAMP NOT NULL,
-        )  
-*)
-(*
-    query {
-    for student in db.Student do
-    join selection in db.CourseSelection
-        on (student.StudentID = selection.StudentID)
-    select (student, selection)
-}
-*)
+        match timeRecord.Allocation with
+            | WorkOrderEntry workorderEntry ->
+                
+                let dbrecords = toDBTimeRecord timeRecord
+                dbrecords
+                |> List.map (fun record ->
+                insertDBTimeRecord ctx record (None) )
 
-(*
-let q = query {
-        from event in ctx.Event 
-        join eventEntry in ctx.EventEntry
-        on (event.Id = eventEntry.EventId)
-        select event, eventEntry
-}
-*)
+            | EventEntry eventEntry -> 
+                let dbrecords = toDBTimeRecord timeRecord
+                dbrecords
+                |> List.map (fun record ->
+                        insertEventEntry eventEntry 
+                        |> map lastEventEntryId
+                        |> bind (fun id -> insertDBTimeRecord ctx record (Some id)
+                ))
+        //Update work ORder to add time...

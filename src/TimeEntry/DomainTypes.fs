@@ -14,7 +14,7 @@ module DomainTypes =
 
     type RecordStatus = | Entered | Validated
 
-    type NbPeople = NbPeople of float
+    type NbPeople = NbPeople of float32
     
     type Site  = Site of string
     
