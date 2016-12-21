@@ -1,6 +1,12 @@
 source https://www.nuget.org/api/v2
+
 nuget FAKE
 nuget FSharp.Configuration
 nuget FSharp.Core
+
 nuget MySQL.Data
 nuget Sqlprovider
+
+nuget Expecto
+nuget Expecto.FsCheck
+nuget Expecto.PerfUtil
