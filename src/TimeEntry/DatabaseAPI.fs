@@ -9,10 +9,6 @@ module DBCommands =
     open TimeEntry.Constructors
     open TimeEntry.DataBase
 
-    open System.Configuration
- 
-    let t = ConfigurationManager.ConnectionStrings.Item("Edouard").ConnectionString
-
     //Connection string described here: https://www.connectionstrings.com/mysql/
     let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeentryapp;User=root;Password="
 
@@ -80,10 +76,9 @@ module DBCommands =
             with 
                 ex -> Failure ex.Message
 
-    type ToggleSite = Activation -> Site -> Result<unit>
+    type ToggleSite = Activation -> string -> Result<unit>
     let toggleSite: ToggleSite =
-        fun activation site -> 
-            let (Site s) = site
+        fun activation s -> 
             let ctx = Sql.GetDataContext()
             let current, future = flags activation
             let dbsOpt = 
@@ -104,10 +99,10 @@ module DBCommands =
                 | None -> Failure <| sprintf "Site \'%s\' is missing or %s." s activation.State
 
     ///Desactivates a site if active
-    type DesactivateSite = Site -> Result<unit>
+    type DesactivateSite = string -> Result<unit>
     let desactivateteSite: DesactivateSite  = toggleSite Desactivate
 
-    type ActivateSite = Site -> Result<unit>
+    type ActivateSite = string -> Result<unit>
     let activateSite: ActivateSite = toggleSite Activate
 
     (* SHOPFLOOR FUNCTIONS *)
@@ -125,22 +120,16 @@ module DBCommands =
             |> Seq.toList
 
 
-    type GetShopFloorInfo = ShopFloor -> Result<DBShopFloorInfo>
-
+    type GetShopFloorInfo = string -> Result<DBShopFloorInfo>
     let getShopFloorInfo: GetShopFloorInfo =
-        fun shopfloor ->
-            let (ShopFloor sf) = shopfloor
+        fun sf ->
             let ctx = Sql.GetDataContext()
             query {
                 for shopfloor in ctx.Timeentryapp.Shopfloor do
                     where (shopfloor.Active = 1y && shopfloor.Shopfloor = sf)
                     select shopfloor
             }
-            |> Seq.map(fun dbsf -> 
-                {
-                    DBShopFloorInfo.Site = dbsf.Site
-                    ShopFloor = dbsf.Shopfloor
-                })
+            |> Seq.map(fun dbsf -> dbsf.MapTo<DBShopFloorInfo>() )
             |> Seq.toList
             |> onlyOne "Shopfloor" sf
 
@@ -163,11 +152,10 @@ module DBCommands =
             with 
                 ex -> Failure ex.Message
 
-    type ToggleShopfloor = Activation -> ShopFloor -> Result<unit>
+    type ToggleShopfloor = Activation -> string -> Result<unit>
 
     let toggleShopfloor: ToggleShopfloor =
-        fun activation shopfloor -> 
-            let (ShopFloor s) = shopfloor
+        fun activation s -> 
             let ctx = Sql.GetDataContext()
             let current, future = flags activation
             let dbsOpt = 
@@ -189,10 +177,10 @@ module DBCommands =
                 | None -> Failure <| sprintf "Shopfloor \'%s\' is missing or %s." s activation.State
 
     ///Desactivates a site if active
-    type DesactivateShopfloor = ShopFloor -> Result<unit>
+    type DesactivateShopfloor = string -> Result<unit>
     let desactivateShopfloor: DesactivateShopfloor  = toggleShopfloor Desactivate
 
-    type ActivateShopfloor = ShopFloor -> Result<unit>
+    type ActivateShopfloor = string -> Result<unit>
     let activateShopfloor: ActivateShopfloor = toggleShopfloor Activate
 
     (* WORKCENTER FUNCTIONS  *)
@@ -209,11 +197,10 @@ module DBCommands =
             |> Seq.toList
 
 
-    type GetWorkCenter = WorkCenter -> Result<DBWorkCenterInfo>
+    type GetWorkCenter = string -> Result<DBWorkCenterInfo>
 
     let getWorkCenter: GetWorkCenter =
-        fun workcenter -> 
-            let (WorkCenter wc) = workcenter
+        fun wc -> 
             let ctx = Sql.GetDataContext()
             query {
                 for workcenter in ctx.Timeentryapp.Workcenter do
@@ -282,10 +269,9 @@ module DBCommands =
                 | Failure msg -> Failure msg
             
 
-    type ToggleWorkCenter = Activation -> WorkCenter -> Result<unit>
+    type ToggleWorkCenter = Activation -> string -> Result<unit>
     let toggleWorkCenter: ToggleWorkCenter =
-        fun activation workcenter -> 
-            let (WorkCenter wc) = workcenter
+        fun activation wc -> 
             let ctx = Sql.GetDataContext()
             let current, future = flags activation
             let dbsOpt = 
@@ -307,10 +293,10 @@ module DBCommands =
                 | None -> Failure <| sprintf "Workcenter \'%s\' is missing or %s." wc activation.State
 
     ///Desactivates a site if active
-    type DesactivateWorkCenter = WorkCenter -> Result<unit>
+    type DesactivateWorkCenter = string -> Result<unit>
     let desactivateWorkCenter: DesactivateWorkCenter  = toggleWorkCenter Desactivate
 
-    type ActivateWorkCenter = WorkCenter -> Result<unit>
+    type ActivateWorkCenter = string -> Result<unit>
     let activateWorkCenter: ActivateWorkCenter = toggleWorkCenter Activate
 
 
@@ -328,7 +314,6 @@ module DBCommands =
 
     //Insert new workcenter in DB
     type InsertEvent = Event -> Result<unit>
-
     let insertEvent: InsertEvent =
         fun event -> 
             let ctx = Sql.GetDataContext()
@@ -345,27 +330,20 @@ module DBCommands =
             with
             | ex -> Failure <| sprintf "%s" ex.Message
 
-    type GetEvent = Event -> Result<DBEvent>
+    type GetEvent = string -> Result<DBEvent>
 
     let getEvent: GetEvent =
-        fun ev ->
-            let  e = extractEvent ev  
+        fun ev ->  
             let ctx = Sql.GetDataContext()
             query {
                 for event in ctx.Timeentryapp.Event do
-                    where (event.Event = e && event.Active = 1y)
+                    where (event.Event = ev && event.Active = 1y)
                     select event
             }
-            |> Seq.map (fun (event) -> 
-                    {
-                                DBEvent.Event   = event.Event
-                                HasInfo      = sbyteTobool event.HasInfo
-                                AllowZeroPerson = sbyteTobool event.AllowZeroPerson
-                    }
-                )
+            |> Seq.map (fun (event) -> event.MapTo<DBEvent>() )
             |> Seq.toList
-            |> onlyOne "Event" e
-
+            |> onlyOne "Event" ev
+    
     type UpdateEvent = Event -> Result<unit>
     let updateEvent: UpdateEvent =
         fun ev -> 
@@ -378,10 +356,7 @@ module DBCommands =
                         select event
                 }
                 |> Seq.toList
-                |> (function 
-                        | [] -> Failure <| sprintf "Event not found for: %s" e
-                        | [x] -> Success x
-                        | x::xs -> Failure <| sprintf "More than one event found for: %s" e)
+                |> onlyOne "Event" e
 
             let dbev = toDBEvent ev
             match eventRes with
@@ -397,18 +372,16 @@ module DBCommands =
                 | Failure msg -> Failure msg
             
 
-    type ToggleEvent = Activation -> Event -> Result<unit>
+    type ToggleEvent = Activation -> string -> Result<unit>
     let toggleEvent: ToggleEvent =
-        fun activation event -> 
-            let ev = extractEvent event
+        fun activation ev -> 
             let ctx = Sql.GetDataContext()
             let current, future = flags activation
             let dbsOpt = 
                 query {
                     for event in ctx.Timeentryapp.Event do
                         where (event.Event = ev && event.Active = current)
-                        select event
-                }
+                        select event }
                 |> Seq.tryHead
 
             match dbsOpt with
@@ -421,10 +394,10 @@ module DBCommands =
                         ex -> Failure ex.Message
                 | None -> Failure <| sprintf "Event \'%s\' is missing or %s." ev activation.State
 
-    type DesactivateEvent = Event -> Result<unit>
+    type DesactivateEvent = string -> Result<unit>
     let desactivateEvent: DesactivateEvent  = toggleEvent Desactivate
 
-    type ActivateEvent = Event -> Result<unit>
+    type ActivateEvent = string -> Result<unit>
     let activateEvent: ActivateEvent = toggleEvent Activate
 
     (* WorkOrderEntry Functions *)
@@ -446,7 +419,8 @@ module DBCommands =
         let ctx = Sql.GetDataContext()
         let wo = ctx.Timeentryapp.Workorderentry.Create()
         let dbwo = toDBWorkOrderEntry workOrderEntry
-        let workcenterRes = getWorkCenter workOrderEntry.WorkCenter
+        let (WorkCenter wc) = workOrderEntry.WorkCenter
+        let workcenterRes = getWorkCenter wc
         match workcenterRes with
             | Success wc -> 
                 wo.WorkOrder            <- dbwo.WorkOrder
@@ -465,31 +439,20 @@ module DBCommands =
             | Failure msg -> Failure msg
 
 
-    let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
-
-    type GetWorkOrder = WorkOrder -> Result<DBWorkOrderEntry>
+    type GetWorkOrder = string -> Result<DBWorkOrderEntry>
     let getWorkOrder: GetWorkOrder =
-        fun workOrder ->
-            let (WorkOrder wo) = workOrder 
+        fun wo ->
+            //let (WorkOrder wo) = workOrder 
             let ctx = Sql.GetDataContext()
             query {
                 for workorder in ctx.Timeentryapp.Workorderentry do
                     where (workorder.WorkOrder = wo && workorder.Active = 1y)
                     select workorder
             }
-            |> Seq.map(fun workorder -> 
-                {
-                    DBWorkOrderEntry.WorkOrder   = workorder.WorkOrder
-                    WorkCenter                   = workorder.WorkCenter
-                    ItemCode                     = workorder.ItemCode
-                    TotalMachineTimeHr           = workorder.TotalMachineTimeHr
-                    TotalLabourTimeHr            = workorder.TotalLabourTimeHr
-                    WorkOrderStatus              =  workorder.WorkOrderStatus
-                }
-            )
+            |> Seq.map(fun workorder -> workorder.MapTo<DBWorkOrderEntry>() )
             |> Seq.toList
             |> onlyOne "WorkOrder" wo
-
+    
     type UpdateWorkOrderEntry = WorkOrderEntry -> Result<unit>
     let updateWorkOrderEntry: UpdateWorkOrderEntry =
         fun workOrderEntry -> 
@@ -520,15 +483,17 @@ module DBCommands =
                     | ex -> Failure <| sprintf "%s" ex.Message
                 | Failure msg -> Failure msg
 
-    let wo1' = {wo1 with TotalMachineTimeHr = TimeHr 1000.f}
-
     (* EventEntry Functions *)
 
-    //Insert new workcenter in DB
-    type InsertEventEntry = EventEntry -> Result<unit>
+
+    ///Insert new workcenter in DB and return Id of inserted record if it succeded
+    type InsertEventEntry = EventEntry -> Result<uint32>
     let insertEventEntry: InsertEventEntry =
         fun eventEntry  ->
-            let e = extractEventfromEntry eventEntry
+            let e = 
+                eventEntry
+                |> extractEventfromEntry
+                |> extractEvent
             let ctx = Sql.GetDataContext()
             let ev = ctx.Timeentryapp.Evententry.Create()
             let dbev = toDBEventEntry eventEntry
@@ -544,12 +509,12 @@ module DBCommands =
                 
                 try 
                     ctx.SubmitUpdates()
+                    //Return id of inserted record
+                    ev.EventEntryId
                     |> Success
                 with
                 | ex -> Failure <| sprintf "%s" ex.Message
             | Failure msg -> Failure msg
-
-    let eventEntry = EventWithoutInfo (WithoutInfo "NET")
 
     type GetEventEntry = EventEntryId -> Result<DBEventEntry>
 
@@ -603,3 +568,89 @@ module DBCommands =
                         with
                         | ex -> Failure <| sprintf "%s" ex.Message
                 | Failure msg -> Failure msg
+
+    (* Time Record Functions *)
+    type GetTimeRecord = TimeRecordId -> Result<DBTimeRecord>
+    let getTimeRecord: GetTimeRecord = 
+        fun id -> 
+            let ctx = Sql.GetDataContext()
+
+            query {
+                    for timerecord in ctx.Timeentryapp.Timerecord do
+                        where (timerecord.TimeRecordId = id && timerecord.Active = 1y)
+                        select timerecord
+                }
+            |> Seq.map(fun record ->
+                    let dbWogetWorkOrderRes = 
+                        record.WorkOrder  
+                        |> Option.map getWorkOrder
+                        |> unwrapResOpt
+                    let dbEventRes = 
+                        record.EventEntryId  
+                        |> Option.map getEventEntry
+                        |> unwrapResOpt
+
+                    {
+                        DBTimeRecord.Site   = record.Site
+                        ShopFloor           = record.Shopfloor
+                        WorkCenter          = record.WorkCenter
+                        TimeType            = record.TimeType
+                        StartTime           = record.StartTime
+                        EndTime             = record.EndTime
+                        DurationHr          = record.DurationHr
+                        Allocation          = record.Allocation
+                        NbPeople            = record.NbPeople
+                        WorkOrderEntry      = dbWogetWorkOrderRes
+                        EventEntry          = dbEventRes
+                        Status              = record.RecordStatus
+                    })
+            |> Seq.toList
+            |> onlyOne "TimeRecord" (string id)
+
+    let insertDBTimeRecord : Sql.dataContext -> DBTimeRecord ->  EventEntryId option -> Result<unit> = 
+        fun ctx record eventId -> 
+            let wo = Option.map(fun dbwo -> dbwo.WorkOrder) record.WorkOrderEntry
+            let tr = ctx.Timeentryapp.Timerecord.Create()
+            tr.Site             <- record.Site
+            tr.Shopfloor        <- record.ShopFloor
+            tr.WorkCenter       <- record.WorkCenter
+            tr.TimeType         <- record.TimeType
+            tr.StartTime        <- record.StartTime
+            tr.EndTime          <- record.EndTime
+            tr.DurationHr       <- record.DurationHr
+            tr.Allocation       <- record.Allocation
+            tr.NbPeople         <- record.NbPeople
+            tr.WorkOrder        <- wo
+            tr.EventEntryId     <- eventId
+            tr.RecordStatus     <- record.Status
+            tr.LastUpdate       <- System.DateTime.Now
+            tr.Active           <- 1y
+            try 
+                        ctx.SubmitUpdates()
+                        |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+
+    type InsertTimeRecord = TimeRecord -> Result<unit> list
+
+    let insertTimeRecord : InsertTimeRecord =
+        fun timeRecord ->
+            let ctx = Sql.GetDataContext()
+            match timeRecord.Allocation with
+                | WorkOrderEntry workorderEntry ->
+                    
+                    let dbrecords = toDBTimeRecord timeRecord
+                    dbrecords
+                    |> List.map (fun record ->
+                    insertDBTimeRecord ctx record (None) )
+
+                | EventEntry eventEntry -> 
+                    let dbrecords = toDBTimeRecord timeRecord
+                    dbrecords
+                    |> List.map (fun record ->
+                            insertEventEntry eventEntry 
+                            //Add User in EventEntry to be sure to get the correct ID!
+                            //|> map lastEventEntryId
+                            |> bind (fun id -> insertDBTimeRecord ctx record (Some id)
+                    ))
+            //Update work ORder to add time...

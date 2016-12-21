@@ -138,7 +138,8 @@ DROP TABLE  IF EXISTS TimeRecord;
 CREATE TABLE TimeRecord (
     TimeRecordId INT NOT NULL auto_increment,
     Site VARCHAR(4) NOT NULL,
-    Shopfloor VARCHAR(4) NOT NULL,
+    Shopfloor VARCHAR(5) NOT NULL,
+    WorkCenter VARCHAR(4) NOT NULL,
     TimeType ENUM('machine', 'labour') NOT NULL,
     StartTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
     EndTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01', 

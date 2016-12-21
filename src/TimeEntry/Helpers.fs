@@ -46,6 +46,13 @@ module Result =
             | Some x -> Success x
             | None   -> Failure msg 
 
+    let unwrapResOpt xResOpt = 
+        match xResOpt with
+            | Some (Success x)   -> Some x
+            | None               -> None
+            | Some (Failure msg) -> None
+
+
     //https://fsharpforfunandprofit.com/posts/elevated-world-4/#traverse    
     let rec traverse f list = 
         let cons head tail = head::tail

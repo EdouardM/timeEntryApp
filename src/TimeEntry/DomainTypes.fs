@@ -119,7 +119,7 @@ module DomainTypes =
             Status          : RecordStatus
         }
     
-    type TimeRecordId = int
+    type TimeRecordId = uint32
 (*
     let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
         let timerecordId = jsonObj.Id
