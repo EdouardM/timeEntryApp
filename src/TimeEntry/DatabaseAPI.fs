@@ -105,6 +105,16 @@ module DBCommands =
     type ActivateSite = string -> Result<unit>
     let activateSite: ActivateSite = toggleSite Activate
 
+    let deleteSites () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for site in ctx.Timeentryapp.Site do
+                select site
+        }
+        |> Seq.toList
+        |> List.iter(fun site -> site.Delete() )
+        ctx.SubmitUpdates()
+
     (* SHOPFLOOR FUNCTIONS *)
     type GetShopfloorCodes = unit -> string list
 
@@ -182,6 +192,16 @@ module DBCommands =
 
     type ActivateShopfloor = string -> Result<unit>
     let activateShopfloor: ActivateShopfloor = toggleShopfloor Activate
+
+    let deleteShopfloors () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for shopfloor in ctx.Timeentryapp.Shopfloor do
+                select shopfloor
+        }
+        |> Seq.toList
+        |> List.iter(fun shopfloor -> shopfloor.Delete() )
+        ctx.SubmitUpdates() 
 
     (* WORKCENTER FUNCTIONS  *)
 
@@ -299,6 +319,15 @@ module DBCommands =
     type ActivateWorkCenter = string -> Result<unit>
     let activateWorkCenter: ActivateWorkCenter = toggleWorkCenter Activate
 
+    let deleteWorkCenters () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for workcenter in ctx.Timeentryapp.Workcenter do
+                select workcenter
+        }
+        |> Seq.toList
+        |> List.iter(fun workcenter -> workcenter.Delete() )
+        ctx.SubmitUpdates() 
 
     (* EVENT FUNCTIONS  *)
     type GetEventCodes = unit -> string list
@@ -400,6 +429,17 @@ module DBCommands =
     type ActivateEvent = string -> Result<unit>
     let activateEvent: ActivateEvent = toggleEvent Activate
 
+    let deleteEvents () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for event in ctx.Timeentryapp.Event do
+                select event
+        }
+        |> Seq.toList
+        |> List.iter(fun event -> event.Delete() )
+        ctx.SubmitUpdates() 
+
+
     (* WorkOrderEntry Functions *)
 
     type GetWorkOrderCodes = unit -> string list
@@ -482,6 +522,16 @@ module DBCommands =
                     with
                     | ex -> Failure <| sprintf "%s" ex.Message
                 | Failure msg -> Failure msg
+
+    let deleteWorkOrders () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for workorder in ctx.Timeentryapp.Workorderentry do
+                select workorder
+        }
+        |> Seq.toList
+        |> List.iter(fun workorder -> workorder.Delete() )
+        ctx.SubmitUpdates() 
 
     (* EventEntry Functions *)
 
@@ -569,6 +619,17 @@ module DBCommands =
                         | ex -> Failure <| sprintf "%s" ex.Message
                 | Failure msg -> Failure msg
 
+    let deleteEventEntries () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for evententry in ctx.Timeentryapp.Evententry do
+                select evententry
+        }
+        |> Seq.toList
+        |> List.iter(fun evententry -> evententry.Delete() )
+        ctx.SubmitUpdates() 
+
+
     (* Time Record Functions *)
     type GetTimeRecord = TimeRecordId -> Result<DBTimeRecord>
     let getTimeRecord: GetTimeRecord = 
@@ -654,3 +715,13 @@ module DBCommands =
                             |> bind (fun id -> insertDBTimeRecord ctx record (Some id)
                     ))
             //Update work ORder to add time...
+    
+    let deleteTimeRecords () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for timerecord in ctx.Timeentryapp.Timerecord do
+                select timerecord
+        }
+        |> Seq.toList
+        |> List.iter(fun timerecord -> timerecord.Delete() )
+        ctx.SubmitUpdates() 
