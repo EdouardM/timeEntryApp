@@ -4,6 +4,7 @@ module DBCommands =
     
     open FSharp.Data.Sql
     open TimeEntry.Result
+    open TimeEntry.ConstrainedTypes
     open TimeEntry.Conversions
     open TimeEntry.DomainTypes
     open TimeEntry.Constructors
@@ -219,6 +220,7 @@ module DBCommands =
             |> Seq.toList
             |> onlyOne "Workcenter" wc
 
+
     //Insert new workcenter in DB
     type InsertWorkCenter = WorkCenterInfo -> Result<unit>
 
@@ -247,11 +249,11 @@ module DBCommands =
             let wcinfoRes =
                 query {
                     for workcenter in ctx.Timeentryapp.Workcenter do
-                        where (workcenter.WorkCenter = wc && workcenter.Active = 1y)
+                        where (workcenter.WorkCenter = value wc && workcenter.Active = 1y)
                         select workcenter
                 }
                 |> Seq.toList
-                |> onlyOne "Workcenter" wc
+                |> onlyOne "Workcenter" (value wc)
 
             let dbWc = toDBWorkCenterInfo workcenterinfo
             match wcinfoRes with
@@ -420,7 +422,7 @@ module DBCommands =
         let wo = ctx.Timeentryapp.Workorderentry.Create()
         let dbwo = toDBWorkOrderEntry workOrderEntry
         let (WorkCenter wc) = workOrderEntry.WorkCenter
-        let workcenterRes = getWorkCenter wc
+        let workcenterRes = getWorkCenter (value wc)
         match workcenterRes with
             | Success wc -> 
                 wo.WorkOrder            <- dbwo.WorkOrder
@@ -461,11 +463,11 @@ module DBCommands =
             let workOrderEntryRes = 
                 query {
                     for workorder in ctx.Timeentryapp.Workorderentry do
-                        where (workorder.WorkOrder = wo && workorder.Active = 1y)
+                        where (workorder.WorkOrder = (value wo) && workorder.Active = 1y)
                         select workorder
                 }
                 |> Seq.toList
-                |> onlyOne "WokOrder" wo
+                |> onlyOne "WokOrder" (value wo)
 
             let dbwo = toDBWorkOrderEntry workOrderEntry
             match workOrderEntryRes with

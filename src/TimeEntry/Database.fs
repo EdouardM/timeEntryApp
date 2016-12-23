@@ -1,6 +1,7 @@
 namespace TimeEntry
     open System
     open TimeEntry.Result
+    open TimeEntry.ConstrainedTypes
     open TimeEntry.Option
     open TimeEntry.DomainTypes
     open TimeEntry.Constructors
@@ -16,7 +17,7 @@ namespace TimeEntry
             let toDBShopfloorInfo (sfinfo: ShopFloorInfo) =
                 let (Site site)     = sfinfo.Site
                 let (ShopFloor sf)  = sfinfo.ShopFloor
-                { Site = site; ShopFloor = sf }
+                { Site = value site; ShopFloor = value sf }
          
             let fromDBShopfloorInfo 
                 sites
@@ -41,7 +42,7 @@ namespace TimeEntry
                 let sf              = toDBShopfloorInfo wcInfo.ShopFloorInfo
                 let (Hour startH)   = wcInfo.StartHour
                 let (Hour endH)     = wcInfo.EndHour
-                { WorkCenter = wc; ShopFloorInfo = sf; StartHour = startH; EndHour = endH}
+                { WorkCenter = value wc; ShopFloorInfo = sf; StartHour = startH; EndHour = endH}
          
             let fromDBWorkCenterInfo 
                 sites
@@ -95,12 +96,12 @@ namespace TimeEntry
                 let (TimeHr totalLabour)  = wo.TotalLabourTimeHr
 
                 { 
-                    WorkOrder = strWo; 
-                    WorkCenter = strWc;
-                    ItemCode = strItem; 
-                    TotalMachineTimeHr = totalMachine;
-                    TotalLabourTimeHr = totalLabour;
-                    WorkOrderStatus = status
+                    WorkOrder           = value strWo; 
+                    WorkCenter          = value strWc;
+                    ItemCode            = value strItem; 
+                    TotalMachineTimeHr  = totalMachine;
+                    TotalLabourTimeHr   = totalLabour;
+                    WorkOrderStatus     = status
                 }
 
             let fromDBWorkOrderEntry
@@ -159,7 +160,7 @@ namespace TimeEntry
                         let solution = info.Solution
                         let comments = info.Comments
                         {   Event = toDBEvent ev; 
-                            Machine = Some machine; 
+                            Machine = Some <| value machine; 
                             Cause = Some cause; 
                             Solution = Some solution; 
                             Comments = Some comments
@@ -245,9 +246,9 @@ namespace TimeEntry
                     //List of one record: Machine time
                     | MachineOnly duration ->
                         let machineRecord = {   
-                            Site            = site
-                            ShopFloor       = shopfloor 
-                            WorkCenter      = workcenter 
+                            Site            = value site
+                            ShopFloor       = value shopfloor 
+                            WorkCenter      = value workcenter 
                             TimeType        = "machine"
                             StartTime       = duration.StartTime
                             EndTime         = duration.EndTime
@@ -266,9 +267,9 @@ namespace TimeEntry
                         let (NbPeople nb) = nbPeople
                         let machineRecord = 
                             { 
-                            Site        = site
-                            ShopFloor   = shopfloor 
-                            WorkCenter  = workcenter
+                            Site        = value site
+                            ShopFloor   = value shopfloor 
+                            WorkCenter  = value workcenter
                             TimeType    = "machine" 
                             StartTime   = duration.StartTime
                             EndTime     = duration.EndTime
@@ -288,9 +289,9 @@ namespace TimeEntry
                         let (NbPeople nb) = nbPeople
                         let labourRecord = 
                             { 
-                            Site        = site
-                            ShopFloor   = shopfloor 
-                            WorkCenter  = workcenter
+                            Site        = value site
+                            ShopFloor   = value shopfloor 
+                            WorkCenter  = value workcenter
                             TimeType    = "labour" 
                             StartTime   = duration.StartTime
                             EndTime     = duration.EndTime

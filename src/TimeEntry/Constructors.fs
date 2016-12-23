@@ -4,13 +4,15 @@ module Constructors =
     open System
     open TimeEntry.Result
     open TimeEntry.DomainTypes
+    open TimeEntry.ConstrainedTypes
 
     ///Helper function to create domain types values validated against a list of valid input
-    let create ty name validList id = 
-        match List.exists (fun s -> s = id ) validList with
-            | true -> Success (ty id)
-            | false -> Failure <| sprintf "Can't find %s: %s" name id 
-
+    let create ctor name validList = 
+        (fun id -> 
+            match List.exists (fun s -> s = id ) validList with
+            | true -> Success (id)
+            | false -> Failure <| sprintf "Can't find %s: %s" name id)
+        >> bind ctor
 
     ///Create a valid number of people:
     ///Number of people can only be integer or half of integer and positive
@@ -22,15 +24,15 @@ module Constructors =
             else Success(NbPeople r)
         else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
 
-    let createSite = create DomainTypes.Site "site"
+    let createSite = create (string4 >> Result.map DomainTypes.Site) "site"
 
-    let createShopfloor = create ShopFloor "shopfloor"
+    let createShopfloor = create (string5 >> Result.map ShopFloor) "shopfloor"
 
 
     let createShopfloorInfo site shopfloor = 
         { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
 
-    let createWorkCenter = create WorkCenter "workcenter"
+    let createWorkCenter = create (string4 >> Result.map WorkCenter) "workcenter"
 
     let createHour = 
         function
@@ -66,10 +68,10 @@ module Constructors =
             | LabourTime,  nbPeople       -> LabourOnly (duration, nbPeople)
             | MachineTime, nbPeople       -> MachineAndLabour (duration, nbPeople) 
 
-    let createWorkOrder = create WorkOrder "work order number"
+    let createWorkOrder = create (string10 >> Result.map WorkOrder) "work order number"
 
-    let createItemCode = create ItemCode "item code"
-    let createItemType = create ItemCode "item type"
+    let createItemCode = create (string6 >> Result.map ItemCode) "item code"
+    let createItemType = create (string5 >> Result.map ItemType) "item type"
 
     let createWorkOrderStatus =
         function
@@ -87,7 +89,7 @@ module Constructors =
             Status = status
         }
 
-    let createMachine = create Machine "machine"
+    let createMachine = create (string10 >> Result.map Machine) "machine"
 
     let createEventInfo machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}

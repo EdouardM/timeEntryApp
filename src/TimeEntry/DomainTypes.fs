@@ -3,7 +3,7 @@ namespace TimeEntry
 module DomainTypes =
     open System
     open TimeEntry.Result
-    open TimeEntry.ConstrainedString
+    open TimeEntry.ConstrainedTypes
     
     //Domain Model:
     // http://fsharpforfunandprofit.com/ddd/
@@ -16,9 +16,9 @@ module DomainTypes =
 
     type NbPeople = NbPeople of float32
     
-    type Site  = Site of string
+    type Site  = Site of String4
     
-    type ShopFloor  = ShopFloor of string
+    type ShopFloor  = ShopFloor of String5
 
     type ShopFloorInfo = 
         {
@@ -26,7 +26,7 @@ module DomainTypes =
             ShopFloor : ShopFloor
         }
 
-    type WorkCenter  = WorkCenter of string
+    type WorkCenter  = WorkCenter of String4
     
     type Hour = Hour of uint32
 
@@ -54,12 +54,17 @@ module DomainTypes =
         | MachineAndLabour of Duration * NbPeople
         | LabourOnly of Duration * NbPeople
 
-    type WorkOrder = WorkOrder of string
+    type WorkOrder = WorkOrder of String10
 
-    type ItemCode  = ItemCode of string
+    type ItemCode  = ItemCode of String6
 
-    type ItemType  = ItemType of string
+    type ItemType  = ItemType of String5
     
+    type ItemInfo  = {
+            Code : ItemCode
+            Type : ItemType
+    } 
+
     type WorkOrderStatus =
         | Open
         | Closed
@@ -78,7 +83,7 @@ module DomainTypes =
 
     type WorkOrderEntryId = uint32
 
-    type Machine = Machine of string
+    type Machine = Machine of String10
 
     //In case of BreakDown we record addiional information
     type EventInfo = 
@@ -137,22 +142,26 @@ module DomainTypes =
         Types for User information
     *)
 
-    type UserName = Login of string
+    type Login = Login of string
+    type UserName = UserName of string
+    type Email    = Email of string
 
-    type AuthLevel = | Entry | Maintenance | Admin
+    type AuthLevel = | User | Approver | Admin
 
     type SiteAccess = | All | SiteOnly of Site
 
 
-    type User =
+    type UserInfo =
         {
             Site        : SiteAccess
+            Login       : Login
             Name        : UserName
+            Email       : Email
             Level       : AuthLevel
         }
 
     // Use Types
-    type EntryRequest = { User: User; Entry : TimeRecord }
+    type EntryRequest = { User: UserInfo; Entry : TimeRecord }
 
     type EntryResponse = { Id: int; Request: EntryRequest}
 

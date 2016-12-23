@@ -170,8 +170,9 @@ Create User table
 DROP TABLE  IF EXISTS TimeRecord;
 
 CREATE TABLE User (
-    UserId INT NOT NULL auto_increment,
+    Login VARCHAR(8) NOT NULL,
     UserRealName VARCHAR(50) NOT NULL,
+    Email VARCHAR(50) NOT NULL,
     AllSites TINYINT(1) NOT NULL,
     Site VARCHAR(4) NOT NULL,
     AuthLevel ENUM('user', 'approver', 'admin') NOT NULL,

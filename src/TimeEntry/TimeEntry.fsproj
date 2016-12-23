@@ -42,6 +42,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Compile Include="Helpers.fs" />
+    <Compile Include="ConstrainedTypes.fs" />
     <Compile Include="DomainTypes.fs" />
     <Compile Include="Constructors.fs" />
     <Compile Include="Database.fs" />
