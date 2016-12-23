@@ -71,7 +71,30 @@ namespace TimeEntry
                     <*> workcenterRes
                     <*> starthourRes
                     <*> endhourRes 
-            
+
+                
+            type DBMachineInfo =
+                {
+                    WorkCenter  : string
+                    Machine     : string
+                }
+
+            let toDBMachineInfo (machInfo: MachineInfo) =
+                let (Machine mach) = machInfo.Machine
+                let (WorkCenter wc)= machInfo.WorkCenter
+                { Machine = mach; WorkCenter = wc}
+         
+            let fromDBMachineInfo 
+                machines
+                workcenters
+                (machInfo: DBMachineInfo) =
+                let machineRes = createMachine machines machInfo.Machine
+                let workcenterRes = createWorkCenter workcenters machInfo.WorkCenter
+                createMachineInfo
+                <!> machineRes
+                <*> workcenterRes
+
+
             type DBWorkOrderEntry =
                 {
                     WorkOrder : string

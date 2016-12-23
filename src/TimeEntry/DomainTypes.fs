@@ -80,6 +80,12 @@ module DomainTypes =
 
     type Machine = Machine of string
 
+    type MachineInfo =
+        {
+            WorkCenter  : WorkCenter
+            Machine     : Machine
+        }
+
     //In case of BreakDown we record addiional information
     type EventInfo = 
         { 
