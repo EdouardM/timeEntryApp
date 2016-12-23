@@ -57,6 +57,20 @@ namespace TimeEntry
                     <*> workcenterRes
                     <*> starthourRes
                     <*> endhourRes 
+                    
+            let fromDBWorkCenterInfo2 
+                fromDBShopfloorInfo
+                workcenters
+                (wcInfo: DBWorkCenterInfo) =
+                    let shopfloorInfoRes = fromDBShopfloorInfo wcInfo.ShopFloorInfo 
+                    let workcenterRes = createWorkCenter workcenters wcInfo.WorkCenter
+                    let starthourRes = createHour wcInfo.StartHour
+                    let endhourRes   = createHour wcInfo.EndHour
+                    createWorkCenterInfo
+                    <!> shopfloorInfoRes
+                    <*> workcenterRes
+                    <*> starthourRes
+                    <*> endhourRes 
             
             type DBWorkOrderEntry =
                 {
