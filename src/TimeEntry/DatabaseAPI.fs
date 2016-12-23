@@ -60,14 +60,15 @@ module DBCommands =
             }
             |> Seq.toList
 
-    type InsertSite = string -> Result<unit>
+    type InsertSite = Site -> Result<unit>
 
     ///Inserts a new site
     let insertSite: InsertSite =
         fun site ->
+            let (Site s) = site
             let ctx = Sql.GetDataContext()
             let dbs = ctx.Timeentryapp.Site.Create()
-            dbs.Site <- site
+            dbs.Site <- s
             dbs.Active <- 1y
             
             try
@@ -328,6 +329,79 @@ module DBCommands =
         |> Seq.toList
         |> List.iter(fun workcenter -> workcenter.Delete() )
         ctx.SubmitUpdates() 
+
+    (* MACHINE FUNCTIONS *)
+    type GetMachineCodes = unit -> string list
+
+    ///Returns a list of codes of active sites
+    let getMachineCodes: GetMachineCodes =
+        fun () ->
+            let ctx = Sql.GetDataContext()
+            query {
+                for machine in ctx.Timeentryapp.Machine do
+                    where (machine.Active = 1y)
+                    select machine.Machine
+            }
+            |> Seq.toList
+
+    type InsertMachine = MachineInfo -> Result<unit>
+
+    ///Inserts a new site
+    let insertMachine: InsertMachine =
+        fun machine ->
+            let (Machine m) = machine.Machine
+            let (WorkCenter wc) = machine.WorkCenter
+            let ctx = Sql.GetDataContext()
+            let dbmach = ctx.Timeentryapp.Machine.Create()
+            dbmach.Machine      <- m
+            dbmach.WorkCenter   <- wc
+            dbmach.Active       <- 1y
+            
+            try
+                ctx.SubmitUpdates()
+                |> Success
+            with 
+                ex -> Failure ex.Message
+
+    type ToggleMachine = Activation -> string -> Result<unit>
+    let toggleMachine: ToggleMachine =
+        fun activation m -> 
+            let ctx = Sql.GetDataContext()
+            let current, future = flags activation
+            let dbmOpt = 
+                query {
+                    for machine in ctx.Timeentryapp.Machine do
+                        where (machine.Machine = m && machine.Active = current)
+                        select machine
+                }
+                |> Seq.tryHead
+            match dbmOpt with
+                | Some dbm -> 
+                    dbm.Active <- future
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                        ex -> Failure ex.Message
+                | None -> Failure <| sprintf "Machine \'%s\' is missing or %s." m activation.State
+
+    ///Desactivates a site if active
+    type DesactivateMachine = string -> Result<unit>
+    let desactivateMachine: DesactivateMachine  = toggleMachine Desactivate
+
+    type ActivateMachine = string -> Result<unit>
+    let activateMachine: ActivateMachine = toggleMachine Activate
+
+    let deleteMachines () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for machine in ctx.Timeentryapp.Machine do
+                select machine
+        }
+        |> Seq.toList
+        |> List.iter(fun machine -> machine.Delete() )
+        ctx.SubmitUpdates()
+
 
     (* EVENT FUNCTIONS  *)
     type GetEventCodes = unit -> string list
