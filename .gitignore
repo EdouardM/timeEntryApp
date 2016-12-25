@@ -12,7 +12,8 @@ bin
 
 
 ### Ignore build ###
-build.*
+build.cmd
+build.sh
 build/
 
 ### Linux ###
