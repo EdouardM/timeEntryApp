@@ -23,6 +23,9 @@ module DBCommands =
                 UseOptionTypes = true,
                 Owner = "timeentryapp" >
 
+
+    type DBContext = Sql.dataContext
+
     type Activation = 
         | Activate
         | Desactivate
@@ -44,6 +47,13 @@ module DBCommands =
             | [x] -> Success x
             | x::xs -> Failure <| sprintf "More than one %s found for: %s" name key
 
+
+    let trySubmit (ctx: DBContext) = 
+        try 
+            ctx.SubmitUpdates()
+            |> Success
+        with
+            ex -> Failure ex.Message
 
 
     (* SITE FUNCTIONS *)
@@ -70,13 +80,9 @@ module DBCommands =
             let dbs = ctx.Timeentryapp.Site.Create()
             dbs.Site <- s
             dbs.Active <- 1y
-            
-            try
-                ctx.SubmitUpdates()
-                |> Success
-            with 
-                ex -> Failure ex.Message
+            trySubmit ctx
 
+            
     type ToggleSite = Activation -> string -> Result<unit>
     let toggleSite: ToggleSite =
         fun activation s -> 
@@ -114,7 +120,7 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun site -> site.Delete() )
-        ctx.SubmitUpdates()
+        trySubmit ctx
 
     (* SHOPFLOOR FUNCTIONS *)
     type GetShopfloorCodes = unit -> string list
@@ -157,11 +163,7 @@ module DBCommands =
             dbsf.Shopfloor  <- sf.ShopFloor
             dbsf.Active     <- 1y
             
-            try
-                ctx.SubmitUpdates()
-                |> Success
-            with 
-                ex -> Failure ex.Message
+            trySubmit ctx
 
     type ToggleShopfloor = Activation -> string -> Result<unit>
 
@@ -202,7 +204,7 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun shopfloor -> shopfloor.Delete() )
-        ctx.SubmitUpdates() 
+        trySubmit ctx
 
     (* WORKCENTER FUNCTIONS  *)
 
@@ -328,7 +330,7 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun workcenter -> workcenter.Delete() )
-        ctx.SubmitUpdates() 
+        trySubmit ctx
 
     (* MACHINE FUNCTIONS *)
     type GetMachineCodes = unit -> string list
@@ -357,11 +359,7 @@ module DBCommands =
             dbmach.WorkCenter   <- wc
             dbmach.Active       <- 1y
             
-            try
-                ctx.SubmitUpdates()
-                |> Success
-            with 
-                ex -> Failure ex.Message
+            trySubmit ctx
 
     type ToggleMachine = Activation -> string -> Result<unit>
     let toggleMachine: ToggleMachine =
@@ -400,7 +398,7 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun machine -> machine.Delete() )
-        ctx.SubmitUpdates()
+        trySubmit ctx
 
 
     (* EVENT FUNCTIONS  *)
@@ -511,7 +509,7 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun event -> event.Delete() )
-        ctx.SubmitUpdates() 
+        trySubmit ctx
 
 
     (* WorkOrderEntry Functions *)
@@ -545,11 +543,8 @@ module DBCommands =
                 wo.TotalLabourTimeHr    <- (float32 0.)
                 wo.Active <- 1y
                 
-                try 
-                    ctx.SubmitUpdates()
-                    |> Success
-                with
-                | ex -> Failure <| sprintf "%s" ex.Message
+                trySubmit ctx
+
             | Failure msg -> Failure msg
 
 
@@ -590,11 +585,8 @@ module DBCommands =
                     wo.TotalLabourTimeHr     <- dbwo.TotalLabourTimeHr
                     wo.WorkOrderStatus       <- dbwo.WorkOrderStatus
                     
-                    try 
-                        ctx.SubmitUpdates()
-                        |> Success
-                    with
-                    | ex -> Failure <| sprintf "%s" ex.Message
+                    trySubmit ctx 
+
                 | Failure msg -> Failure msg
 
     let deleteWorkOrders () = 
@@ -605,7 +597,8 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun workorder -> workorder.Delete() )
-        ctx.SubmitUpdates() 
+        
+        trySubmit ctx
 
     (* EventEntry Functions *)
 
@@ -686,11 +679,8 @@ module DBCommands =
                         ev.Cause    <- dbev.Cause
                         ev.Solution <- dbev.Solution
                         ev.Comments <- dbev.Comments
-                        try 
-                            ctx.SubmitUpdates()
-                            |> Success
-                        with
-                        | ex -> Failure <| sprintf "%s" ex.Message
+                        trySubmit ctx
+
                 | Failure msg -> Failure msg
 
     let deleteEventEntries () = 
@@ -701,10 +691,11 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun evententry -> evententry.Delete() )
-        ctx.SubmitUpdates() 
+        trySubmit ctx
 
 
     (* Time Record Functions *)
+
     type GetTimeRecord = TimeRecordId -> Result<DBTimeRecord>
     let getTimeRecord: GetTimeRecord = 
         fun id -> 
@@ -742,7 +733,7 @@ module DBCommands =
             |> Seq.toList
             |> onlyOne "TimeRecord" (string id)
 
-    let insertDBTimeRecord : Sql.dataContext -> DBTimeRecord ->  EventEntryId option -> Result<unit> = 
+    let insertDBTimeRecord : Sql.dataContext -> DBTimeRecord ->  EventEntryId option -> Result<uint32> = 
         fun ctx record eventId -> 
             let wo = Option.map(fun dbwo -> dbwo.WorkOrder) record.WorkOrderEntry
             let tr = ctx.Timeentryapp.Timerecord.Create()
@@ -762,11 +753,12 @@ module DBCommands =
             tr.Active           <- 1y
             try 
                         ctx.SubmitUpdates()
+                        tr.TimeRecordId
                         |> Success
             with
             | ex -> Failure <| sprintf "%s" ex.Message
 
-    type InsertTimeRecord = TimeRecord -> Result<unit> list
+    type InsertTimeRecord = TimeRecord -> Result<uint32> list
 
     let insertTimeRecord : InsertTimeRecord =
         fun timeRecord ->
@@ -798,4 +790,58 @@ module DBCommands =
         }
         |> Seq.toList
         |> List.iter(fun timerecord -> timerecord.Delete() )
-        ctx.SubmitUpdates() 
+        trySubmit ctx
+
+
+module DBLib = 
+    open DomainTypes
+    open DBCommands    
+
+    let removeExistingData () = 
+        deleteTimeRecords ()
+        |> Result.bind deleteEventEntries
+        |> Result.bind deleteEvents
+        |> Result.bind deleteWorkOrders
+        |> Result.bind deleteMachines
+        |> Result.bind deleteWorkCenters
+        |> Result.bind deleteShopfloors
+        |> Result.bind deleteSites
+
+    let insertReferenceData () = 
+        insertSite(Site "F21") |> ignore
+        insertSite(Site "F22") |> ignore
+
+        let sf1 = {ShopFloorInfo.ShopFloor = ShopFloor "F211A"; Site = Site "F21"}
+        insertShopfloor(sf1) |> ignore
+        
+        let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor "F221A"; Site = Site "F22"}
+        insertShopfloor(sf2) |> ignore
+
+        let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter "F1"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+        insertWorkCenter(wc1) |> ignore
+
+        let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter "F2"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+        insertWorkCenter(wc2) |> ignore
+
+        let m1: MachineInfo = {Machine = Machine "Rooslvo"; WorkCenter = WorkCenter "F1"}
+        insertMachine(m1) |> ignore
+
+        let m2: MachineInfo = {Machine = Machine "Scoel12"; WorkCenter = WorkCenter "F2"}
+        insertMachine(m2) |> ignore
+
+        let format = WithoutInfo "FOR"
+        let div = ZeroPerson "DIV"
+        let pan = WithInfo "PAN"
+        let arr = WithInfo "ARR"
+        [format; div; pan; arr]
+        |> List.map insertEvent
+        |> ignore
+(*
+        let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
+        
+        let ev1 = EventWithoutInfo (WithoutInfo "FOR")
+        insertEventEntry ev1 |> ignore
+
+        let ev2 = EventWithInfo (WithInfo "ARR", {Machine =Machine "ZX"; Cause="Arrêt imprévu";Solution="Brancher la prise";Comments="A retenir" })
+        insertEventEntry ev2 |> ignore
+*)
