@@ -2,17 +2,22 @@
 #r "./packages/FAKE/tools/FakeLib.dll"
 
 open Fake
+open Fake.Testing.Expecto
 
 // Directories
 let buildDir  = "./build/"
 let deployDir = "./deploy/"
 
-let testDir = "./test/"
+let testDir = "./build.test/"
 
 // Filesets
 let appReferences  =
-    !! "/**/*.csproj"
-    ++ "/**/*.fsproj"
+    !! "src/**/*.csproj"
+    ++ "src/**/*.fsproj"
+
+let testReferences = 
+    !! "test/**/*.fsproj"
+
 
 // version info
 let version = "0.1"  // or retrieve from CI server
@@ -28,6 +33,26 @@ Target "Build" (fun _ ->
     |> Log "AppBuild-Output: "
 )
 
+Target "BuildTest" (fun _ ->
+    MSBuildDebug testDir "Build" testReferences
+        |> Log "TestBuild-Output: "    
+)
+
+let testExecutables = !! (testDir + "/Test.*.exe")
+
+Target "expectoTest" (fun _ ->
+    testExecutables
+    |> Expecto (fun p ->
+        { p with
+            Debug = true
+            Parallel = true
+            // use only one of the following parameters
+            Run = ["Insert Site"]
+            ListTests = false
+        })
+)
+
+
 Target "Deploy" (fun _ ->
     !! (buildDir + "/**/*.*")
     -- "*.zip"
@@ -37,6 +62,8 @@ Target "Deploy" (fun _ ->
 // Build order
 "Clean"
   ==> "Build"
+  ==> "BuildTest"
+  ==> "expectoTest"
   ==> "Deploy"
 
 // start build
