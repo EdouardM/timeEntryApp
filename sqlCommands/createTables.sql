@@ -60,15 +60,15 @@ Create Machine table
 DROP TABLE IF EXISTS Machine;
 
 CREATE TABLE Machine (
-    WorkCenter VARCHAR(4) NOT NULL,
+    Shopfloor VARCHAR(5) NOT NULL,
     Machine  VARCHAR(10) NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (Machine)
 );
 
-CREATE INDEX WorkCenterId ON Machine (WorkCenter);
+CREATE INDEX ShopfloorrId ON Machine (Shopfloor);
 
-INSERT Machine VALUES('F1', 'Rooslvo', 1);
+INSERT Machine VALUES('F221A', 'Rooslvo', 1);
 
 
 /* =====================================================

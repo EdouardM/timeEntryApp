@@ -75,24 +75,25 @@ namespace TimeEntry
                 
             type DBMachineInfo =
                 {
-                    WorkCenter  : string
-                    Machine     : string
+                    ShopFloorInfo   : DBShopFloorInfo
+                    Machine         : string
                 }
 
             let toDBMachineInfo (machInfo: MachineInfo) =
                 let (Machine mach) = machInfo.Machine
-                let (WorkCenter wc)= machInfo.WorkCenter
-                { Machine = mach; WorkCenter = wc}
+                let sf             = toDBShopfloorInfo machInfo.ShopFloorInfo
+                { Machine = mach; ShopFloorInfo = sf}
          
             let fromDBMachineInfo 
                 machines
-                workcenters
+                sites
+                shopfloors
                 (machInfo: DBMachineInfo) =
                 let machineRes = createMachine machines machInfo.Machine
-                let workcenterRes = createWorkCenter workcenters machInfo.WorkCenter
+                let shopfloorInfoRes = fromDBShopfloorInfo sites shopfloors machInfo.ShopFloorInfo 
                 createMachineInfo
                 <!> machineRes
-                <*> workcenterRes
+                <*> shopfloorInfoRes
 
 
             type DBWorkOrderEntry =

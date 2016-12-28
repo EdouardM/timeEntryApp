@@ -12,6 +12,7 @@ module DomainTypes =
             | MachineTime
             | LabourTime
 
+
     type RecordStatus = | Entered | Validated
 
     type NbPeople = NbPeople of float32
@@ -82,8 +83,8 @@ module DomainTypes =
 
     type MachineInfo =
         {
-            WorkCenter  : WorkCenter
-            Machine     : Machine
+            ShopFloorInfo   : ShopFloorInfo
+            Machine         : Machine
         }
 
     //In case of BreakDown we record addiional information

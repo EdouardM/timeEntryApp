@@ -89,8 +89,9 @@ module Constructors =
 
     let createMachine = create Machine "machine"
 
-    let createMachineInfo machine workcenter =
-        { Machine = machine; WorkCenter = workcenter}
+    let createMachineInfo machine shopFloor =
+        { Machine = machine; ShopFloorInfo = shopFloor}
+        
     let createEventInfo machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
     let createEvent event hasInfo allowZeropeople =

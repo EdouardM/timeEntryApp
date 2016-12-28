@@ -15,7 +15,7 @@ module DBCommands =
     //Path to mysql ODBC divers: http://fsprojects.github.io/SQLProvider/core/parameters.html
     let [<Literal>] ResolutionPath = __SOURCE_DIRECTORY__ + @"/../../packages/MySql.Data/lib/net45"
 
-    type Sql = SqlDataProvider<
+    type MySql = SqlDataProvider<
                 ConnectionString = ConnectionString,
                 DatabaseVendor = Common.DatabaseProviderTypes.MYSQL,
                 ResolutionPath = ResolutionPath,
@@ -24,7 +24,7 @@ module DBCommands =
                 Owner = "timeentryapp" >
 
 
-    type DBContext = Sql.dataContext
+    type DBContext = MySql.dataContext
 
     type Activation = 
         | Activate
@@ -107,7 +107,7 @@ module DBCommands =
 
     ///Desactivates a site if active
     type DesactivateSite = string -> Result<unit>
-    let desactivateteSite: DesactivateSite  = toggleSite Desactivate
+    let desactivateSite: DesactivateSite  = toggleSite Desactivate
 
     type ActivateSite = string -> Result<unit>
     let activateSite: ActivateSite = toggleSite Activate
@@ -228,7 +228,7 @@ module DBCommands =
             query {
                 for workcenter in ctx.Timeentryapp.Workcenter do
                     join shopfloor in ctx.Timeentryapp.Shopfloor on (workcenter.Shopfloor = shopfloor.Shopfloor)
-                    where (workcenter.WorkCenter = wc)
+                    where (workcenter.WorkCenter = wc && workcenter.Active = 1y)
                     select (workcenter, shopfloor)
             }
             |> Seq.map (fun (wc, sf) -> 
@@ -280,7 +280,6 @@ module DBCommands =
             match wcinfoRes with
                 | Success wcinfo -> 
                     wcinfo.Shopfloor <- dbWc.ShopFloorInfo.ShopFloor
-                    wcinfo.WorkCenter <- dbWc.WorkCenter
                     wcinfo.StartHour <- dbWc.StartHour
                     wcinfo.EndHour <- dbWc.EndHour
                     
@@ -288,8 +287,8 @@ module DBCommands =
                         ctx.SubmitUpdates()
                         |> Success
                     with
-                    | ex -> Failure <| sprintf "%s" ex.Message
-                | Failure msg -> Failure msg
+                    | ex -> Failure      <| sprintf "Update Workcenter: %s" ex.Message
+                | Failure msg -> Failure <| sprintf "Upate Workcenter: %s" msg
             
 
     type ToggleWorkCenter = Activation -> string -> Result<unit>
@@ -350,13 +349,12 @@ module DBCommands =
 
     ///Inserts a new site
     let insertMachine: InsertMachine =
-        fun machine ->
-            let (Machine m) = machine.Machine
-            let (WorkCenter wc) = machine.WorkCenter
+        fun machineInfo ->
+            let mach = toDBMachineInfo machineInfo
             let ctx = Sql.GetDataContext()
             let dbmach = ctx.Timeentryapp.Machine.Create()
-            dbmach.Machine      <- m
-            dbmach.WorkCenter   <- wc
+            dbmach.Machine      <- mach.Machine
+            dbmach.Shopfloor    <- mach.ShopFloorInfo.ShopFloor
             dbmach.Active       <- 1y
             
             trySubmit ctx
@@ -808,31 +806,36 @@ module DBLib =
         |> Result.bind deleteSites
 
     let insertReferenceData () = 
-        insertSite(Site "F21") |> ignore
-        insertSite(Site "F22") |> ignore
+        let s1 = Site "F21"
+        let s2 = Site "F22"
 
         let sf1 = {ShopFloorInfo.ShopFloor = ShopFloor "F211A"; Site = Site "F21"}
-        insertShopfloor(sf1) |> ignore
-        
         let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor "F221A"; Site = Site "F22"}
-        insertShopfloor(sf2) |> ignore
 
         let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter "F1"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
-        insertWorkCenter(wc1) |> ignore
-
         let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter "F2"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
-        insertWorkCenter(wc2) |> ignore
 
-        let m1: MachineInfo = {Machine = Machine "Rooslvo"; WorkCenter = WorkCenter "F1"}
-        insertMachine(m1) |> ignore
-
-        let m2: MachineInfo = {Machine = Machine "Scoel12"; WorkCenter = WorkCenter "F2"}
-        insertMachine(m2) |> ignore
-
+        let m1: MachineInfo = {Machine = Machine "Rooslvo"; ShopFloorInfo = sf1}
+        let m2: MachineInfo = {Machine = Machine "Scoel12"; ShopFloorInfo = sf2}
+        
         let format = WithoutInfo "FOR"
         let div = ZeroPerson "DIV"
         let pan = WithInfo "PAN"
         let arr = WithInfo "ARR"
+        
+        insertSite(s1) |> ignore
+        insertSite(s2) |> ignore
+
+        insertShopfloor(sf1) |> ignore        
+        insertShopfloor(sf2) |> ignore
+
+        insertWorkCenter(wc1) |> ignore
+        insertWorkCenter(wc2) |> ignore
+
+        insertMachine(m1) |> ignore
+
+        insertMachine(m2) |> ignore
+
         [format; div; pan; arr]
         |> List.map insertEvent
         |> ignore
