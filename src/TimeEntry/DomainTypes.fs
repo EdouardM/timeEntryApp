@@ -127,34 +127,24 @@ module DomainTypes =
         }
     
     type TimeRecordId = uint32
-(*
-    let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
-        let timerecordId = jsonObj.Id
-        let dto = jsonObj.DTO
-        let timerecord = fromDTO dto
-        log user timestamp timerecord
 
-        let dbRes = updatetimerecord user timestamp timerecordId timerecord
-        match dbRes with
-            | Success res -> HTTP 200 //ok
-            | Failure msg -> HTTP 404 //failure
-
-*)
     (* 
         Types for User information
     *)
+    type Login = Login of string
 
-    type UserName = Login of string
+    type UserName = UserName of string
 
-    type AuthLevel = | Entry | Maintenance | Admin
+    type AuthLevel = | User | KeyUser | Admin
 
-    type SiteAccess = | All | SiteOnly of Site
+    type SiteAccess = | AllSites | SiteList of Site list
 
 
     type User =
         {
-            Site        : SiteAccess
+            Login       : Login
             Name        : UserName
+            SiteAccess  : SiteAccess
             Level       : AuthLevel
         }
 

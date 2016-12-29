@@ -83,3 +83,17 @@ namespace TimeEntry
                 let timeEntryResult = createTimeEntry <!> timetypeResult <*> nbPeopleResult <*> durationResult
                 let timeRecordResult = createTimeRecord <!> siteResult <*> shopfloorResult <*> workcenterResult <*> timeEntryResult
                 timeRecordResult
+
+    (*
+    let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
+        let timerecordId = jsonObj.Id
+        let dto = jsonObj.DTO
+        let timerecord = fromDTO dto
+        log user timestamp timerecord
+
+        let dbRes = updatetimerecord user timestamp timerecordId timerecord
+        match dbRes with
+            | Success res -> HTTP 200 //ok
+            | Failure msg -> HTTP 404 //failure
+
+*)
