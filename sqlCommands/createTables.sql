@@ -167,13 +167,31 @@ CREATE INDEX EventEntryId ON TimeRecord (EventEntryId);
 Create User table  
 ===================================================== */
 
-DROP TABLE  IF EXISTS TimeRecord;
+DROP TABLE  IF EXISTS User;
 
 CREATE TABLE User (
-    UserId INT NOT NULL auto_increment,
+    Login VARCHAR(8),
     UserRealName VARCHAR(50) NOT NULL,
     AllSites TINYINT(1) NOT NULL,
-    Site VARCHAR(4) NOT NULL,
-    AuthLevel ENUM('user', 'approver', 'admin') NOT NULL,
-    Active TINYINT(1) NOT NULL
-    PRIMARY KEY (UserId));
+    AuthLevel ENUM('user', 'keyuser', 'admin') NOT NULL,
+    Active TINYINT(1) NOT NULL,
+    PRIMARY KEY (Login)
+);
+
+INSERT User VALUES('moureed1', 'Edouard Moureaux', 0, 'admin', 1);
+
+/* =====================================================
+Create User Site Authorization table  
+===================================================== */
+
+DROP TABLE  IF EXISTS UserAuthorization;
+
+CREATE TABLE UserAuthorization (
+    Login VARCHAR(8) NOT NULL,
+    Site VARCHAR(3) NOT NULL,
+    Active TINYINT(1) NOT NULL,
+    PRIMARY KEY (Login, Site)
+);
+
+INSERT User VALUES('moureed1', 'F21', 1);
+INSERT User VALUES('moureed1', 'F22', 1);

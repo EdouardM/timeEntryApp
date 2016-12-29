@@ -10,6 +10,7 @@
 #load "./Constructors.fs"
 #load "./Database.fs"
 #load "./DatabaseAPI.fs"
+#load "./DbService.fs"
 open FSharp.Data.Sql
 open TimeEntry.Result
 open TimeEntry.Conversions
@@ -17,12 +18,19 @@ open TimeEntry.DomainTypes
 open TimeEntry.Constructors
 open TimeEntry.DataBase
 open TimeEntry.DBCommands
+open TimeEntry.DBService
 
 
 open System.Configuration
 open FSharp.Configuration
+let exePath = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "./bin/Debug/TimeEntry.exe.config")
+let config = ConfigurationManager.OpenExeConfiguration(exePath)
 
-let t = ConfigurationManager.ConnectionStrings.Item("Dev").ConnectionString
+config.Sections
+
+//Reads in machine config
+let t = ConfigurationManager.ConnectionStrings.["Dev"]
+
 
 //Connection string described here: https://www.connectionstrings.com/mysql/
 let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeentryapp;User=root;Password="
@@ -38,11 +46,28 @@ type Sql = SqlDataProvider<
             UseOptionTypes = true,
             Owner = "timeentryapp" >
 
+
+type DBContext = Sql.dataContext
+
+FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent |> Event.add (printfn "Executing SQL: %s")
+
+insertSite(Site "F21")
+insertSite(Site "F22")
+
+getSiteCodes()
+
+let sf1 = {ShopFloorInfo.ShopFloor = ShopFloor "F211A"; Site = Site "F21"}
+let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor "F221A"; Site = Site "F22"}
+
+insertShopfloor(sf1)
+insertShopfloor(sf2)
+
 getShopFloorCodes()
 
 getShopFloorInfo("F211A")
 
-insertShopfloor ({Site = Site "F23"; ShopFloor = ShopFloor "F231A"})
+let sf3 = {ShopFloorInfo.Site = Site ("F23"); ShopFloor = ShopFloor ("F231A") }
+insertShopfloor (sf3)
 
 getShopFloorCodes()
 
@@ -50,16 +75,42 @@ desactivateShopfloor("F231A")
 getShopFloorCodes()
 activateShopfloor("F231A")
 
-getWorkCenterCodes()
+let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter "F1"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+insertWorkCenter(wc1)
 
+let wc1' = {wc1 with StartHour = Hour 5u }
+updateWorkCenter wc1.WorkCenter wc1'
+
+let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter "F2"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+insertWorkCenter(wc2)
+
+
+getWorkCenterCodes()
 getWorkCenter ("F1")
-
-getWorkCenterCodes()
 
 //Test to write
 getWorkCenterCodes()
 desactivateWorkCenter ("F1")
 activateWorkCenter ("F1")
+
+let m1: MachineInfo = {Machine = Machine "Rooslvo"; ShopFloorInfo = sf1}
+insertMachine(m1)
+
+let m2: MachineInfo = {Machine = Machine "Scoel12"; ShopFloorInfo = sf2}
+insertMachine(m2)
+
+getMachineCodes()
+desactivateMachine("Rooslvo")
+activateMachine("Rooslvo")
+
+let format = WithoutInfo "FOR"
+let div = ZeroPerson "DIV"
+let pan = WithInfo "PAN"
+let arr = WithInfo "ARR"
+
+[format; div; pan; arr]
+|> List.map insertEvent
+
 
 getEventCodes()
 
@@ -83,17 +134,15 @@ activateEvent    ("NET")
 updateEvent (WithoutInfo "NET")
 getEvent ("NET")
 
+let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
 getWorkOrderCodes()
 
-let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
-getWorkCenterCodes()
 insertWorkOrderEntry wo1
 getWorkOrderCodes()
 
 getWorkOrder ("12243")
 
 getWorkOrder ("12242")
-
 let wo1' = {wo1 with TotalMachineTimeHr = TimeHr 1000.f}
 
 updateWorkOrderEntry wo1'
@@ -123,7 +172,11 @@ let timeRecord =
 getShopFloorCodes()
 insertTimeRecord timeRecord
 
-getTimeRecord 4u
+getTimeRecord 5u
+let ctx = Sql.GetDataContext()
+let login = "moureed1"
+getUser(login)
+
 
 // Add a logic to add total time on workorder
 // => Only when time record status is validated.

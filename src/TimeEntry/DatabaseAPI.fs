@@ -15,7 +15,7 @@ module DBCommands =
     //Path to mysql ODBC divers: http://fsprojects.github.io/SQLProvider/core/parameters.html
     let [<Literal>] ResolutionPath = __SOURCE_DIRECTORY__ + @"/../../packages/MySql.Data/lib/net45"
 
-    type MySql = SqlDataProvider<
+    type Sql = SqlDataProvider<
                 ConnectionString = ConnectionString,
                 DatabaseVendor = Common.DatabaseProviderTypes.MYSQL,
                 ResolutionPath = ResolutionPath,
@@ -24,7 +24,7 @@ module DBCommands =
                 Owner = "timeentryapp" >
 
 
-    type DBContext = MySql.dataContext
+    type DBContext = Sql.dataContext
 
     type Activation = 
         | Activate
@@ -51,18 +51,17 @@ module DBCommands =
     let trySubmit (ctx: DBContext) = 
         try 
             ctx.SubmitUpdates()
-            |> Success
+            Success ()
         with
             ex -> Failure ex.Message
 
 
     (* SITE FUNCTIONS *)
-    type GetSiteCodes = unit -> string list
+    type GetSiteCodes = DBContext -> unit -> string list
 
     ///Returns a list of codes of active sites
     let getSiteCodes: GetSiteCodes =
-        fun () ->
-            let ctx = Sql.GetDataContext()
+        fun ctx () ->
             query {
                 for site in ctx.Timeentryapp.Site do
                     where (site.Active = 1y)
@@ -262,15 +261,14 @@ module DBCommands =
             with
             | ex -> Failure <| sprintf "%s" ex.Message
 
-    type UpdateWorkCenter = WorkCenter -> WorkCenterInfo -> Result<unit>
+    type UpdateWorkCenter = WorkCenterInfo -> Result<unit>
     let updateWorkCenter: UpdateWorkCenter =
-        fun workcenter workcenterinfo ->
-            let (WorkCenter wc) = workcenter
+        fun workcenterinfo ->
             let ctx = Sql.GetDataContext()
             let wcinfoRes =
                 query {
                     for workcenter in ctx.Timeentryapp.Workcenter do
-                        where (workcenter.WorkCenter = wc && workcenter.Active = 1y)
+                        where (workcenter.WorkCenter = workcenterinfo.WorkCenter && workcenter.Active = 1y)
                         select workcenter
                 }
                 |> Seq.toList
@@ -791,60 +789,189 @@ module DBCommands =
         trySubmit ctx
 
 
-module DBLib = 
-    open DomainTypes
-    open DBCommands    
+    (* USER AUTHORIZATION FUNCTIONS *)
+    type GetUserAuth = string -> string list
+    
+    let getUserAuth: GetUserAuth =
+        fun login -> 
+                let ctx = Sql.GetDataContext()         
+                query {
+                    for user in ctx.Timeentryapp.User do
+                        join authsite in ctx.Timeentryapp.Userauthorization on (user.Login = authsite.Login)
+                        where (user.Login = login && user.Active = 1y && authsite.Active = 1y)
+                        select (authsite.Site)
+                }
+                |> Seq.toList
 
-    let removeExistingData () = 
-        deleteTimeRecords ()
-        |> Result.bind deleteEventEntries
-        |> Result.bind deleteEvents
-        |> Result.bind deleteWorkOrders
-        |> Result.bind deleteMachines
-        |> Result.bind deleteWorkCenters
-        |> Result.bind deleteShopfloors
-        |> Result.bind deleteSites
+    //Insert new User Authorization in DB
+    type InsertUserAuth = Login -> Site -> Result<unit>
+    let insertUserAuth: InsertUserAuth =
+        fun login site ->
+            let (Login usrlogin) = login
+            let (Site authsite)  =  site
+            let ctx             = Sql.GetDataContext() 
+            let auth = ctx.Timeentryapp.Userauthorization.Create()
+            auth.Login  <- usrlogin
+            auth.Site   <- authsite
+            auth.Active <- 1y
 
-    let insertReferenceData () = 
-        let s1 = Site "F21"
-        let s2 = Site "F22"
+            trySubmit ctx
 
-        let sf1 = {ShopFloorInfo.ShopFloor = ShopFloor "F211A"; Site = Site "F21"}
-        let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor "F221A"; Site = Site "F22"}
+    type ToggleUserAuth = Activation -> string -> string -> Result<unit>
+    let toggleUserAuth: ToggleUserAuth =
+        fun activation login site -> 
+            let ctx = Sql.GetDataContext()
+            let current, future = flags activation
+            let dbsOpt = 
+                query {
+                    for authsite in ctx.Timeentryapp.Userauthorization do
+                        where (authsite.Login = login && authsite.Site = site && authsite.Active = current)
+                        select authsite }
+                |> Seq.tryHead
 
-        let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter "F1"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
-        let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter "F2"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+            match dbsOpt with
+                | Some dbs -> 
+                    dbs.Active <- future
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                        ex -> Failure ex.Message
+                | None -> Failure <| sprintf "Authorization for user \'%s\' on site %s is missing or %s." login site  activation.State
 
-        let m1: MachineInfo = {Machine = Machine "Rooslvo"; ShopFloorInfo = sf1}
-        let m2: MachineInfo = {Machine = Machine "Scoel12"; ShopFloorInfo = sf2}
-        
-        let format = WithoutInfo "FOR"
-        let div = ZeroPerson "DIV"
-        let pan = WithInfo "PAN"
-        let arr = WithInfo "ARR"
-        
-        insertSite(s1) |> ignore
-        insertSite(s2) |> ignore
+    type DesactivateUserAuth = string -> Result<unit>
+    let desactivateUserAuth: DesactivateUserAuth  = toggleUserAuth Desactivate
 
-        insertShopfloor(sf1) |> ignore        
-        insertShopfloor(sf2) |> ignore
+    type ActivateUserAuth = string -> Result<unit>
+    let activateUserAuth: ActivateUserAuth = toggleUserAuth Activate
 
-        insertWorkCenter(wc1) |> ignore
-        insertWorkCenter(wc2) |> ignore
+    let deleteUserAuth () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for userauth in ctx.Timeentryapp.Userauthorization do
+                select userauth
+        }
+        |> Seq.toList
+        |> List.iter(fun userauth -> userauth.Delete() )
+        trySubmit ctx
 
-        insertMachine(m1) |> ignore
 
-        insertMachine(m2) |> ignore
+     (* USER FUNCTIONS  *)
 
-        [format; div; pan; arr]
-        |> List.map insertEvent
-        |> ignore
-(*
-        let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
-        
-        let ev1 = EventWithoutInfo (WithoutInfo "FOR")
-        insertEventEntry ev1 |> ignore
+    type GetUserLogins = unit -> string list
+    let getUserLogins: GetUserLogins =
+        fun () -> 
+            let ctx = Sql.GetDataContext()
+            query {
+                for user in ctx.Timeentryapp.User do
+                    where (user.Active = 1y)
+                    select user.Login
+            }
+            |> Seq.toList
 
-        let ev2 = EventWithInfo (WithInfo "ARR", {Machine =Machine "ZX"; Cause="Arrêt imprévu";Solution="Brancher la prise";Comments="A retenir" })
-        insertEventEntry ev2 |> ignore
-*)
+
+    type GetUser = string -> Result<DBUser>
+
+    let getUser: GetUser =
+        fun login -> 
+            let ctx = Sql.GetDataContext()
+            //Get Authorized Sites first
+            let sites =  getUserAuth login
+            query {
+                for user in ctx.Timeentryapp.User do
+                where (user.Login = login && user.Active = 1y)
+                select user
+            }
+            |> Seq.map (fun (user) ->
+                {
+                            DBUser.Login    = user.Login
+                            Name            = user.UserRealName
+                            Level           = user.AuthLevel
+                            AllSites        = sbyteTobool user.AllSites
+                            SiteList        = sites
+                }
+            )
+            |> Seq.toList
+            |> onlyOne "User" login
+
+    //Insert new user in DB
+    type InsertUser = User -> Result<unit list>
+
+    let insertUser: InsertUser =
+        fun user -> 
+            let ctx     = Sql.GetDataContext()
+            let usr     = ctx.Timeentryapp.User.Create()
+            let dbUs    = toDBUser user
+            usr.Login         <- dbUs.Login
+            usr.UserRealName  <- dbUs.Name
+            usr.AuthLevel     <- dbUs.Level
+            usr.AllSites      <- boolToSbyte dbUs.AllSites
+            usr.Active        <- 1y
+            try 
+                ctx.SubmitUpdates()
+                |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+
+    type UpdatUser = User -> Result<unit>
+
+    let updateUser: User =
+        fun newuser ->
+            let ctx = Sql.GetDataContext()
+            let dbus = toDBUSer newuser
+            
+            let userRes = 
+                query {
+                    for user in ctx.Timeentryapp.User do
+                        where (user.Login = newuser.Login  && user.Active = 1y)
+                        select user
+                }
+                |> Seq.toList
+                |> onlyOne "EventEntry" (string eventId)
+
+            match userRes with
+                | Success user -> 
+                        user.UserRealName   <- dbus.Name
+                        user.AllSites       <- dbus.AllSites
+                        user.AuthLevel      <- dbus.Level
+                        trySubmit ctx
+
+                | Failure msg -> Failure msg
+
+    type ToggleUser = Activation -> string -> Result<unit>
+    let toggleUser: ToggleUser =
+        fun activation login -> 
+            let ctx = Sql.GetDataContext()
+            let current, future = flags activation
+            let dbsOpt = 
+                query {
+                    for user in ctx.Timeentryapp.User do
+                        where (user.Login = login && user.Active = current)
+                        select user }
+                |> Seq.tryHead
+
+            match dbsOpt with
+                | Some dbs -> 
+                    dbs.Active <- future
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                        ex -> Failure ex.Message
+                | None -> Failure <| sprintf "User \'%s\' is missing or %s." login site  activation.State
+
+    type DesactivateUser = string -> Result<unit>
+    let desactivateUser: DesactivateUser  = toggleUser Desactivate
+
+    type ActivateUser = string -> Result<unit>
+    let activateUser: ActivateUser = toggleUser Activate
+
+    let deleteUser () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for user in ctx.Timeentryapp.User do
+                select user
+        }
+        |> Seq.toList
+        |> List.iter(fun user -> user.Delete() )
+        trySubmit ctx

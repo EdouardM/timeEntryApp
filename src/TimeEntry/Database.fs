@@ -367,5 +367,60 @@ namespace TimeEntry
                         | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
                         | None, None       -> Failure "Both Workorder and Event entry are missing."
 
+            type DBUser =
+                {
+                    Login       : string
+                    Name        : string
+                    Level       : string
+                    AllSites    : bool
+                    SiteList    : string list
+                }
+            
+            let authLevelToString =
+                function
+                    | User      -> "user"
+                    | KeyUser   -> "keyuser"
+                    | Admin     -> "admin"
+            
+            let toDBUser  (user : User) = 
+                let (Login login)   = user.Login
+                let (UserName name) = user.Name
+                let level = authLevelToString user.Level
+                match user.SiteAccess with
+                    | AllSites -> 
+                        {
+                            Login       = login
+                            Name        = name
+                            Level       = level
+                            AllSites    = true
+                            SiteList    = []
+                        }
+                    | SiteList l -> 
+                        let sites = l |> List.map (fun (Site s) -> s)
+                        {
+                            Login       = login
+                            Name        = name
+                            Level       = level
+                            AllSites    = false
+                            SiteList    = sites
+                        }  
 
- 
+            let fromDBUser  
+                sites
+                names
+                logins
+                (dbuser : DBUser) = 
+                    let loginRes  = createLogin logins dbuser.Login
+                    let nameRes   = createUserName names dbuser.Name
+                    let sitesRes  = dbuser.SiteList |> List.map (createSite sites) |> sequence
+                    let accessRes = 
+                        createSiteAccess 
+                        <!> (Success dbuser.AllSites) 
+                        <*> sitesRes
+                        |> flatten
+                    let levelRes  = createLevel dbuser.Level
+                    createUser  
+                    <!> loginRes
+                    <*> nameRes
+                    <*> accessRes
+                    <*> levelRes

@@ -131,3 +131,24 @@ module Constructors =
             | "machine" -> Success MachineTime
             | "labour"  -> Success LabourTime
             | _ -> Failure "Invalid Time Type"
+
+    let createUserName = create UserName "user name"
+
+    let createLogin = create Login "user login"
+
+    let createSiteAccess accessAll authorizedSites = 
+        match accessAll, authorizedSites with
+            | true, []      -> Success (AllSites)
+            | false, []     -> Failure "User must have at least one authorized site when access is set to Site List."
+            | false, sites  -> Success (SiteList sites)
+            | true, l       -> Failure "Should have empty list of sites when access is set to AllSites."
+    
+    let createLevel = 
+        function
+            | "user"    -> Success User
+            | "keyuser" -> Success KeyUser
+            | "admin"   -> Success Admin
+            | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
+
+    let createUser login name access level = 
+        { Login = login ; Name = name; SiteAccess = access; Level = level}

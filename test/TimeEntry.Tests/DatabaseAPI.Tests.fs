@@ -5,7 +5,7 @@ open Expecto
 open TimeEntry.DomainTypes
 open TimeEntry.DataBase
 open TimeEntry.DBCommands
-open TimeEntry.DBLib
+open TimeEntry.DBService
 open TimeEntry.Result
 
 let stopOnFailure = function
@@ -66,7 +66,14 @@ let testShopfloor =
       |> stopOnFailure
 
       let cnt = getShopFloorCodes() |> List.length
-      Expect.equal cnt 1 step1;
+      Expect.equal cnt 1 step1
+
+      let step1' = "We get the same shopfloor."
+      
+      let dbsf = getShopFloorInfo(sfCode)
+      let expected = toDBShopfloorInfo sf
+      
+      Expect.equal dbsf expected step1';
 
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no shopfloor after desactivation."
@@ -107,7 +114,14 @@ let testWorkCenter =
       |> stopOnFailure
 
       let cnt = getWorkCenterCodes() |> List.length
-      Expect.equal cnt 1 step1;
+      Expect.equal cnt 1 step1
+      
+      let step1' = "We get the same workcenter after insert."
+      
+      let dbwc = getWorkCenter(wcCode)
+      let expected = toDBWorkCenterInfo wc
+
+      Expect.equal dbwc expected step1';
 
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no workcenter after desactivation."
@@ -131,7 +145,7 @@ let testWorkCenter =
       
       let wc2 = {wc with StartHour = Hour 5u; EndHour = Hour 5u}
       
-      updateWorkCenter wc.WorkCenter wc2 
+      updateWorkCenter(wc2)
       |> stopOnFailure
 
       let expected = Success <| toDBWorkCenterInfo wc2
@@ -288,6 +302,7 @@ let testEventEntries =
       
     //Insert Reference data
     insertReferenceData()
+    |> stopOnFailure
   
     let sites = getSiteCodes()
     let generateSite() = FsCheck.Gen.elements sites 
