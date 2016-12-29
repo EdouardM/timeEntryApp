@@ -45,6 +45,7 @@
     <Compile Include="DomainTypes.fs" />
     <Compile Include="Constructors.fs" />
     <Compile Include="Database.fs" />
+    <Compile Include="DbService.fs" />
     <Compile Include="DatabaseAPI.fs" />
     <None Include="DTOTypes.fs" />
   </ItemGroup>
