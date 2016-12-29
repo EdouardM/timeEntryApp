@@ -40,6 +40,8 @@ module Result =
             | Failure msg -> Failure msg  
 
     let (>>=) = bind
+
+    let (>=>) f g = f >> bind g
     
     let fromOption msg = 
         function
