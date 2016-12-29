@@ -24,7 +24,7 @@ let version = "0.1"  // or retrieve from CI server
 
 // Targets
 Target "Clean" (fun _ ->
-    CleanDirs [buildDir; deployDir]
+    CleanDirs [buildDir; testDir; deployDir]
 )
 
 Target "Build" (fun _ ->
