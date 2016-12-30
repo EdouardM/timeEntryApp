@@ -8,17 +8,10 @@ module DomainTypes =
     //Domain Model:
     // http://fsharpforfunandprofit.com/ddd/
 
-    type TimeType = 
-            | MachineTime
-            | LabourTime
-
-
-    type RecordStatus = | Entered | Validated
-
-    type NbPeople = NbPeople of float32
-    
+    (* DEFINE ONE SITE *)
     type Site  = Site of string
     
+     (* DEFINE ONE SHOPFLOOR *)
     type ShopFloor  = ShopFloor of string
 
     type ShopFloorInfo = 
@@ -27,10 +20,12 @@ module DomainTypes =
             ShopFloor : ShopFloor
         }
 
-    type WorkCenter  = WorkCenter of string
+    (* DEFINE ONE WORKCENTER *)
     
+    ///Type modeling hours of a day
     type Hour = Hour of uint32
 
+    type WorkCenter  = WorkCenter of string
     type WorkCenterInfo = 
         {
             WorkCenter      : WorkCenter
@@ -39,35 +34,79 @@ module DomainTypes =
             EndHour         : Hour
         }
     
-    type Duration = 
+    (* DEFINE ONE MACHINE *)
+    type Machine = Machine of string
+
+    type MachineInfo =
         {
-            StartTime   : DateTime
-            EndTime     : DateTime
+            ShopFloorInfo   : ShopFloorInfo
+            Machine         : Machine
         }
-        with
-            member x.Duration = x.EndTime - x.StartTime
-            member x.ToHr =  
-                let minutes = (float x.Duration.TotalMinutes)
-                System.Math.Round(minutes / 60., 4)
 
-    type TimeEntry = 
-        | MachineOnly of Duration
-        | MachineAndLabour of Duration * NbPeople
-        | LabourOnly of Duration * NbPeople
 
+    (* DEFINE ONE ACTIVITY *)
+    type ShopfloorAccess  = 
+        | AllShopFloors  
+        | ShopfloorList of Shopfloor list
+
+    type WorkCenterAccess = 
+        | AllWorkCenters 
+        | WorkCenterList of WorkCenter list
+
+    type RecordLevel = 
+        | Shopfloor  of ShopfloorAccess
+        | WorkCenter of WorkCenterAccess
+
+    type TimeType = 
+            | MachineTime
+            | LabourTime
+            | MachineOnly
+            | LabourOnly
+
+    type ExtraInfo = | WithInfo | WithoutInfo
+    
+    type ActivityCode = ActivityCode of string
+    type Activity =
+    {
+        Site            : Site
+        RecordLevel     : RecordLevel
+        Code            : ActivityCode
+        TimeType        : TimeType
+        ActivityLink    : ActivityLink 
+        ExtraInfo       : ExtraInfo
+    }
+    and  ActivityLink = 
+            | Linked of Activity
+            | NotLinked
+
+    (* DEFINE ONE USER *)
+    type SiteAccess = | AllSites | SiteList of Site list
+
+    type AuthLevel = | User | KeyUser | Admin
+
+    type Login = Login of string
+    type UserName = UserName of string
+    type User =
+        {
+            Login       : Login
+            Name        : UserName
+            SiteAccess  : SiteAccess
+            Level       : AuthLevel
+        }
+
+    (* DEFINE ONE WORKORER *)
     type WorkOrder = WorkOrder of string
 
     type ItemCode  = ItemCode of string
 
-    type ItemType  = ItemType of string
-    
     type WorkOrderStatus =
         | Open
         | Closed
 
+    //Unit of time recorded in the system: decimal of time
     type TimeHr = TimeHr of float32
 
-    type WorkOrderEntry =
+    type WorkOrderInfo =
         {
             WorkOrder           : WorkOrder
             WorkCenter          : WorkCenter              
@@ -77,15 +116,36 @@ module DomainTypes =
             Status              : WorkOrderStatus
         }
 
-    type WorkOrderEntryId = uint32
-
-    type Machine = Machine of string
-
-    type MachineInfo =
+    (* DEFINE TYPES TO RECORD TIME *)
+    type Duration =     
         {
-            ShopFloorInfo   : ShopFloorInfo
-            Machine         : Machine
+            StartTime   : DateTime
+            EndTime     : DateTime
         }
+        with
+            member x.Duration = x.EndTime - x.StartTime
+            member x.ToTimeHr =  
+                let minutes = (float x.Duration.TotalMinutes)
+                System.Math.Round(minutes / 60., 4)
+                |> float32
+                |> TimeHr
+    
+
+
+    type RecordStatus = | Entered | Validated
+
+    type NbPeople = NbPeople of float32
+    
+
+
+    type TimeEntry = 
+        | MachineOnly of Duration
+        | MachineAndLabour of Duration * NbPeople
+        | LabourOnly of Duration * NbPeople
+
+
+
+
 
     //In case of BreakDown we record addiional information
     type EventInfo = 
@@ -128,25 +188,7 @@ module DomainTypes =
     
     type TimeRecordId = uint32
 
-    (* 
-        Types for User information
-    *)
-    type Login = Login of string
 
-    type UserName = UserName of string
-
-    type AuthLevel = | User | KeyUser | Admin
-
-    type SiteAccess = | AllSites | SiteList of Site list
-
-
-    type User =
-        {
-            Login       : Login
-            Name        : UserName
-            SiteAccess  : SiteAccess
-            Level       : AuthLevel
-        }
 
     // Use Types
     type EntryRequest = { User: User; Entry : TimeRecord }

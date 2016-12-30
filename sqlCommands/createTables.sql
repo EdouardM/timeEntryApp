@@ -72,12 +72,12 @@ INSERT Machine VALUES('F221A', 'Rooslvo', 1);
 
 
 /* =====================================================
-Create Work Orders Entry table  
+Create Work Orders Info table  
 ===================================================== */
 
-DROP TABLE  IF EXISTS WorkOrderEntry;
+DROP TABLE  IF EXISTS WorkOrderInfo;
 
-CREATE TABLE WorkOrderEntry (
+CREATE TABLE WorkOrderInfo (
     WorkOrder VARCHAR(10) NOT NULL,
     WorkCenter VARCHAR(4) NOT NULL,
     ItemCode VARCHAR(6) NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE WorkOrderEntry (
     PRIMARY KEY (WorkOrder)
 );
 
-CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenter);
+CREATE INDEX WorkCenterId ON WorkOrderInfo (WorkCenter);
 
 /* =====================================================
 Create Event table  
