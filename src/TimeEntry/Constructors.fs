@@ -11,31 +11,115 @@ module Constructors =
             | true -> Success (ty id)
             | false -> Failure <| sprintf "Can't find %s: %s" name id 
 
-
-    ///Create a valid number of people:
-    ///Number of people can only be integer or half of integer and positive
-    let createNbPeople nb = 
-        if nb >= 0.f then
-            let r = floor nb
-            let d = nb - r
-            if d >= 0.5f then Success (NbPeople (r + 0.5f))
-            else Success(NbPeople r)
-        else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
-
+    (* SITE CONSTRUCTORS / VALIDATION *)
     let createSite = create DomainTypes.Site "site"
 
-    let createShopfloor = create ShopFloor "shopfloor"
+    (* SHOPFLOOR CONSTRUCTORS *)
+    let createShopFloor = create ShopFloor "shopfloor"
 
 
-    let createShopfloorInfo site shopfloor = 
+    let createShopFloorInfo site shopfloor = 
         { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
 
+
+    (* WORKCENTER CONSTRUCTORS *)
     let createWorkCenter = create WorkCenter "workcenter"
 
     let createHour = 
         function
             | h when h > 23u -> Failure "Hour can't be bigger than 23."
             | h -> Success (Hour h)
+    
+    let createWorkCenterInfo shopFloor workCenter startTime endTime = 
+        { WorkCenter = workCenter; ShopFloorInfo = shopFloor; StartHour = startTime; EndHour = endTime }
+    
+    (* MACHINE CONSTRUCTORS *)
+    let createMachine = create Machine "machine"
+
+    let createMachineInfo machine shopFloor =
+        { Machine = machine; ShopFloorInfo = shopFloor}
+    
+    (* ACTIVITY CONSTRUCTORS *)
+    let createShopFloorAccess =
+        function
+            | true, []      -> Success (AllShopFloors)
+            | false, []     -> Failure "Must have at least one authorized shopfloor when access is set to shopfloor list."
+            | false, sf     -> Success (ShopFloorList sf)
+            | true, sf      -> Failure "Should have empty list of shopfloors when access is set to all."
+    
+
+    let createWorkCenterAccess =
+        function
+            | true, []      -> Success (AllWorkCenters)
+            | false, []     -> Failure "Must have at least one authorized workcenter when access is set to workcenter list."
+            | false, sf     -> Success (WorkCenterList sf)
+            | true, sf      -> Failure "Should have empty list of workcenter when access is set to all."
+    
+    let createTimeType = 
+        function
+            | "labour"      -> Success (LabourTime)
+            | "machine"     -> Success (MachineTime)
+            | ty            -> Failure <| sprintf "Invalid time type: %s" ty
+
+
+    let createExtraInfo extra = 
+        if extra then Success WithInfo 
+        else Success WithoutInfo
+
+    let createActivityCode = create ActivityCode "activity"
+
+    let createActivityLink = 
+        function 
+            | true, Some act    -> Success (Linked act)
+            | false,    None    -> Success NotLinked
+            | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
+            | true,     None    -> Failure "One activity marked as linked must have a linked activity."
+
+    let createActivity site level code timetype link extra =
+        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extra }
+
+    let createActivityDetails machine cause solution comments = 
+        { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
+
+    let createActivityInfo activity hasInfo details =
+        match hasInfo, details  with
+            | true, Some d      -> Success (Detailed (activity,d))
+            | false,None        -> Success (Normal activity)
+            | false,Some d      -> Failure "Activity details are not expected."
+            | true, None        -> Failure "Activity details are expected."
+
+    (* USER CONSTRUCTORS *)
+    let createUserName = create UserName "user name"
+
+    let createLogin = create Login "user login"
+
+    let createSiteAccess accessAll authorizedSites = 
+        match accessAll, authorizedSites with
+            | true, []      -> Success (AllSites)
+            | false, []     -> Failure "User must have at least one authorized site when access is set to Site List."
+            | false, sites  -> Success (SiteList sites)
+            | true, l       -> Failure "Should have empty list of sites when access is set to AllSites."
+    
+    let createLevel = 
+        function
+            | "user"    -> Success User
+            | "keyuser" -> Success KeyUser
+            | "admin"   -> Success Admin
+            | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
+
+    let createUser login name access level = 
+        { Login = login ; Name = name; SiteAccess = access; Level = level}
+
+    (* WORKORDER CONSTRUCTORS *)
+    let createWorkOrder = create WorkOrder "work order number"
+
+    let createItemCode = create ItemCode "item code"
+
+    let createWorkOrderStatus =
+        function
+            | "open"    ->  Success Open
+            | "closed"  ->  Success Closed
+            | _         ->  Failure "Invalid workorder status."
 
     let createTimeHr = 
         function
@@ -43,9 +127,18 @@ module Constructors =
             | h when h > 999.9999f  -> Failure "Total hour can't be bigger than 999.9999 hr."
             | h -> Success (TimeHr h)
 
-    let createWorkCenterInfo shopFloor workCenter startTime endTime = 
-        { WorkCenter = workCenter; ShopFloorInfo = shopFloor; StartHour = startTime; EndHour = endTime }
-    
+    let createWorkOrderInfo workOrder workCenter itemCode totalMachine totalLabour status = 
+        { 
+            WorkOrder = workOrder; 
+            WorkCenter = workCenter; 
+            ItemCode = itemCode; 
+            TotalMachineTimeHr = totalMachine; 
+            TotalLabourTimeHr = totalLabour; 
+            Status = status
+        }    
+
+    (* TIME RECORD CONSTRUCTOS*)
+
     let createDuration (startTime: DateTime) (endTime: DateTime) =
         if     startTime.Year >= 2010 
             && startTime.Year <= 2100 
@@ -60,40 +153,31 @@ module Constructors =
         else
             Failure <| sprintf "Date year must be within the range from 2010 to 2100.\nStart Year: %d\End Year: %d" startTime.Year endTime.Year
 
-    let createTimeEntry timeType nbPeople duration =
-        match timeType, nbPeople with
-            | MachineTime, (NbPeople 0.f)  -> MachineOnly duration
-            | LabourTime,  nbPeople       -> LabourOnly (duration, nbPeople)
-            | MachineTime, nbPeople       -> MachineAndLabour (duration, nbPeople) 
 
-    let createWorkOrder = create WorkOrder "work order number"
+    ///Create a valid number of people:
+    ///Number of people can only be integer or half of integer and positive
+    let createNbPeople nb = 
+        if nb >= 0.f then
+            let r = floor nb
+            let d = nb - r
+            if d >= 0.5f then Success (NbPeople (r + 0.5f))
+            else Success(NbPeople r)
+        else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
 
-    let createItemCode = create ItemCode "item code"
-    let createItemType = create ItemCode "item type"
-
-    let createWorkOrderStatus =
+    let createRecordStatus = 
         function
-            | "open"    ->  Success Open
-            | "closed"  ->  Success Closed
-            | _         ->  Failure "Invalid workorder status."
+            | "entered"   -> Success Entered
+            | "validated" -> Success Validated
+            | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
 
-    let createWorkOrderEntry workOrder workCenter itemCode totalMachine totalLabour status = 
-        { 
-            WorkOrder = workOrder; 
-            WorkCenter = workCenter; 
-            ItemCode = itemCode; 
-            TotalMachineTimeHr = totalMachine; 
-            TotalLabourTimeHr = totalLabour; 
-            Status = status
-        }
+    let createTimeRecord  site shopfloor workcenter attribution timeEntry status =
+        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntryMode = timeEntry; Attribution = attribution; Status = status}
 
-    let createMachine = create Machine "machine"
 
-    let createMachineInfo machine shopFloor =
-        { Machine = machine; ShopFloorInfo = shopFloor}
-        
+    (* EVENT CONSTRUCTORS*)
     let createEventInfo machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
+
     let createEvent event hasInfo allowZeropeople =
         match hasInfo, allowZeropeople with
             | false, true       -> Success (ZeroPerson event)
@@ -120,35 +204,3 @@ module Constructors =
             | ZeroPerson ev, Some info    -> Failure "info not expected"
             | WithoutInfo ev, Some info   -> Failure "info not expected"
             | WithInfo ev, None           -> Failure "expecting information"
-
-
-    let createTimeRecord  site shopfloor workcenter allocation timeEntry =
-        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntry = timeEntry; Allocation = allocation; Status = Entered}
-
-
-    let createTimeType = 
-        function
-            | "machine" -> Success MachineTime
-            | "labour"  -> Success LabourTime
-            | _ -> Failure "Invalid Time Type"
-
-    let createUserName = create UserName "user name"
-
-    let createLogin = create Login "user login"
-
-    let createSiteAccess accessAll authorizedSites = 
-        match accessAll, authorizedSites with
-            | true, []      -> Success (AllSites)
-            | false, []     -> Failure "User must have at least one authorized site when access is set to Site List."
-            | false, sites  -> Success (SiteList sites)
-            | true, l       -> Failure "Should have empty list of sites when access is set to AllSites."
-    
-    let createLevel = 
-        function
-            | "user"    -> Success User
-            | "keyuser" -> Success KeyUser
-            | "admin"   -> Success Admin
-            | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
-
-    let createUser login name access level = 
-        { Login = login ; Name = name; SiteAccess = access; Level = level}

@@ -47,37 +47,49 @@ module DomainTypes =
     (* DEFINE ONE ACTIVITY *)
     type ShopfloorAccess  = 
         | AllShopFloors  
-        | ShopfloorList of Shopfloor list
+        | ShopFloorList of ShopFloor list
 
     type WorkCenterAccess = 
         | AllWorkCenters 
         | WorkCenterList of WorkCenter list
 
     type RecordLevel = 
-        | Shopfloor  of ShopfloorAccess
-        | WorkCenter of WorkCenterAccess
+        | ShopFloorLevel  of ShopfloorAccess
+        | WorkCenterLevel of WorkCenterAccess
 
     type TimeType = 
             | MachineTime
             | LabourTime
-            | MachineOnly
-            | LabourOnly
 
     type ExtraInfo = | WithInfo | WithoutInfo
     
     type ActivityCode = ActivityCode of string
+    
     type Activity =
-    {
-        Site            : Site
-        RecordLevel     : RecordLevel
-        Code            : ActivityCode
-        TimeType        : TimeType
-        ActivityLink    : ActivityLink 
-        ExtraInfo       : ExtraInfo
-    }
+        {
+            Site            : Site
+            RecordLevel     : RecordLevel
+            Code            : ActivityCode
+            TimeType        : TimeType
+            ActivityLink    : ActivityLink
+            ExtraInfo       : ExtraInfo
+        }
+        
     and  ActivityLink = 
-            | Linked of Activity
+            | Linked   of Activity
             | NotLinked
+
+    type ActivityDetails =
+        {
+            Machine     :   Machine
+            Cause       :   string
+            Solution    :   string 
+            Comments    :   string
+        }
+
+    type ActivityInfo = 
+        | Normal         of Activity
+        | Detailed       of Activity * ActivityDetails
 
     (* DEFINE ONE USER *)
     type SiteAccess = | AllSites | SiteList of Site list
@@ -86,7 +98,7 @@ module DomainTypes =
 
     type Login = Login of string
     type UserName = UserName of string
-    type User =
+    type UserInfo =
         {
             Login       : Login
             Name        : UserName
@@ -130,22 +142,34 @@ module DomainTypes =
                 |> float32
                 |> TimeHr
     
-
-
-    type RecordStatus = | Entered | Validated
-
     type NbPeople = NbPeople of float32
     
-
-
-    type TimeEntry = 
+    type TimeEntryMode = 
         | MachineOnly of Duration
         | MachineAndLabour of Duration * NbPeople
         | LabourOnly of Duration * NbPeople
 
 
+    type TimeAttribution = 
+        | WorkOrderEntry of WorkOrderInfo
+        | ActivityEntry of ActivityInfo
 
+    type RecordStatus = 
+        | Entered
+        | Validated
 
+    type TimeRecord =
+        {
+            Site            : Site
+            ShopFloor       : ShopFloor
+            WorkCenter      : WorkCenter option
+            TimeEntryMode   : TimeEntryMode
+            Attribution     : TimeAttribution
+            Status          : RecordStatus
+        }
+    
+    //Model id of record in Database
+    type TimeRecordId = uint32
 
     //In case of BreakDown we record addiional information
     type EventInfo = 
@@ -161,7 +185,6 @@ module DomainTypes =
             | WithInfo      of string
             | WithoutInfo   of string 
  
-
     type EventEntry = 
         | EventWithInfo         of Event * EventInfo 
         | EventWithoutInfo      of Event 
@@ -169,32 +192,14 @@ module DomainTypes =
 
     type EventEntryId = uint32
                      
-    type TimeAllocation = 
-        //productive time record against work Order
-        | WorkOrderEntry of WorkOrderEntry
-        //improductive time recorded against event
-        | EventEntry of EventEntry
-
-    //Domain model (pure)
-    type TimeRecord =
-        {
-            Site            : Site
-            ShopFloor       : ShopFloor
-            WorkCenter      : WorkCenter
-            TimeEntry       : TimeEntry
-            Allocation      : TimeAllocation
-            Status          : RecordStatus
-        }
-    
-    type TimeRecordId = uint32
-
-
+    //Model the creation of one time Record
+    //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
 
     // Use Types
-    type EntryRequest = { User: User; Entry : TimeRecord }
+    //type EntryRequest = { User: UserInfo; Entry : TimeRecord }
 
-    type EntryResponse = { Id: int; Request: EntryRequest}
+    //type EntryResponse = { Id: int; Request: EntryRequest}
 
     //Use Case 1: Entry of time
     // Db failure or JSon failure
-    type AddEntryData = EntryRequest -> Result<EntryResponse>
+    //type AddEntryData = EntryRequest -> Result<EntryResponse>
