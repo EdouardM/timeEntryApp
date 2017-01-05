@@ -24,7 +24,6 @@ module Constructors =
 
     (* WORKCENTER CONSTRUCTORS *)
     let createWorkCenter = create WorkCenter "workcenter"
-
     let createHour = 
         function
             | h when h > 23u -> Failure "Hour can't be bigger than 23."
@@ -63,19 +62,21 @@ module Constructors =
 
 
     let createExtraInfo extra = 
-        if extra then Success WithInfo 
-        else Success WithoutInfo
+        function 
+            | "withinfo" -> Success WithInfo
+            | "withoutinfo" -> Success WithoutInfo
+            | extra         -> Failure <| sprintf "Invalid extra info: %s" extra
 
     let createActivityCode = create ActivityCode "activity"
 
-    let createActivityLink = 
+    let createActivityLink (createActivityCode: string -> Result<ActivityCode>) = 
         function 
-            | true, Some act    -> Success (Linked act)
+            | true, Some act    -> (createActivityCode act |> Result.map Linked )
             | false,    None    -> Success NotLinked
             | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
             | true,     None    -> Failure "One activity marked as linked must have a linked activity."
 
-    let createActivity site level code timetype link extra =
+    let createActivity site code level timetype link extra =
         { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extra }
 
     let createActivityDetails machine cause solution comments = 
@@ -184,7 +185,6 @@ module Constructors =
             | true, false       -> Success (WithInfo event)
             | false, false      -> Success (WithoutInfo event) 
             | true, true        -> Failure "Event with zero person can't carry information."
-
 
     let extractEvent = function 
             | WithInfo ev -> ev

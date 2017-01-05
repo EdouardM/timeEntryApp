@@ -6,7 +6,7 @@ namespace TimeEntry
     open TimeEntry.Constructors
 
     module DataBase =
-
+            (* SHOPFLOOR CONVERSION FUNCTIONS *)
             type DBShopFloorInfo = 
                 {
                     Site         : string
@@ -23,11 +23,12 @@ namespace TimeEntry
                 shopfloors
                 (sfinfo: DBShopFloorInfo) =
                     let siteRes = createSite sites sfinfo.Site
-                    let shopfloorRes = createShopfloor shopfloors sfinfo.ShopFloor
-                    createShopfloorInfo 
+                    let shopfloorRes = createShopFloor shopfloors sfinfo.ShopFloor
+                    createShopFloorInfo 
                     <!> siteRes
                     <*> shopfloorRes
-
+            
+            (* WORKCENTER CONVERSION FUNCTIONS *)
             type DBWorkCenterInfo =
                 {
                     WorkCenter      : string
@@ -44,21 +45,6 @@ namespace TimeEntry
                 { WorkCenter = wc; ShopFloorInfo = sf; StartHour = startH; EndHour = endH}
          
             let fromDBWorkCenterInfo 
-                sites
-                shopfloors
-                workcenters
-                (wcInfo: DBWorkCenterInfo) =
-                    let shopfloorInfoRes = fromDBShopfloorInfo sites shopfloors wcInfo.ShopFloorInfo 
-                    let workcenterRes = createWorkCenter workcenters wcInfo.WorkCenter
-                    let starthourRes = createHour wcInfo.StartHour
-                    let endhourRes   = createHour wcInfo.EndHour
-                    createWorkCenterInfo
-                    <!> shopfloorInfoRes
-                    <*> workcenterRes
-                    <*> starthourRes
-                    <*> endhourRes 
-                    
-            let fromDBWorkCenterInfo2 
                 fromDBShopfloorInfo
                 workcenters
                 (wcInfo: DBWorkCenterInfo) =
@@ -71,8 +57,8 @@ namespace TimeEntry
                     <*> workcenterRes
                     <*> starthourRes
                     <*> endhourRes 
-
-                
+                    
+            (* MACHINE CONVERSION FUNCTIONS *)
             type DBMachineInfo =
                 {
                     ShopFloorInfo   : DBShopFloorInfo
@@ -95,8 +81,76 @@ namespace TimeEntry
                 <!> machineRes
                 <*> shopfloorInfoRes
 
+            (* ACTIVITY CONVERSION FUNCTIONS *)
+            type DBActivity =
+                {
+                    Code            : string
+                    AccessAll       : bool
+                    AccessList      : string list
+                    RecordLevel     : string
+                    TimeType        : string
+                    isLinked        : bool
+                    LinkedActivity  : string option
+                    ExtraInfo       : string
+                }
 
-            type DBWorkOrderEntry =
+            let toDBActivity (activity: Activity) =
+                let (ActivityCode code) = activity.Code
+                let (Site s) = activity.Site
+                let timetype = activity.TimeType.ToString()
+                let level, accessall, accessList = 
+                    match activity.RecordLevel with
+                        | ShopFloorLevel (AllShopFloors)    -> ("shopfloor", true, [])
+                        | ShopFloorLevel (ShopFloorList sf) -> 
+                            let sfcodes = sf |> List.map(fun (ShopFloor s) -> s) 
+                            ("shopfloor", false, sfcodes)
+                        | WorkCenterLevel (AllWorkCenters)  -> ("workcenter", true, [])
+                        | WorkCenterLevel (WorkCenterList wc) -> 
+                            let wccodes = wc |> List.map(fun (WorkCenter w) -> w) 
+                            ("shopfloor", false, wccodes)
+                let islinked, linkedact = 
+                    match activity.ActivityLink with
+                        | Linked (act)  -> 
+                            let (ActivityCode c) = act.Code 
+                            true, Some c
+                        | NotLinked     -> false,None
+                { 
+                    Code        = code
+                    AccessAll   = accessall
+                    AccessList  = accessList 
+                    RecordLevel = level
+                    TimeType    = timetype
+                    isLinked    = islinked
+                    LinkedActivity  = linkedact
+                    ExtraInfo       = activity.ExtraInfo.ToString()
+                }
+
+            let fromDBActivity 
+                sites
+                activities 
+                (dbActivity: DBActivity) =
+                let codeRes     = createActivityCode activities dbActivity.Code
+                let siteRes     = createSite sites dbActivity.Site
+                let timetypeRes = createTimeType dbActivity.TimeType
+
+                let recordLevelRes = 
+                    match dbActivity.RecordLevel with
+                        | "shopfloor"   -> createShopFloorAccess dbActivity.AccessAll dbActivity.AccessList
+                        | "workcenter"  -> createWorkCenterAccess dbActivity.AccessAll dbActivity.AccessList
+                        | level         -> Failure <| sprintf "Invalid record level: %s" level
+
+                let activityLinkRes = createActivityLink dbActivity.isLinked dbActivity.LinkedActivity
+                let extraInfoRes    = createExtraInfo dbActivity.ExtraInfo
+
+                createActivity
+                <!> siteRes
+                <*> codeRes
+                <*> recordLevelRes
+                <*> timetypeRes
+                <*> activityLinkRes
+                <*> extraInfoRes
+
+            type DBWorkOrderInfo =
                 {
                     WorkOrder : string
                     WorkCenter : string
@@ -106,7 +160,7 @@ namespace TimeEntry
                     WorkOrderStatus    : string
                 }
 
-            let toDBWorkOrderEntry (wo: WorkOrderEntry) =
+            let toDBWorkOrderInfo (wo: WorkOrderInfo) =
                 let (WorkOrder strWo) = wo.WorkOrder
                 let (WorkCenter strWc) = wo.WorkCenter
                 let (ItemCode strItem) = wo.ItemCode
@@ -127,18 +181,18 @@ namespace TimeEntry
                     WorkOrderStatus = status
                 }
 
-            let fromDBWorkOrderEntry
+            let fromDBWorkOrderInfo
                 workOrders
                 workCenters
                 itemCodes
-                (wo: DBWorkOrderEntry) =
+                (wo: DBWorkOrderInfo) =
                 let workOrderRes = createWorkOrder workOrders wo.WorkOrder
                 let workCenterRes = createWorkCenter workCenters wo.WorkCenter
                 let itemCodeRes  = createItemCode itemCodes wo.ItemCode
                 let totalMachineTimeHrRes = createTimeHr wo.TotalMachineTimeHr
                 let totalLabourTimeHrRes = createTimeHr wo.TotalLabourTimeHr
                 let statusRes = createWorkOrderStatus wo.WorkOrderStatus
-                createWorkOrderEntry 
+                createWorkOrderInfo 
                 <!> workOrderRes
                 <*> workCenterRes
                 <*> itemCodeRes
@@ -236,7 +290,7 @@ namespace TimeEntry
                     DurationHr      : float32
                     NbPeople        : float32
                     Allocation      : string
-                    WorkOrderEntry  : DBWorkOrderEntry option
+                    WorkOrderEntry  : DBWorkOrderInfo option
                     EventEntry      : DBEventEntry option
                     Status          : string
                 }
@@ -336,7 +390,7 @@ namespace TimeEntry
                 itemcodes
                 (time: DBTimeRecord) =
                     let siteRes = createSite sites time.Site
-                    let shopFloorRes = createShopfloor shopfloors time.ShopFloor
+                    let shopFloorRes = createShopFloor shopfloors time.ShopFloor
                     let workCenterRes = createWorkCenter workcenters time.WorkCenter
                     
                     let timeTypeRes = createTimeType time.TimeType
