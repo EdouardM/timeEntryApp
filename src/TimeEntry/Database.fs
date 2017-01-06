@@ -15,9 +15,9 @@ namespace TimeEntry
                 }
             
             let toDBShopfloorInfo (sfinfo: ShopFloorInfo) =
-                let (Site site)     = sfinfo.Site
-                let (ShopFloor sf)  = sfinfo.ShopFloor
-                { Site = value site; ShopFloor = value sf }
+                let (Site (String4 site))     = sfinfo.Site
+                let (ShopFloor (String5 sf))  = sfinfo.ShopFloor
+                { Site = site; ShopFloor = sf }
          
             let fromDBShopfloorInfo 
                 sites

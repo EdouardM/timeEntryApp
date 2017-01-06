@@ -22,6 +22,15 @@ open TimeEntry.DBCommands
 open System.Configuration
 open FSharp.Configuration
 
+
+#load "./ConstrainedTypes.fs"
+open TimeEntry.ConstrainedTypes
+
+let t = String5 "abcd"
+t.Value
+
+
+
 let t = ConfigurationManager.ConnectionStrings.Item("Dev").ConnectionString
 
 //Connection string described here: https://www.connectionstrings.com/mysql/

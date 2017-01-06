@@ -28,7 +28,6 @@ module Constructors =
 
     let createShopfloor = create (string5 >> Result.map ShopFloor) "shopfloor"
 
-
     let createShopfloorInfo site shopfloor = 
         { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
 
