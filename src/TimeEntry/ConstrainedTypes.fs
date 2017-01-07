@@ -1,6 +1,7 @@
 namespace TimeEntry
 open System
 open TimeEntry.Result
+open System.Text.RegularExpressions
 
 module ConstrainedTypes = 
 //https://fsharpforfunandprofit.com/posts/designing-with-types-more-semantic-types/
@@ -43,10 +44,25 @@ module ConstrainedTypes =
     let singleLineTrimmed s =
         System.Text.RegularExpressions.Regex.Replace(s,"\s"," ").Trim()
 
-    /// A validation function based on length
-    let lengthValidator len (s:string) =
+    /// A validation function based on maximum length
+    let maxLengthValidator len (s:string) =
         if s.Length <= len then Success s 
-        else Failure <| sprintf "Your input: %s is longer than exepected. Limit: %d"  s len
+        else Failure <| sprintf "Your input: %s is longer than expected (Limit: %d)"  s len
+
+    /// A validation function based on maximum length
+    let exactLengthValidator len (s:string) =
+        if s.Length = len then Success s 
+        else Failure <| sprintf "Your input: %s does not have the expected length (Length : %d)"  s len
+
+    /// A validation function allowing only alphnumerical characters
+    let alphanumCharacterValidator (s: string) = 
+        let nb = 
+            Regex.Matches(s, "[^0-9a-zA-Z]+")
+            |> Seq.cast<Match>
+            |> Seq.length
+        if nb = 0 then Success s
+        else Failure <| sprintf "Only alpahnumerical characters are allowed: %s"  s
+
 
     /// A string of length 100
     type String4 = String4 of string with
@@ -54,23 +70,23 @@ module ConstrainedTypes =
             member this.Value = value this
 
     /// A constructor for strings of length 100
-    let string4 = create singleLineTrimmed (lengthValidator 4) String4
+    let stringMax4 = create singleLineTrimmed (maxLengthValidator 4 >> Result.bind alphanumCharacterValidator) String4
 
     type String5 = String5 of string with
         interface IWrappedString with
             member this.Value = value this
 
-    let string5 = create singleLineTrimmed (lengthValidator 5) String5
+    let stringExact5 = create singleLineTrimmed (exactLengthValidator 5 >> Result.bind alphanumCharacterValidator) String5
 
     type String6 = String6 of string with
         interface IWrappedString with
             member this.Value = value this
-    let string6 = create singleLineTrimmed (lengthValidator 6) String6
+    let string6 = create singleLineTrimmed (maxLengthValidator 6) String6
     
     type String8 = String8 of string with
         interface IWrappedString with
             member this.Value = value this
-    let string8 = create singleLineTrimmed (lengthValidator 8) String8
+    let string8 = create singleLineTrimmed (maxLengthValidator 8) String8
     
 
     /// A string of length 100
@@ -79,9 +95,9 @@ module ConstrainedTypes =
             member this.Value = value this
 
     /// A constructor for strings of length 10
-    let string10 = create singleLineTrimmed (lengthValidator 10) String10
+    let string10 = create singleLineTrimmed (maxLengthValidator 10) String10
 
     type String50 = String50 of string with
         interface IWrappedString with
             member this.Value = value this
-    let string50 = create singleLineTrimmed (lengthValidator 50) String50
+    let string50 = create singleLineTrimmed (maxLengthValidator 50) String50
