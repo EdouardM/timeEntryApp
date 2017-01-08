@@ -16,7 +16,7 @@ module DomainTypes =
 
     type NbPeople = NbPeople of float32
     
-    type Site  = Site of String4
+    type Site  = Site of String3
     
     type ShopFloor  = ShopFloor of String5
 
@@ -26,7 +26,7 @@ module DomainTypes =
             ShopFloor : ShopFloor
         }
 
-    type WorkCenter  = WorkCenter of String4
+    type WorkCenter  = WorkCenter of String5
     
     type Hour = Hour of uint32
 

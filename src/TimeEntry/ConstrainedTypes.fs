@@ -65,22 +65,23 @@ module ConstrainedTypes =
 
 
     /// A string of length 100
-    type String4 = String4 of string with
+    type String3 = String3 of string with
         interface IWrappedString with
             member this.Value = value this
 
     /// A constructor for strings of length 100
-    let stringMax4 = create singleLineTrimmed (maxLengthValidator 4 >> Result.bind alphanumCharacterValidator) String4
+    let stringExact3 = create singleLineTrimmed (exactLengthValidator 3 >> Result.bind alphanumCharacterValidator) String3
 
     type String5 = String5 of string with
         interface IWrappedString with
             member this.Value = value this
 
-    let stringExact5 = create singleLineTrimmed (exactLengthValidator 5 >> Result.bind alphanumCharacterValidator) String5
+    let stringMax5 = create singleLineTrimmed (maxLengthValidator 5 >> Result.bind alphanumCharacterValidator) String5
 
     type String6 = String6 of string with
         interface IWrappedString with
             member this.Value = value this
+    
     let string6 = create singleLineTrimmed (maxLengthValidator 6) String6
     
     type String8 = String8 of string with

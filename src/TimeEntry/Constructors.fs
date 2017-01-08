@@ -24,7 +24,7 @@ module Constructors =
             else Success(NbPeople r)
         else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
 
-    let createSite = create (string4 >> Result.map DomainTypes.Site) "site"
+    let createSite = create (stringMax4 >> Result.map DomainTypes.Site) "site"
 
     let createShopfloor = create (string5 >> Result.map ShopFloor) "shopfloor"
 
