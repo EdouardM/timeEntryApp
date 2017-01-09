@@ -67,8 +67,9 @@ module DomainTypes =
                             | LabourTime  -> "labour"  
 
     type ExtraInfo = 
-        | WithInfo | WithoutInfo
-        with
+            | WithInfo 
+            | WithoutInfo
+            with
                 override x.ToString() =
                     match x with
                         | WithInfo      -> "withinfo"

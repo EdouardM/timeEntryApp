@@ -69,15 +69,16 @@ module Constructors =
 
     let createActivityCode = create ActivityCode "activity"
 
-    let createActivityLink (createActivityCode: string -> Result<ActivityCode>) = 
+    let createActivity site code level timetype link extra =
+        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extra }
+    
+    let createActivityLink (createActivity: string -> Result<Activity>) = 
         function 
-            | true, Some act    -> (createActivityCode act |> Result.map Linked )
+            | true, Some act    -> (createActivity act |> Result.map Linked )
             | false,    None    -> Success NotLinked
             | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
             | true,     None    -> Failure "One activity marked as linked must have a linked activity."
 
-    let createActivity site code level timetype link extra =
-        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extra }
 
     let createActivityDetails machine cause solution comments = 
         { Machine = machine; Cause = cause; Solution = solution; Comments = comments}

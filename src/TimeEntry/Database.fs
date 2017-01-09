@@ -130,7 +130,6 @@ namespace TimeEntry
                 activities 
                 (dbActivity: DBActivity) =
                 let codeRes     = createActivityCode activities dbActivity.Code
-                let siteRes     = createSite sites dbActivity.Site
                 let timetypeRes = createTimeType dbActivity.TimeType
 
                 let recordLevelRes = 

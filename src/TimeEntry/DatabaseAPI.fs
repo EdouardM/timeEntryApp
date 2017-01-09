@@ -57,11 +57,12 @@ module DBCommands =
 
 
     (* SITE FUNCTIONS *)
-    type GetSiteCodes = DBContext -> unit -> string list
+    type GetSiteCodes = unit -> string list
 
     ///Returns a list of codes of active sites
     let getSiteCodes: GetSiteCodes =
-        fun ctx () ->
+        fun () ->
+            let ctx = Sql.GetDataContext()
             query {
                 for site in ctx.Timeentryapp.Site do
                     where (site.Active = 1y)
