@@ -39,20 +39,20 @@ module Constructors =
         { Machine = machine; ShopFloorInfo = shopFloor}
     
     (* ACTIVITY CONSTRUCTORS *)
-    let createShopFloorAccess =
-        function
+    let createShopFloorAccess accessAll authorizedShopFloor =
+        match accessAll, authorizedShopFloor with
             | true, []      -> Success (AllShopFloors)
             | false, []     -> Failure "Must have at least one authorized shopfloor when access is set to shopfloor list."
             | false, sf     -> Success (ShopFloorList sf)
             | true, sf      -> Failure "Should have empty list of shopfloors when access is set to all."
     
 
-    let createWorkCenterAccess =
-        function
+    let createWorkCenterAccess accessAll authorizedWorkCenter =
+        match accessAll, authorizedWorkCenter with
             | true, []      -> Success (AllWorkCenters)
             | false, []     -> Failure "Must have at least one authorized workcenter when access is set to workcenter list."
-            | false, sf     -> Success (WorkCenterList sf)
-            | true, sf      -> Failure "Should have empty list of workcenter when access is set to all."
+            | false, wc     -> Success (WorkCenterList wc)
+            | true, wc      -> Failure "Should have empty list of workcenter when access is set to all."
     
     let createTimeType = 
         function
@@ -60,21 +60,14 @@ module Constructors =
             | "machine"     -> Success (MachineTime)
             | ty            -> Failure <| sprintf "Invalid time type: %s" ty
 
-
-    let createExtraInfo extra = 
-        function 
-            | "withinfo" -> Success WithInfo
-            | "withoutinfo" -> Success WithoutInfo
-            | extra         -> Failure <| sprintf "Invalid extra info: %s" extra
-
     let createActivityCode = create ActivityCode "activity"
 
-    let createActivity site code level timetype link extra =
-        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extra }
+    let createActivity site code level timetype link =
+        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link }
     
-    let createActivityLink (createActivity: string -> Result<Activity>) = 
-        function 
-            | true, Some act    -> (createActivity act |> Result.map Linked )
+    let createActivityLink (createActivityCode: string -> Result<ActivityCode>) islinked linkedActivity = 
+        match islinked, linkedActivity with
+            | true, Some act    -> (createActivityCode act |> Result.map Linked )
             | false,    None    -> Success NotLinked
             | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
             | true,     None    -> Failure "One activity marked as linked must have a linked activity."

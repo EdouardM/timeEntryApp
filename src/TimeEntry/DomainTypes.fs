@@ -65,18 +65,13 @@ module DomainTypes =
                         match x with
                             | MachineTime -> "machine"
                             | LabourTime  -> "labour"  
-
-    type ExtraInfo = 
-            | WithInfo 
-            | WithoutInfo
-            with
-                override x.ToString() =
-                    match x with
-                        | WithInfo      -> "withinfo"
-                        | WithoutInfo   -> "withoutinfo"
-    
+  
     type ActivityCode = ActivityCode of string
     
+    type ActivityLink = 
+            | Linked   of ActivityCode
+            | NotLinked
+
     type Activity =
         {
             Site            : Site
@@ -84,12 +79,8 @@ module DomainTypes =
             RecordLevel     : RecordLevel
             TimeType        : TimeType
             ActivityLink    : ActivityLink
-            ExtraInfo       : ExtraInfo
         }
         
-    and  ActivityLink = 
-            | Linked   of Activity
-            | NotLinked
 
     type ActivityDetails =
         {

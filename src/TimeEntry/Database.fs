@@ -84,6 +84,7 @@ namespace TimeEntry
             (* ACTIVITY CONVERSION FUNCTIONS *)
             type DBActivity =
                 {
+                    Site            : string
                     Code            : string
                     AccessAll       : bool
                     AccessList      : string list
@@ -91,7 +92,6 @@ namespace TimeEntry
                     TimeType        : string
                     isLinked        : bool
                     LinkedActivity  : string option
-                    ExtraInfo       : string
                 }
 
             let toDBActivity (activity: Activity) =
@@ -110,11 +110,10 @@ namespace TimeEntry
                             ("shopfloor", false, wccodes)
                 let islinked, linkedact = 
                     match activity.ActivityLink with
-                        | Linked (act)  -> 
-                            let (ActivityCode c) = act.Code 
-                            true, Some c
-                        | NotLinked     -> false,None
+                        | Linked (ActivityCode act) -> true, Some act
+                        | NotLinked                 -> false,None
                 { 
+                    Site        = s
                     Code        = code
                     AccessAll   = accessall
                     AccessList  = accessList 
@@ -122,32 +121,44 @@ namespace TimeEntry
                     TimeType    = timetype
                     isLinked    = islinked
                     LinkedActivity  = linkedact
-                    ExtraInfo       = activity.ExtraInfo.ToString()
                 }
 
-            let fromDBActivity 
-                sites
+            let fromDBActivity
+                sites 
+                shopfloors
+                workcenters
                 activities 
                 (dbActivity: DBActivity) =
+                let siteRes     = createSite sites dbActivity.Site
                 let codeRes     = createActivityCode activities dbActivity.Code
                 let timetypeRes = createTimeType dbActivity.TimeType
-
-                let recordLevelRes = 
+                
+                let levelRes = 
                     match dbActivity.RecordLevel with
-                        | "shopfloor"   -> createShopFloorAccess dbActivity.AccessAll dbActivity.AccessList
-                        | "workcenter"  -> createWorkCenterAccess dbActivity.AccessAll dbActivity.AccessList
-                        | level         -> Failure <| sprintf "Invalid record level: %s" level
+                        | "shopfloor" -> 
+                            let sfRes  = dbActivity.AccessList |> List.map (createShopFloor shopfloors) |> sequence
+                            createShopFloorAccess 
+                            <!> (Success dbActivity.AccessAll) 
+                            <*> sfRes
+                            |> flatten
+                            |> ( Result.map ShopFloorLevel )
+                        | "workshop" -> 
+                            let wcRes  = dbActivity.AccessList |> List.map (createWorkCenter workcenters) |> sequence
+                            createWorkCenterAccess 
+                            <!> (Success dbActivity.AccessAll) 
+                            <*> wcRes
+                            |> flatten
+                            |> ( Result.map WorkCenterLevel )
+                        | lvl -> Failure <| sprintf "Unexpected level : %s" lvl
 
-                let activityLinkRes = createActivityLink dbActivity.isLinked dbActivity.LinkedActivity
-                let extraInfoRes    = createExtraInfo dbActivity.ExtraInfo
+                let activityLinkRes = createActivityLink (createActivityCode activities) dbActivity.isLinked dbActivity.LinkedActivity
 
                 createActivity
                 <!> siteRes
                 <*> codeRes
-                <*> recordLevelRes
+                <*> levelRes
                 <*> timetypeRes
                 <*> activityLinkRes
-                <*> extraInfoRes
 
             type DBWorkOrderInfo =
                 {
