@@ -160,6 +160,66 @@ namespace TimeEntry
                 <*> timetypeRes
                 <*> activityLinkRes
 
+            (* USER CONVERSION FUNCTIONS *)
+            type DBUserInfo =
+                {
+                    Login       : string
+                    Name        : string
+                    Level       : string
+                    AllSites    : bool
+                    SiteList    : string list
+                }
+            
+            let authLevelToString =
+                function
+                    | User      -> "user"
+                    | KeyUser   -> "keyuser"
+                    | Admin     -> "admin"
+            
+            let toDBUserfo  (user : UserInfo) = 
+                let (Login login)   = user.Login
+                let (UserName name) = user.Name
+                let level = authLevelToString user.Level
+                match user.SiteAccess with
+                    | AllSites -> 
+                        {
+                            Login       = login
+                            Name        = name
+                            Level       = level
+                            AllSites    = true
+                            SiteList    = []
+                        }
+                    | SiteList l -> 
+                        let sites = l |> List.map (fun (Site s) -> s)
+                        {
+                            Login       = login
+                            Name        = name
+                            Level       = level
+                            AllSites    = false
+                            SiteList    = sites
+                        }  
+
+            let fromDBUserInfo  
+                sites
+                names
+                logins
+                (dbuser : DBUserInfo) = 
+                    let loginRes  = createLogin logins dbuser.Login
+                    let nameRes   = createUserName names dbuser.Name
+                    let sitesRes  = dbuser.SiteList |> List.map (createSite sites) |> sequence
+                    let accessRes = 
+                        createSiteAccess 
+                        <!> (Success dbuser.AllSites) 
+                        <*> sitesRes
+                        |> flatten
+                    let levelRes  = createLevel dbuser.Level
+                    createUser  
+                    <!> loginRes
+                    <*> nameRes
+                    <*> accessRes
+                    <*> levelRes
+
+            (* WORK ORDER CONVERSION FUNCTIONS *)
             type DBWorkOrderInfo =
                 {
                     WorkOrder : string
@@ -211,6 +271,7 @@ namespace TimeEntry
                 <*> statusRes  
 
 
+            (* EVENT CONVERSION FUNCTIONS *)
             type DBEvent =
                 {
                     Event : string
@@ -288,7 +349,7 @@ namespace TimeEntry
                 createEventEntry <!> eventRes <*> eventInfoResOpt
                 |> Result.flatten
 
-            //DataBase model (pure)
+            (* TIME RECORD CONVERSION FUNCTIONS *)
             type DBTimeRecord =
                 {
                     Site            : string
@@ -308,14 +369,14 @@ namespace TimeEntry
             let allocationToString =
                 function
                     | WorkOrderEntry wo -> "workorder"
-                    | EventEntry ev     -> "event"
+                    | ActivityEntry act     -> "activity"
 
             let updateAllocation allocation timeRecord = 
                 match allocation with
                     | WorkOrderEntry wo ->
-                        { timeRecord with WorkOrderEntry = toDBWorkOrderEntry wo |> Some}
-                    | EventEntry ev     ->
-                        { timeRecord with EventEntry = toDBEventEntry ev |> Some}
+                        { timeRecord with WorkOrderEntry = toDBWorkOrderInfo wo |> Some}
+                    | ActivityEntry act ->
+                        { timeRecord with EventEntry = toDBActivityInfo act |> Some}
 
             let recordStatusToString = 
                 function
@@ -431,60 +492,3 @@ namespace TimeEntry
                         | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
                         | None, None       -> Failure "Both Workorder and Event entry are missing."
 
-            type DBUser =
-                {
-                    Login       : string
-                    Name        : string
-                    Level       : string
-                    AllSites    : bool
-                    SiteList    : string list
-                }
-            
-            let authLevelToString =
-                function
-                    | User      -> "user"
-                    | KeyUser   -> "keyuser"
-                    | Admin     -> "admin"
-            
-            let toDBUser  (user : User) = 
-                let (Login login)   = user.Login
-                let (UserName name) = user.Name
-                let level = authLevelToString user.Level
-                match user.SiteAccess with
-                    | AllSites -> 
-                        {
-                            Login       = login
-                            Name        = name
-                            Level       = level
-                            AllSites    = true
-                            SiteList    = []
-                        }
-                    | SiteList l -> 
-                        let sites = l |> List.map (fun (Site s) -> s)
-                        {
-                            Login       = login
-                            Name        = name
-                            Level       = level
-                            AllSites    = false
-                            SiteList    = sites
-                        }  
-
-            let fromDBUser  
-                sites
-                names
-                logins
-                (dbuser : DBUser) = 
-                    let loginRes  = createLogin logins dbuser.Login
-                    let nameRes   = createUserName names dbuser.Name
-                    let sitesRes  = dbuser.SiteList |> List.map (createSite sites) |> sequence
-                    let accessRes = 
-                        createSiteAccess 
-                        <!> (Success dbuser.AllSites) 
-                        <*> sitesRes
-                        |> flatten
-                    let levelRes  = createLevel dbuser.Level
-                    createUser  
-                    <!> loginRes
-                    <*> nameRes
-                    <*> accessRes
-                    <*> levelRes
