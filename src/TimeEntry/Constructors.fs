@@ -59,11 +59,16 @@ module Constructors =
             | "labour"      -> Success (LabourTime)
             | "machine"     -> Success (MachineTime)
             | ty            -> Failure <| sprintf "Invalid time type: %s" ty
+    let createExtraInfo = 
+        function 
+            | "withinfo"    -> Success (ExtraInfo.WithInfo)
+            | "withoutinfo" -> Success (ExtraInfo.WithoutInfo)
+            | extra         -> Failure <| sprintf "Invalid extra info: %s" extra
 
     let createActivityCode = create ActivityCode "activity"
 
-    let createActivity site code level timetype link =
-        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link }
+    let createActivity site code level timetype link extrainfo =
+        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extrainfo }
     
     let createActivityLink (createActivityCode: string -> Result<ActivityCode>) islinked linkedActivity = 
         match islinked, linkedActivity with
@@ -74,15 +79,13 @@ module Constructors =
 
 
     let createActivityDetails machine cause solution comments = 
-        { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
+        { ActivityDetails.Machine = machine; Cause = cause; Solution = solution; Comments = comments}
 
-    let createActivityInfo activity hasInfo details =
-        match hasInfo, details  with
-            | true, Some d      -> Success (Detailed (activity,d))
-            | false,None        -> Success (Normal activity)
-            | false,Some d      -> Failure "Activity details are not expected."
-            | true, None        -> Failure "Activity details are expected."
-
+    let createActivityEntry activity details =
+        match details  with
+            | Some d      -> Success (Detailed (activity,d))
+            | None        -> Success (Normal activity)
+            
     (* USER CONSTRUCTORS *)
     let createUserName = create UserName "user name"
 
@@ -95,7 +98,7 @@ module Constructors =
             | false, sites  -> Success (SiteList sites)
             | true, l       -> Failure "Should have empty list of sites when access is set to AllSites."
     
-    let createLevel = 
+    let createAuthLevel = 
         function
             | "user"    -> Success User
             | "keyuser" -> Success KeyUser
@@ -165,8 +168,8 @@ module Constructors =
             | "validated" -> Success Validated
             | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
 
-    let createTimeRecord  site shopfloor workcenter attribution timeEntry status =
-        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeEntryMode = timeEntry; Attribution = attribution; Status = status}
+    let createTimeRecord  site shopfloor workcenter attribution timetype status =
+        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype; Attribution = attribution; Status = status}
 
 
     (* EVENT CONSTRUCTORS*)

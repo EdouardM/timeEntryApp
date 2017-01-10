@@ -68,6 +68,16 @@ module DomainTypes =
   
     type ActivityCode = ActivityCode of string
     
+
+    type ExtraInfo = 
+            | WithInfo 
+            | WithoutInfo
+            with
+                override x.ToString() =
+                    match x with
+                        | WithInfo      -> "withinfo"
+                        | WithoutInfo   -> "withoutinfo"
+
     type ActivityLink = 
             | Linked   of ActivityCode
             | NotLinked
@@ -79,6 +89,7 @@ module DomainTypes =
             RecordLevel     : RecordLevel
             TimeType        : TimeType
             ActivityLink    : ActivityLink
+            ExtraInfo       : ExtraInfo
         }
         
 
@@ -91,8 +102,8 @@ module DomainTypes =
         }
 
     type ActivityInfo = 
-        | Normal         of Activity
-        | Detailed       of Activity * ActivityDetails
+        | Normal         of ActivityCode
+        | Detailed       of ActivityCode  * ActivityDetails
 
     (* DEFINE ONE USER *)
     type SiteAccess = | AllSites | SiteList of Site list
@@ -139,7 +150,7 @@ module DomainTypes =
         }
         with
             member x.Duration = x.EndTime - x.StartTime
-            member x.ToTimeHr =  
+            member x.ToTimeHr() =  
                 let minutes = (float x.Duration.TotalMinutes)
                 System.Math.Round(minutes / 60., 4)
                 |> float32
@@ -166,7 +177,8 @@ module DomainTypes =
             Site            : Site
             ShopFloor       : ShopFloor
             WorkCenter      : WorkCenter option
-            TimeEntryMode   : TimeEntryMode
+            Duration        : Duration
+            TimeType        : TimeType
             Attribution     : TimeAttribution
             Status          : RecordStatus
         }
