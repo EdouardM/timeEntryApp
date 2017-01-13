@@ -206,12 +206,12 @@ namespace TimeEntry
    
                 let machineRes   = 
                         activityInfo.Machine
-                        |> fromOption "Machine missing"
+                        |> failIfMissing "Machine missing"
                         |> bind (createMachine machines)
 
-                let causeRes     = fromOption "Cause missing" activityInfo.Cause
-                let solutionRes  = fromOption "Solution missing" activityInfo.Solution
-                let commentsRes  = fromOption "Comments missing" activityInfo.Comments
+                let causeRes     = failIfMissing "Cause missing" activityInfo.Cause
+                let solutionRes  = failIfMissing "Solution missing" activityInfo.Solution
+                let commentsRes  = failIfMissing "Comments missing" activityInfo.Comments
                 
                 let activityDetailsResOpt = 
                     createActivityDetails 
@@ -239,7 +239,7 @@ namespace TimeEntry
                     | KeyUser   -> "keyuser"
                     | Admin     -> "admin"
             
-            let toDBUserfo  (user : UserInfo) = 
+            let toDBUserInfo  (user : UserInfo) = 
                 let (Login login)   = user.Login
                 let (UserName name) = user.Name
                 let level = authLevelToString user.Level
@@ -400,12 +400,12 @@ namespace TimeEntry
    
                 let machineRes   = 
                         eventEntry.Machine
-                        |> fromOption "Machine missing"
+                        |> failIfMissing "Machine missing"
                         |> bind (createMachine machines)
 
-                let causeRes     = fromOption "Cause missing" eventEntry.Cause
-                let solutionRes  = fromOption "Cause missing" eventEntry.Solution
-                let commentsRes  = fromOption "Comments missing" eventEntry.Comments
+                let causeRes     = failIfMissing "Cause missing" eventEntry.Cause
+                let solutionRes  = failIfMissing "Cause missing" eventEntry.Solution
+                let commentsRes  = failIfMissing "Comments missing" eventEntry.Comments
                 
                 let eventInfoResOpt = 
                             createEventInfo <!> machineRes <*> causeRes <*> solutionRes <*> commentsRes
@@ -484,6 +484,7 @@ namespace TimeEntry
                 shopfloors
                 workcenters
                 workorders
+                activities
                 machines
                 itemcodes
                 (time: DBTimeRecord) =
@@ -493,12 +494,13 @@ namespace TimeEntry
                     let workCenterRes = 
                         time.WorkCenter 
                         |> Option.map (createWorkCenter workcenters)
-                        |> fromOption "workCenter missing"
-                        |> flatten
+                        |> switchResOpt
                     
                     let timeTypeRes = createTimeType time.TimeType
                     let durationRes = createDuration time.StartTime time.EndTime
                     let nbPeopleRes = createNbPeople time.NbPeople
+                    let statusRes   = createRecordStatus time.Status
+
 
                     match time.WorkOrderEntry, time.ActivityEntry with
                         | Some wo, None -> 
@@ -509,16 +511,22 @@ namespace TimeEntry
                             <*> shopFloorRes
                             <*> workCenterRes
                             <*> attributionRes
-                            <*> timeEntryRes
-                        | None, Some ev -> 
-                            let eventEntryRes = (fromDBEventEntry machines) ev
-                            let attributionRes = Result.map EventEntry eventEntryRes
+                            <*> timeTypeRes
+                            <*> durationRes
+                            <*> statusRes
+                            
+                        | None, Some act -> 
+                            let activityEntryRes = (fromDBActivityInfo activities machines) act
+                            let attributionRes   = Result.map ActivityEntry activityEntryRes
                             createTimeRecord
                             <!> siteRes
                             <*> shopFloorRes
                             <*> workCenterRes
                             <*> attributionRes
-                            <*> timeEntryRes
+                            <*> timeTypeRes
+                            <*> durationRes
+                            <*> statusRes
+
                         | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
                         | None, None       -> Failure "Both Workorder and Event entry are missing."
 

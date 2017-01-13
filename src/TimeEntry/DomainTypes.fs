@@ -105,6 +105,8 @@ module DomainTypes =
         | Normal         of ActivityCode
         | Detailed       of ActivityCode  * ActivityDetails
 
+    type ActivityInfoId = uint32
+
     (* DEFINE ONE USER *)
     type SiteAccess = | AllSites | SiteList of Site list
 

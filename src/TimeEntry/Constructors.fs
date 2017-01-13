@@ -168,8 +168,8 @@ module Constructors =
             | "validated" -> Success Validated
             | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
 
-    let createTimeRecord  site shopfloor workcenter attribution timetype status =
-        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype; Attribution = attribution; Status = status}
+    let createTimeRecord  site shopfloor workcenter attribution timetype duration status =
+        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; Status = status}
 
 
     (* EVENT CONSTRUCTORS*)

@@ -265,15 +265,16 @@ module DBCommands =
     type UpdateWorkCenter = WorkCenterInfo -> Result<unit>
     let updateWorkCenter: UpdateWorkCenter =
         fun workcenterinfo ->
+            let (WorkCenter w) =  workcenterinfo.WorkCenter
             let ctx = Sql.GetDataContext()
             let wcinfoRes =
                 query {
                     for workcenter in ctx.Timeentryapp.Workcenter do
-                        where (workcenter.WorkCenter = workcenterinfo.WorkCenter && workcenter.Active = 1y)
+                        where (workcenter.WorkCenter = w && workcenter.Active = 1y)
                         select workcenter
                 }
                 |> Seq.toList
-                |> onlyOne "Workcenter" wc
+                |> onlyOne "Workcenter" w
 
             let dbWc = toDBWorkCenterInfo workcenterinfo
             match wcinfoRes with
@@ -397,6 +398,193 @@ module DBCommands =
         |> List.iter(fun machine -> machine.Delete() )
         trySubmit ctx
 
+    (* ACTIVITY FUNCTIONS  *)
+    type GetActivityCodes = unit -> string list
+    let getActivityCodes: GetActivityCodes =
+        fun () -> 
+            let ctx = Sql.GetDataContext()
+            query {
+                for activity in ctx.Timeentryapp.Activity do
+                    where (activity.Active = 1y)
+                    select activity.Code
+            }
+            |> Seq.toList
+
+    ///Insert new activity in DB
+    type InsertActivity = Activity -> Result<unit>
+    let insertActivity: InsertActivity =
+        fun activity -> 
+            let ctx = Sql.GetDataContext()
+            let ac = ctx.Timeentryapp.Activity.Create()
+            let dbac = toDBActivity activity
+            ac.Code             <- dbac.Code
+            ac.Site             <- dbac.Site
+            ac.AccessAll        <- boolToSbyte dbac.AccessAll
+            ac.ExtraInfo        <- dbac.ExtraInfo
+            ac.RecordLevel      <- dbac.RecordLevel
+            ac.TimeType         <- dbac.TimeType
+            ac.IsLinked         <- boolToSbyte dbac.isLinked
+            ac.LinkedActivity   <- dbac.LinkedActivity
+            ac.Active           <- 1y
+            
+            try 
+                ctx.SubmitUpdates()
+                |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+
+    type GetActivity = string -> Result<DBActivity>
+
+    let private getActivityEntity code = 
+            let ctx = Sql.GetDataContext() 
+            query {
+                for activity in ctx.Timeentryapp.Activity do
+                    where (activity.Code = code && activity.Active = 1y)
+                    select activity
+            }
+            |> Seq.toList
+            |> onlyOne "Acitivity" code
+
+    let getActivity: GetActivity =
+            getActivityEntity
+            >> Result.map (fun (activity) -> activity.MapTo<DBActivity>() )
+
+    type UpdateActivity = Activity -> Result<unit>
+    
+    let updateActivity: UpdateActivity =
+        fun activity -> 
+            let (ActivityCode code) = activity.Code 
+            let ctx = Sql.GetDataContext()
+            let activityRes = getActivityEntity code
+            let dbac = toDBActivity activity
+            match activityRes with
+                | Success ac -> 
+                        ac.Site             <- dbac.Site
+                        ac.AccessAll        <- boolToSbyte dbac.AccessAll
+                        ac.ExtraInfo        <- dbac.ExtraInfo
+                        ac.RecordLevel      <- dbac.RecordLevel
+                        ac.TimeType         <- dbac.TimeType
+                        ac.IsLinked         <- boolToSbyte dbac.isLinked
+                        ac.LinkedActivity   <- dbac.LinkedActivity
+                        ac.Active           <- 1y
+                        try 
+                            ctx.SubmitUpdates()
+                            |> Success
+                        with
+                        | ex -> Failure <| sprintf "%s" ex.Message
+                
+                | Failure msg -> Failure msg
+            
+
+    type ToggleActivity = Activation -> string -> Result<unit>
+    let toggleActivity: ToggleActivity =
+        fun activation ev -> 
+            let ctx = Sql.GetDataContext()
+            let current, future = flags activation
+            let dbsOpt = 
+                query {
+                    for activity in ctx.Timeentryapp.Activity do
+                        where (activity.Code = ev && activity.Active = current)
+                        select activity }
+                |> Seq.tryHead
+
+            match dbsOpt with
+                | Some dbs -> 
+                    dbs.Active <- future
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                        ex -> Failure ex.Message
+                | None -> Failure <| sprintf "Activity \'%s\' is missing or %s." ev activation.State
+
+    type DesactivateActivity = string -> Result<unit>
+    let desactivateActivity: DesactivateActivity  = toggleActivity Desactivate
+
+    type ActivateActivity = string -> Result<unit>
+    let activateActivity: ActivateActivity = toggleActivity Activate
+
+    let deleteActivities () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for activity in ctx.Timeentryapp.Activity do
+                select activity
+        }
+        |> Seq.toList
+        |> List.iter(fun activity -> activity.Delete() )
+        trySubmit ctx
+
+    (* ActivityInfo Functions *)
+
+    ///Insert new workcenter in DB and return Id of inserted record if it succeded
+    type InsertActivityInfo = ActivityInfo -> Result<uint32>
+    let insertActivityInfo: InsertActivityInfo =
+        fun activityInfo  ->
+            let ctx = Sql.GetDataContext()
+            let ac = ctx.Timeentryapp.Activityinfo.Create()
+            let dbac = toDBActivityInfo activityInfo
+            ac.Activity <- dbac.Activity
+            ac.Machine  <- dbac.Machine
+            ac.Cause    <- dbac.Cause
+            ac.Solution <- dbac.Solution
+            ac.Comments <- dbac.Comments
+            ac.Active   <- 1y
+            
+            try 
+                ctx.SubmitUpdates()
+                //Return id of inserted record
+                ac.ActivityInfoId
+                |> Success
+            with
+            | ex -> Failure <| sprintf "%s" ex.Message
+
+    type GetActivityInfo = ActivityInfoId -> Result<DBActivityInfo>
+
+    let private getActivityInfoEntity = 
+        fun activityInfoId -> 
+            let ctx = Sql.GetDataContext()
+            query {
+                    for activityInfo in ctx.Timeentryapp.Activityinfo do
+                        where (activityInfo.ActivityInfoId = activityInfoId && activityInfo.Active = 1y)
+                        select activityInfo
+                }
+                |> Seq.toList
+                |> onlyOne "ActivityInfo" (string activityInfoId)
+   
+    let getActivityInfo: GetActivityInfo = 
+            getActivityInfoEntity
+            >> Result.map (fun (activityinfo) -> activityinfo.MapTo<DBActivityInfo>() )
+    
+    type UpdatActivityInfo = ActivityInfoId -> ActivityInfo -> Result<unit>
+
+    let updateActivityInfo: UpdatActivityInfo =
+        fun actInfoId activityInfo ->
+            let ctx = Sql.GetDataContext()
+            let dbac = toDBActivityInfo activityInfo
+            
+            let activityInfoRes = getActivityInfoEntity actInfoId
+
+            match activityInfoRes with
+                | Success ac -> 
+                        ac.Activity <- dbac.Activity
+                        ac.Machine  <- dbac.Machine
+                        ac.Cause    <- dbac.Cause
+                        ac.Solution <- dbac.Solution
+                        ac.Comments <- dbac.Comments
+                        trySubmit ctx
+
+                | Failure msg -> Failure msg
+
+    let deleteActivityInfo () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for activityInfo in ctx.Timeentryapp.Activityinfo do
+                select activityInfo
+        }
+        |> Seq.toList
+        |> List.iter(fun activityInfo -> activityInfo.Delete() )
+        trySubmit ctx
+
 
     (* EVENT FUNCTIONS  *)
     type GetEventCodes = unit -> string list
@@ -428,6 +616,7 @@ module DBCommands =
             with
             | ex -> Failure <| sprintf "%s" ex.Message
 
+
     type GetEvent = string -> Result<DBEvent>
 
     let getEvent: GetEvent =
@@ -441,6 +630,7 @@ module DBCommands =
             |> Seq.map (fun (event) -> event.MapTo<DBEvent>() )
             |> Seq.toList
             |> onlyOne "Event" ev
+    
     
     type UpdateEvent = Event -> Result<unit>
     let updateEvent: UpdateEvent =
@@ -509,26 +699,26 @@ module DBCommands =
         trySubmit ctx
 
 
-    (* WorkOrderEntry Functions *)
+    (* workOrderInfo Functions *)
 
     type GetWorkOrderCodes = unit -> string list
     let getWorkOrderCodes: GetWorkOrderCodes =
         fun () -> 
             let ctx = Sql.GetDataContext()
             query {
-                for workorder in ctx.Timeentryapp.Workorderentry do
+                for workorder in ctx.Timeentryapp.Workorderinfo do
                     where (workorder.Active = 1y)
                     select workorder.WorkOrder
             }
             |> Seq.toList
 
     //Insert new workcenter in DB
-    type InsertWorkOrder = WorkOrderEntry -> Result<unit>
-    let insertWorkOrderEntry workOrderEntry  =
+    type InsertWorkOrder = WorkOrderInfo -> Result<unit>
+    let insertWorkOrderInfo workOrderInfo  =
         let ctx = Sql.GetDataContext()
-        let wo = ctx.Timeentryapp.Workorderentry.Create()
-        let dbwo = toDBWorkOrderEntry workOrderEntry
-        let (WorkCenter wc) = workOrderEntry.WorkCenter
+        let wo = ctx.Timeentryapp.Workorderinfo.Create()
+        let dbwo = toDBWorkOrderInfo workOrderInfo
+        let (WorkCenter wc) = workOrderInfo.WorkCenter
         let workcenterRes = getWorkCenter wc
         match workcenterRes with
             | Success wc -> 
@@ -545,36 +735,36 @@ module DBCommands =
             | Failure msg -> Failure msg
 
 
-    type GetWorkOrder = string -> Result<DBWorkOrderEntry>
+    type GetWorkOrder = string -> Result<DBWorkOrderInfo>
     let getWorkOrder: GetWorkOrder =
         fun wo ->
             //let (WorkOrder wo) = workOrder 
             let ctx = Sql.GetDataContext()
             query {
-                for workorder in ctx.Timeentryapp.Workorderentry do
+                for workorder in ctx.Timeentryapp.Workorderinfo do
                     where (workorder.WorkOrder = wo && workorder.Active = 1y)
                     select workorder
             }
-            |> Seq.map(fun workorder -> workorder.MapTo<DBWorkOrderEntry>() )
+            |> Seq.map(fun workorder -> workorder.MapTo<DBWorkOrderInfo>() )
             |> Seq.toList
             |> onlyOne "WorkOrder" wo
     
-    type UpdateWorkOrderEntry = WorkOrderEntry -> Result<unit>
-    let updateWorkOrderEntry: UpdateWorkOrderEntry =
-        fun workOrderEntry -> 
-            let (WorkOrder wo) =  workOrderEntry.WorkOrder
+    type UpdateworkOrderInfo = WorkOrderInfo -> Result<unit>
+    let updateWorkOrderInfo: UpdateworkOrderInfo =
+        fun workOrderInfo -> 
+            let (WorkOrder wo) =  workOrderInfo.WorkOrder
             let ctx = Sql.GetDataContext()
-            let workOrderEntryRes = 
+            let workOrderInfoRes = 
                 query {
-                    for workorder in ctx.Timeentryapp.Workorderentry do
+                    for workorder in ctx.Timeentryapp.Workorderinfo do
                         where (workorder.WorkOrder = wo && workorder.Active = 1y)
                         select workorder
                 }
                 |> Seq.toList
                 |> onlyOne "WokOrder" wo
 
-            let dbwo = toDBWorkOrderEntry workOrderEntry
-            match workOrderEntryRes with
+            let dbwo = toDBWorkOrderInfo workOrderInfo
+            match workOrderInfoRes with
                 | Success wo -> 
                     wo.WorkCenter            <- dbwo.WorkCenter
                     wo.ItemCode              <- dbwo.ItemCode
@@ -589,7 +779,7 @@ module DBCommands =
     let deleteWorkOrders () = 
         let ctx = Sql.GetDataContext()
         query {
-            for workorder in ctx.Timeentryapp.Workorderentry do
+            for workorder in ctx.Timeentryapp.Workorderinfo do
                 select workorder
         }
         |> Seq.toList
@@ -704,13 +894,13 @@ module DBCommands =
                         select timerecord
                 }
             |> Seq.map(fun record ->
-                    let dbWogetWorkOrderRes = 
+                    let dbWorkOrderRes = 
                         record.WorkOrder  
                         |> Option.map getWorkOrder
                         |> unwrapResOpt
-                    let dbEventRes = 
-                        record.EventEntryId  
-                        |> Option.map getEventEntry
+                    let dbActivityRes = 
+                        record.ActivityInfoId  
+                        |> Option.map getActivityInfo
                         |> unwrapResOpt
 
                     {
@@ -720,18 +910,18 @@ module DBCommands =
                         TimeType            = record.TimeType
                         StartTime           = record.StartTime
                         EndTime             = record.EndTime
-                        DurationHr          = record.DurationHr
-                        Allocation          = record.Allocation
+                        TimeHr              = record.TimeHr
                         NbPeople            = record.NbPeople
-                        WorkOrderEntry      = dbWogetWorkOrderRes
-                        EventEntry          = dbEventRes
+                        Attribution         = record.Attribution
+                        WorkOrderEntry      = dbWorkOrderRes
+                        ActivityEntry       = dbActivityRes
                         Status              = record.RecordStatus
                     })
             |> Seq.toList
             |> onlyOne "TimeRecord" (string id)
 
-    let insertDBTimeRecord : Sql.dataContext -> DBTimeRecord ->  EventEntryId option -> Result<uint32> = 
-        fun ctx record eventId -> 
+    let insertDBTimeRecord : Sql.dataContext -> ActivityInfoId option -> DBTimeRecord -> Result<uint32> = 
+        fun ctx actInfoId record -> 
             let wo = Option.map(fun dbwo -> dbwo.WorkOrder) record.WorkOrderEntry
             let tr = ctx.Timeentryapp.Timerecord.Create()
             tr.Site             <- record.Site
@@ -740,11 +930,11 @@ module DBCommands =
             tr.TimeType         <- record.TimeType
             tr.StartTime        <- record.StartTime
             tr.EndTime          <- record.EndTime
-            tr.DurationHr       <- record.DurationHr
-            tr.Allocation       <- record.Allocation
+            tr.TimeHr           <- record.TimeHr
+            tr.Attribution      <- record.Attribution
             tr.NbPeople         <- record.NbPeople
             tr.WorkOrder        <- wo
-            tr.EventEntryId     <- eventId
+            tr.ActivityInfoId   <- actInfoId
             tr.RecordStatus     <- record.Status
             tr.LastUpdate       <- System.DateTime.Now
             tr.Active           <- 1y
@@ -755,28 +945,27 @@ module DBCommands =
             with
             | ex -> Failure <| sprintf "%s" ex.Message
 
-    type InsertTimeRecord = TimeRecord -> Result<uint32> list
+    type InsertTimeRecord = TimeRecord -> Result<uint32>
 
     let insertTimeRecord : InsertTimeRecord =
         fun timeRecord ->
             let ctx = Sql.GetDataContext()
-            match timeRecord.Allocation with
-                | WorkOrderEntry workorderEntry ->
+            match timeRecord.Attribution with
+                | WorkOrderEntry workOrderInfo ->
                     
                     let dbrecords = toDBTimeRecord timeRecord
                     dbrecords
-                    |> List.map (fun record ->
-                    insertDBTimeRecord ctx record (None) )
+                    |> insertDBTimeRecord ctx (None)
 
-                | EventEntry eventEntry -> 
+                | ActivityEntry activityInfo -> 
                     let dbrecords = toDBTimeRecord timeRecord
                     dbrecords
-                    |> List.map (fun record ->
-                            insertEventEntry eventEntry 
+                    |> fun record -> 
+                            insertActivityInfo activityInfo 
                             //Add User in EventEntry to be sure to get the correct ID!
                             //|> map lastEventEntryId
-                            |> bind (fun id -> insertDBTimeRecord ctx record (Some id)
-                    ))
+                            |> bind (fun id -> insertDBTimeRecord ctx (Some id) record)
+                    
             //Update work ORder to add time...
     
     let deleteTimeRecords () = 
@@ -840,10 +1029,10 @@ module DBCommands =
                         ex -> Failure ex.Message
                 | None -> Failure <| sprintf "Authorization for user \'%s\' on site %s is missing or %s." login site  activation.State
 
-    type DesactivateUserAuth = string -> Result<unit>
+    type DesactivateUserAuth = string -> string -> Result<unit>
     let desactivateUserAuth: DesactivateUserAuth  = toggleUserAuth Desactivate
 
-    type ActivateUserAuth = string -> Result<unit>
+    type ActivateUserAuth = string -> string -> Result<unit>
     let activateUserAuth: ActivateUserAuth = toggleUserAuth Activate
 
     let deleteUserAuth () = 
@@ -871,7 +1060,7 @@ module DBCommands =
             |> Seq.toList
 
 
-    type GetUser = string -> Result<DBUser>
+    type GetUser = string -> Result<DBUserInfo>
 
     let getUser: GetUser =
         fun login -> 
@@ -885,28 +1074,28 @@ module DBCommands =
             }
             |> Seq.map (fun (user) ->
                 {
-                            DBUser.Login    = user.Login
-                            Name            = user.UserRealName
-                            Level           = user.AuthLevel
-                            AllSites        = sbyteTobool user.AllSites
-                            SiteList        = sites
+                            Login       = user.Login
+                            Name        = user.UserRealName
+                            Level       = user.AuthLevel
+                            AllSites    = sbyteTobool user.AllSites
+                            SiteList    = sites
                 }
             )
             |> Seq.toList
             |> onlyOne "User" login
 
     //Insert new user in DB
-    type InsertUser = User -> Result<unit list>
+    type InsertUser = UserInfo -> Result<unit>
 
     let insertUser: InsertUser =
         fun user -> 
             let ctx     = Sql.GetDataContext()
             let usr     = ctx.Timeentryapp.User.Create()
-            let dbUs    = toDBUser user
-            usr.Login         <- dbUs.Login
-            usr.UserRealName  <- dbUs.Name
-            usr.AuthLevel     <- dbUs.Level
-            usr.AllSites      <- boolToSbyte dbUs.AllSites
+            let dbUser    = toDBUserInfo user
+            usr.Login         <- dbUser.Login
+            usr.UserRealName  <- dbUser.Name
+            usr.AuthLevel     <- dbUser.Level
+            usr.AllSites      <- boolToSbyte dbUser.AllSites
             usr.Active        <- 1y
             try 
                 ctx.SubmitUpdates()
@@ -914,26 +1103,27 @@ module DBCommands =
             with
             | ex -> Failure <| sprintf "%s" ex.Message
 
-    type UpdatUser = User -> Result<unit>
+    type UpdateUser = UserInfo -> Result<unit>
 
-    let updateUser: User =
+    let updateUser: UpdateUser =
         fun newuser ->
             let ctx = Sql.GetDataContext()
-            let dbus = toDBUSer newuser
+            let (Login login) = newuser.Login
+            let dbus = toDBUserInfo newuser
             
             let userRes = 
                 query {
                     for user in ctx.Timeentryapp.User do
-                        where (user.Login = newuser.Login  && user.Active = 1y)
+                        where (user.Login = login  && user.Active = 1y)
                         select user
                 }
                 |> Seq.toList
-                |> onlyOne "EventEntry" (string eventId)
+                |> onlyOne "Login" login
 
             match userRes with
                 | Success user -> 
                         user.UserRealName   <- dbus.Name
-                        user.AllSites       <- dbus.AllSites
+                        user.AllSites       <- boolToSbyte dbus.AllSites
                         user.AuthLevel      <- dbus.Level
                         trySubmit ctx
 
@@ -959,7 +1149,7 @@ module DBCommands =
                         |> Success
                     with
                         ex -> Failure ex.Message
-                | None -> Failure <| sprintf "User \'%s\' is missing or %s." login site  activation.State
+                | None -> Failure <| sprintf "User \'%s\' is missing or %s." login  activation.State
 
     type DesactivateUser = string -> Result<unit>
     let desactivateUser: DesactivateUser  = toggleUser Desactivate

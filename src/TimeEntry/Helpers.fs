@@ -43,10 +43,18 @@ module Result =
 
     let (>=>) f g = f >> bind g
     
-    let fromOption msg = 
+    let failIfMissing msg = 
         function
             | Some x -> Success x
             | None   -> Failure msg 
+
+
+    let switchResOpt xResOpt =
+        match xResOpt with
+            | Some (Success x)   -> Success (Some x)
+            | None               -> Success (None)
+            | Some (Failure msg) -> Failure msg
+
 
     let unwrapResOpt xResOpt = 
         match xResOpt with

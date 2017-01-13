@@ -71,7 +71,7 @@ let testShopfloor =
       let step1' = "We get the same shopfloor."
       
       let dbsf = getShopFloorInfo(sfCode)
-      let expected = toDBShopfloorInfo sf
+      let expected = toDBShopfloorInfo sf |> Success
       
       Expect.equal dbsf expected step1';
 
@@ -119,7 +119,7 @@ let testWorkCenter =
       let step1' = "We get the same workcenter after insert."
       
       let dbwc = getWorkCenter(wcCode)
-      let expected = toDBWorkCenterInfo wc
+      let expected = toDBWorkCenterInfo wc |> Success
 
       Expect.equal dbwc expected step1';
 
@@ -263,7 +263,7 @@ let testWorkOrder =
       
       let step1 = "We expect to get one work order after insert."
       
-      insertWorkOrderEntry wo 
+      insertWorkOrderInfo wo 
       |> stopOnFailure
 
       let cnt = getWorkOrderCodes() |> List.length
@@ -281,10 +281,10 @@ let testWorkOrder =
           TotalLabourTimeHr = TimeHr 120.f; 
           Status      =  Closed }
       
-      updateWorkOrderEntry wo'
+      updateWorkOrderInfo wo'
       |> stopOnFailure
 
-      let expected = Success <| toDBWorkOrderEntry wo'
+      let expected = Success <| toDBWorkOrderInfo wo'
       let dbwo = getWorkOrder(woCode)
 
       Expect.equal dbwo expected step4]
@@ -302,6 +302,7 @@ let testEventEntries =
       
     //Insert Reference data
     insertReferenceData()
+    |> Success
     |> stopOnFailure
   
     let sites = getSiteCodes()
