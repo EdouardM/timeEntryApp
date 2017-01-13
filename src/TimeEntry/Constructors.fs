@@ -170,34 +170,3 @@ module Constructors =
 
     let createTimeRecord  site shopfloor workcenter attribution timetype duration status =
         { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; Status = status}
-
-
-    (* EVENT CONSTRUCTORS*)
-    let createEventInfo machine cause solution comments = 
-        { Machine = machine; Cause = cause; Solution = solution; Comments = comments}
-
-    let createEvent event hasInfo allowZeropeople =
-        match hasInfo, allowZeropeople with
-            | false, true       -> Success (ZeroPerson event)
-            | true, false       -> Success (WithInfo event)
-            | false, false      -> Success (WithoutInfo event) 
-            | true, true        -> Failure "Event with zero person can't carry information."
-
-    let extractEvent = function 
-            | WithInfo ev -> ev
-            | ZeroPerson ev -> ev
-            | WithoutInfo ev -> ev
-
-    let extractEventfromEntry = function
-            | EventWithInfo (ev, info) -> ev
-            | EventWithoutInfo ev -> ev
-            | EventZeroPerson ev -> ev
-
-    let createEventEntry (event:Event) (eventInfo: EventInfo option) =
-        match event, eventInfo with
-            | WithoutInfo ev, None        -> Success <| EventWithoutInfo event
-            | WithInfo ev, Some info      -> Success <| EventWithInfo (event, info)
-            | ZeroPerson ev, None         -> Success <| EventZeroPerson event
-            | ZeroPerson ev, Some info    -> Failure "info not expected"
-            | WithoutInfo ev, Some info   -> Failure "info not expected"
-            | WithInfo ev, None           -> Failure "expecting information"

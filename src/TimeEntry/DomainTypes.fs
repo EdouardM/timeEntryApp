@@ -187,28 +187,7 @@ module DomainTypes =
     
     //Model id of record in Database
     type TimeRecordId = uint32
-
-    //In case of BreakDown we record addiional information
-    type EventInfo = 
-        { 
-            Machine     : Machine 
-            Cause       : string
-            Solution    : string
-            Comments    : string 
-        }   
-
-    type Event = 
-            | ZeroPerson    of string
-            | WithInfo      of string
-            | WithoutInfo   of string 
- 
-    type EventEntry = 
-        | EventWithInfo         of Event * EventInfo 
-        | EventWithoutInfo      of Event 
-        | EventZeroPerson       of Event
-
-    type EventEntryId = uint32
-                     
+                  
     //Model the creation of one time Record
     //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
 

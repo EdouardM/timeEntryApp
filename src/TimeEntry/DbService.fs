@@ -31,11 +31,6 @@ module DBService =
         let m1: MachineInfo = {Machine = Machine "Rooslvo"; ShopFloorInfo = sf1}
         let m2: MachineInfo = {Machine = Machine "Scoel12"; ShopFloorInfo = sf2}
         
-        (*
-            INSERT Activity VALUES('FOR', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MFOR', 1)
-            INSERT Activity VALUES('MFOR','F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'FOR', 1)
-        *)
-
         let formatF21 = { 
                 Site            = s1; 
                 Code            = ActivityCode "FOR"; 
