@@ -71,7 +71,7 @@ let testShopfloor =
       let step1' = "We get the same shopfloor."
       
       let dbsf = getShopFloorInfo(sfCode)
-      let expected = toDBShopfloorInfo sf
+      let expected = toDBShopfloorInfo sf |> Success
       
       Expect.equal dbsf expected step1';
 
@@ -119,7 +119,7 @@ let testWorkCenter =
       let step1' = "We get the same workcenter after insert."
       
       let dbwc = getWorkCenter(wcCode)
-      let expected = toDBWorkCenterInfo wc
+      let expected = toDBWorkCenterInfo wc |> Success
 
       Expect.equal dbwc expected step1';
 
@@ -194,50 +194,57 @@ let testMachine =
       Expect.equal cnt 1 step3 ]
 
 [<Tests>]
-let testEvent = 
-  let pan = WithInfo "PAN"
+let testActivity = 
+  let format = { 
+                Site            = Site "F21"; 
+                Code            = ActivityCode "FOR"; 
+                RecordLevel     = WorkCenterLevel AllWorkCenters; 
+                TimeType        = MachineTime; 
+                ActivityLink    = Linked <| ActivityCode "MFOR"; 
+                ExtraInfo       = ExtraInfo.WithoutInfo
+                }
 
   testList "Event Database API" [
     testCase "Insert & Get" <| fun _ -> 
       removeExistingData() 
       |> stopOnFailure
       
-      let step1 = "We expect to get one event after insert."
+      let step1 = "We expect to get one activity after insert."
       
-      insertEvent(pan)
+      insertActivity(format)
       |> stopOnFailure
 
-      let cnt = getEventCodes() |> List.length
+      let cnt = getActivityCodes() |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Desactivate" <| fun _ ->
-      let step2 = "We expect to get no event after desactivation."
+      let step2 = "We expect to get no activity after desactivation."
       
-      desactivateEvent("PAN")
+      desactivateActivity("FOR")
       |> stopOnFailure
 
-      let cnt = getEventCodes() |> List.length
+      let cnt = getActivityCodes() |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
-      let step3 = "We expect to get one event after reactivation."
+      let step3 = "We expect to get one activity after reactivation."
       
-      activateEvent("PAN")
+      activateActivity("FOR")
       |> stopOnFailure
 
-      let cnt = getEventCodes() |> List.length
+      let cnt = getActivityCodes() |> List.length
       Expect.equal cnt 1 step3
       
     testCase "Update" <| fun _ -> 
-      let step4 = "We get the updated event after update."
+      let step4 = "We get the updated activity after update."
       
-      let pan' = WithoutInfo "PAN"
+      let format' = {format with ExtraInfo = WithInfo}
       
-      updateEvent pan'
+      updateActivity format'
       |> stopOnFailure
 
-      let expected = Success <| toDBEvent pan'
-      let dbwc = getEvent("PAN")
+      let expected = Success <| toDBActivity format'
+      let dbwc = getActivity("FOR")
 
       Expect.equal dbwc expected step4]
 
@@ -263,7 +270,7 @@ let testWorkOrder =
       
       let step1 = "We expect to get one work order after insert."
       
-      insertWorkOrderEntry wo 
+      insertWorkOrderInfo wo 
       |> stopOnFailure
 
       let cnt = getWorkOrderCodes() |> List.length
@@ -281,10 +288,10 @@ let testWorkOrder =
           TotalLabourTimeHr = TimeHr 120.f; 
           Status      =  Closed }
       
-      updateWorkOrderEntry wo'
+      updateWorkOrderInfo wo'
       |> stopOnFailure
 
-      let expected = Success <| toDBWorkOrderEntry wo'
+      let expected = Success <| toDBWorkOrderInfo wo'
       let dbwo = getWorkOrder(woCode)
 
       Expect.equal dbwo expected step4]
@@ -302,6 +309,7 @@ let testEventEntries =
       
     //Insert Reference data
     insertReferenceData()
+    |> Success
     |> stopOnFailure
   
     let sites = getSiteCodes()

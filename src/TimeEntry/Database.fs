@@ -6,7 +6,7 @@ namespace TimeEntry
     open TimeEntry.Constructors
 
     module DataBase =
-
+            (* SHOPFLOOR CONVERSION FUNCTIONS *)
             type DBShopFloorInfo = 
                 {
                     Site         : string
@@ -23,11 +23,12 @@ namespace TimeEntry
                 shopfloors
                 (sfinfo: DBShopFloorInfo) =
                     let siteRes = createSite sites sfinfo.Site
-                    let shopfloorRes = createShopfloor shopfloors sfinfo.ShopFloor
-                    createShopfloorInfo 
+                    let shopfloorRes = createShopFloor shopfloors sfinfo.ShopFloor
+                    createShopFloorInfo 
                     <!> siteRes
                     <*> shopfloorRes
-
+            
+            (* WORKCENTER CONVERSION FUNCTIONS *)
             type DBWorkCenterInfo =
                 {
                     WorkCenter      : string
@@ -44,21 +45,6 @@ namespace TimeEntry
                 { WorkCenter = wc; ShopFloorInfo = sf; StartHour = startH; EndHour = endH}
          
             let fromDBWorkCenterInfo 
-                sites
-                shopfloors
-                workcenters
-                (wcInfo: DBWorkCenterInfo) =
-                    let shopfloorInfoRes = fromDBShopfloorInfo sites shopfloors wcInfo.ShopFloorInfo 
-                    let workcenterRes = createWorkCenter workcenters wcInfo.WorkCenter
-                    let starthourRes = createHour wcInfo.StartHour
-                    let endhourRes   = createHour wcInfo.EndHour
-                    createWorkCenterInfo
-                    <!> shopfloorInfoRes
-                    <*> workcenterRes
-                    <*> starthourRes
-                    <*> endhourRes 
-                    
-            let fromDBWorkCenterInfo2 
                 fromDBShopfloorInfo
                 workcenters
                 (wcInfo: DBWorkCenterInfo) =
@@ -71,8 +57,8 @@ namespace TimeEntry
                     <*> workcenterRes
                     <*> starthourRes
                     <*> endhourRes 
-
-                
+                    
+            (* MACHINE CONVERSION FUNCTIONS *)
             type DBMachineInfo =
                 {
                     ShopFloorInfo   : DBShopFloorInfo
@@ -95,279 +81,150 @@ namespace TimeEntry
                 <!> machineRes
                 <*> shopfloorInfoRes
 
-
-            type DBWorkOrderEntry =
+            (* ACTIVITY CONVERSION FUNCTIONS *)
+            type DBActivity =
                 {
-                    WorkOrder : string
-                    WorkCenter : string
-                    ItemCode  : string
-                    TotalMachineTimeHr : float32
-                    TotalLabourTimeHr : float32
-                    WorkOrderStatus    : string
+                    Site            : string
+                    Code            : string
+                    AccessAll       : bool
+                    AccessList      : string list
+                    RecordLevel     : string
+                    TimeType        : string
+                    ExtraInfo       : string
+                    isLinked        : bool
+                    LinkedActivity  : string option
                 }
 
-            let toDBWorkOrderEntry (wo: WorkOrderEntry) =
-                let (WorkOrder strWo) = wo.WorkOrder
-                let (WorkCenter strWc) = wo.WorkCenter
-                let (ItemCode strItem) = wo.ItemCode
-                let status =
-                    match wo.Status with
-                        | Open   -> "open"
-                        | Closed -> "closed"
+            let toDBActivity (activity: Activity) =
+                let (ActivityCode code) = activity.Code
+                let (Site s) = activity.Site
+                let timetype = activity.TimeType.ToString()
+                let level, accessall, accessList = 
+                    match activity.RecordLevel with
+                        | ShopFloorLevel (AllShopFloors)    -> ("shopfloor", true, [])
+                        | ShopFloorLevel (ShopFloorList sf) -> 
+                            let sfcodes = sf |> List.map(fun (ShopFloor s) -> s) 
+                            ("shopfloor", false, sfcodes)
+                        | WorkCenterLevel (AllWorkCenters)  -> ("workcenter", true, [])
+                        | WorkCenterLevel (WorkCenterList wc) -> 
+                            let wccodes = wc |> List.map(fun (WorkCenter w) -> w) 
+                            ("shopfloor", false, wccodes)
+                let islinked, linkedact = 
+                    match activity.ActivityLink with
+                        | Linked (ActivityCode act) -> true, Some act
+                        | NotLinked                 -> false,None
 
-                let (TimeHr totalMachine) = wo.TotalMachineTimeHr
-                let (TimeHr totalLabour)  = wo.TotalLabourTimeHr
-
+                let extrainfo = activity.ExtraInfo.ToString()
+                        
                 { 
-                    WorkOrder = strWo; 
-                    WorkCenter = strWc;
-                    ItemCode = strItem; 
-                    TotalMachineTimeHr = totalMachine;
-                    TotalLabourTimeHr = totalLabour;
-                    WorkOrderStatus = status
+                    Site        = s
+                    Code        = code
+                    AccessAll   = accessall
+                    AccessList  = accessList 
+                    RecordLevel = level
+                    TimeType    = timetype
+                    isLinked    = islinked
+                    LinkedActivity  = linkedact
+                    ExtraInfo   = extrainfo
                 }
 
-            let fromDBWorkOrderEntry
-                workOrders
-                workCenters
-                itemCodes
-                (wo: DBWorkOrderEntry) =
-                let workOrderRes = createWorkOrder workOrders wo.WorkOrder
-                let workCenterRes = createWorkCenter workCenters wo.WorkCenter
-                let itemCodeRes  = createItemCode itemCodes wo.ItemCode
-                let totalMachineTimeHrRes = createTimeHr wo.TotalMachineTimeHr
-                let totalLabourTimeHrRes = createTimeHr wo.TotalLabourTimeHr
-                let statusRes = createWorkOrderStatus wo.WorkOrderStatus
-                createWorkOrderEntry 
-                <!> workOrderRes
-                <*> workCenterRes
-                <*> itemCodeRes
-                <*> totalMachineTimeHrRes
-                <*> totalLabourTimeHrRes
-                <*> statusRes  
+            let fromDBActivity
+                sites 
+                shopfloors
+                workcenters
+                activities 
+                (dbActivity: DBActivity) =
+                let siteRes     = createSite sites dbActivity.Site
+                let codeRes     = createActivityCode activities dbActivity.Code
+                let timetypeRes = createTimeType dbActivity.TimeType
+                let extraInfoRes = createExtraInfo dbActivity.ExtraInfo
 
+                let levelRes = 
+                    match dbActivity.RecordLevel with
+                        | "shopfloor" -> 
+                            let sfRes  = dbActivity.AccessList |> List.map (createShopFloor shopfloors) |> sequence
+                            createShopFloorAccess 
+                            <!> (Success dbActivity.AccessAll) 
+                            <*> sfRes
+                            |> flatten
+                            |> ( Result.map ShopFloorLevel )
+                        | "workshop" -> 
+                            let wcRes  = dbActivity.AccessList |> List.map (createWorkCenter workcenters) |> sequence
+                            createWorkCenterAccess 
+                            <!> (Success dbActivity.AccessAll) 
+                            <*> wcRes
+                            |> flatten
+                            |> ( Result.map WorkCenterLevel )
+                        | lvl -> Failure <| sprintf "Unexpected level : %s" lvl
 
-            type DBEvent =
+                let activityLinkRes = createActivityLink (createActivityCode activities) dbActivity.isLinked dbActivity.LinkedActivity
+
+                createActivity
+                <!> siteRes
+                <*> codeRes
+                <*> levelRes
+                <*> timetypeRes
+                <*> activityLinkRes
+
+            type DBActivityInfo =
                 {
-                    Event : string
-                    HasInfo : bool
-                    AllowZeroPerson : bool
-                }
-
-            let toDBEvent =
-                function
-                    | WithInfo event    -> { Event = event; HasInfo = true; AllowZeroPerson = false }
-                    | WithoutInfo event -> { Event = event; HasInfo = false; AllowZeroPerson = false }
-                    | ZeroPerson event  ->  { Event = event; HasInfo = false; AllowZeroPerson = true }
-            
-            let fromDBEvent (event: DBEvent) =
-                match event.HasInfo, event.AllowZeroPerson with
-                    | true, false   -> Success (WithInfo event.Event)
-                    | false, true   -> Success (ZeroPerson event.Event)
-                    | false, false  -> Success (WithoutInfo event.Event)
-                    | true, true    -> Failure "Event cannot require information and allow zero person."
-
-            type DBEventEntry =
-                {
-                    Event       : DBEvent 
+                    Activity    : string 
                     Machine     : string option
                     Cause       : string option
                     Solution    : string option
                     Comments    : string option
                 }
-            let toDBEventEntry = 
+
+            let toDBActivityInfo = 
                 function
-                    | EventWithInfo (ev, info) -> 
+                    | Detailed (act, info) -> 
+                        let (ActivityCode code) = act
                         let  (Machine machine) = info.Machine
                         let cause   = info.Cause
                         let solution = info.Solution
                         let comments = info.Comments
-                        {   Event = toDBEvent ev; 
-                            Machine = Some machine; 
-                            Cause = Some cause; 
-                            Solution = Some solution; 
-                            Comments = Some comments
+                        {   Activity    = code
+                            Machine     = Some machine
+                            Cause       = Some cause
+                            Solution    = Some solution 
+                            Comments    = Some comments
                         }
-                    | EventWithoutInfo (ev) -> 
-                        {   Event = toDBEvent ev; 
-                            Machine = None; 
-                            Cause = None; 
-                            Solution = None; 
-                            Comments = None
+                    | Normal (act) -> 
+                        let (ActivityCode code) = act
+                        {   Activity    = code
+                            Machine     = None
+                            Cause       = None
+                            Solution    = None 
+                            Comments    = None
                         }
-                    | EventZeroPerson (ev) ->
-                        {   Event = toDBEvent ev; 
-                            Machine = None; 
-                            Cause = None; 
-                            Solution = None; 
-                            Comments = None
-                        }
-                     
-            let fromDBEventEntry  
+
+            let fromDBActivityInfo  
+                activities
                 machines
-                (eventEntry: DBEventEntry) =
-                let eventRes = fromDBEvent eventEntry.Event
+                (activityInfo: DBActivityInfo) =
+                let activityRes = createActivityCode activities activityInfo.Activity
    
                 let machineRes   = 
-                        eventEntry.Machine
-                        |> fromOption "Machine missing"
+                        activityInfo.Machine
+                        |> failIfMissing "Machine missing"
                         |> bind (createMachine machines)
 
-                let causeRes     = fromOption "Cause missing" eventEntry.Cause
-                let solutionRes  = fromOption "Cause missing" eventEntry.Solution
-                let commentsRes  = fromOption "Comments missing" eventEntry.Comments
+                let causeRes     = failIfMissing "Cause missing" activityInfo.Cause
+                let solutionRes  = failIfMissing "Solution missing" activityInfo.Solution
+                let commentsRes  = failIfMissing "Comments missing" activityInfo.Comments
                 
-                let eventInfoResOpt = 
-                            createEventInfo <!> machineRes <*> causeRes <*> solutionRes <*> commentsRes
-                            |> Result.map Some
-                                         
-                createEventEntry <!> eventRes <*> eventInfoResOpt
-                |> Result.flatten
+                let activityDetailsResOpt = 
+                    createActivityDetails 
+                    <!> machineRes 
+                    <*> causeRes 
+                    <*> solutionRes 
+                    <*> commentsRes
+                    |> Result.map Some
 
-            //DataBase model (pure)
-            type DBTimeRecord =
-                {
-                    Site            : string
-                    ShopFloor       : string
-                    WorkCenter      : string
-                    TimeType        : string
-                    StartTime       : DateTime
-                    EndTime         : DateTime
-                    DurationHr      : float32
-                    NbPeople        : float32
-                    Allocation      : string
-                    WorkOrderEntry  : DBWorkOrderEntry option
-                    EventEntry      : DBEventEntry option
-                    Status          : string
-                }
-            
-            let allocationToString =
-                function
-                    | WorkOrderEntry wo -> "workorder"
-                    | EventEntry ev     -> "event"
-
-            let updateAllocation allocation timeRecord = 
-                match allocation with
-                    | WorkOrderEntry wo ->
-                        { timeRecord with WorkOrderEntry = toDBWorkOrderEntry wo |> Some}
-                    | EventEntry ev     ->
-                        { timeRecord with EventEntry = toDBEventEntry ev |> Some}
-
-            let recordStatusToString = 
-                function
-                    | Entered   -> "entered"
-                    | Validated -> "validated"
-
-            ///Function to convert one Domain Record into records to insert into Database
-            let toDBTimeRecord  (time : TimeRecord) = 
-                let (Site site) = time.Site
-                let (ShopFloor shopfloor) = time.ShopFloor
-                let (WorkCenter workcenter) = time.WorkCenter
-                let status = recordStatusToString time.Status
-
-                match time.TimeEntry with
-                    //List of one record: Machine time
-                    | MachineOnly duration ->
-                        let machineRecord = {   
-                            Site            = site
-                            ShopFloor       = shopfloor 
-                            WorkCenter      = workcenter 
-                            TimeType        = "machine"
-                            StartTime       = duration.StartTime
-                            EndTime         = duration.EndTime
-                            DurationHr      = float32 duration.ToHr
-                            NbPeople        = 0.f
-                            Allocation      = allocationToString time.Allocation
-                            WorkOrderEntry  = None
-                            EventEntry      = None
-                            Status          = status
-                             }
-                        let machineRecord' = updateAllocation time.Allocation machineRecord
-                        [machineRecord']
-
-                    //List of two records: Machine & Labour time
-                    | MachineAndLabour (duration, nbPeople) ->
-                        let (NbPeople nb) = nbPeople
-                        let machineRecord = 
-                            { 
-                            Site        = site
-                            ShopFloor   = shopfloor 
-                            WorkCenter  = workcenter
-                            TimeType    = "machine" 
-                            StartTime   = duration.StartTime
-                            EndTime     = duration.EndTime
-                            DurationHr  = float32 duration.ToHr
-                            NbPeople    = 0.f
-                            Allocation  = allocationToString time.Allocation
-                            WorkOrderEntry = None
-                            EventEntry  = None
-                            Status      =  status }
-                        let labourRecord = {machineRecord with TimeType = "labour"; NbPeople = nb}
-
-                        [machineRecord; labourRecord] 
-                        |> List.map (updateAllocation time.Allocation)
-
-                    //List of one record: Labour time
-                    | LabourOnly (duration, nbPeople) -> 
-                        let (NbPeople nb) = nbPeople
-                        let labourRecord = 
-                            { 
-                            Site        = site
-                            ShopFloor   = shopfloor 
-                            WorkCenter  = workcenter
-                            TimeType    = "labour" 
-                            StartTime   = duration.StartTime
-                            EndTime     = duration.EndTime
-                            DurationHr  = float32 duration.ToHr
-                            NbPeople    = nb
-                            Allocation  = allocationToString time.Allocation
-                            WorkOrderEntry = None
-                            EventEntry  = None
-                            Status      =  status }
-                        let labourRecord' = updateAllocation time.Allocation labourRecord
-                        [labourRecord']    
-            
-            let fromTimeRecordDB 
-                sites
-                shopfloors
-                workcenters
-                workorders
-                machines
-                itemcodes
-                (time: DBTimeRecord) =
-                    let siteRes = createSite sites time.Site
-                    let shopFloorRes = createShopfloor shopfloors time.ShopFloor
-                    let workCenterRes = createWorkCenter workcenters time.WorkCenter
-                    
-                    let timeTypeRes = createTimeType time.TimeType
-                    let durationRes = createDuration time.StartTime time.EndTime
-                    let nbPeopleRes = createNbPeople time.NbPeople
-
-                    let timeEntryRes = createTimeEntry <!> timeTypeRes <*> nbPeopleRes <*> durationRes
-
-                    match time.WorkOrderEntry, time.EventEntry with
-                        | Some wo, None -> 
-                            let workOrderEntryRes = (fromDBWorkOrderEntry workorders workcenters itemcodes) wo
-                            let allocationRes = Result.map WorkOrderEntry workOrderEntryRes
-                            createTimeRecord
-                            <!> siteRes
-                            <*> shopFloorRes
-                            <*> workCenterRes
-                            <*> allocationRes
-                            <*> timeEntryRes
-                        | None, Some ev -> 
-                            let eventEntryRes = (fromDBEventEntry machines) ev
-                            let allocationRes = Result.map EventEntry eventEntryRes
-                            createTimeRecord
-                            <!> siteRes
-                            <*> shopFloorRes
-                            <*> workCenterRes
-                            <*> allocationRes
-                            <*> timeEntryRes
-                        | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
-                        | None, None       -> Failure "Both Workorder and Event entry are missing."
-
-            type DBUser =
+                createActivityEntry <!> activityRes <*> activityDetailsResOpt
+                |> flatten
+            (* USER CONVERSION FUNCTIONS *)
+            type DBUserInfo =
                 {
                     Login       : string
                     Name        : string
@@ -382,7 +239,7 @@ namespace TimeEntry
                     | KeyUser   -> "keyuser"
                     | Admin     -> "admin"
             
-            let toDBUser  (user : User) = 
+            let toDBUserInfo  (user : UserInfo) = 
                 let (Login login)   = user.Login
                 let (UserName name) = user.Name
                 let level = authLevelToString user.Level
@@ -405,11 +262,11 @@ namespace TimeEntry
                             SiteList    = sites
                         }  
 
-            let fromDBUser  
+            let fromDBUserInfo  
                 sites
                 names
                 logins
-                (dbuser : DBUser) = 
+                (dbuser : DBUserInfo) = 
                     let loginRes  = createLogin logins dbuser.Login
                     let nameRes   = createUserName names dbuser.Name
                     let sitesRes  = dbuser.SiteList |> List.map (createSite sites) |> sequence
@@ -418,9 +275,179 @@ namespace TimeEntry
                         <!> (Success dbuser.AllSites) 
                         <*> sitesRes
                         |> flatten
-                    let levelRes  = createLevel dbuser.Level
+                    let levelRes  = createAuthLevel dbuser.Level
                     createUser  
                     <!> loginRes
                     <*> nameRes
                     <*> accessRes
                     <*> levelRes
+
+
+
+            (* WORK ORDER CONVERSION FUNCTIONS *)
+            type DBWorkOrderInfo =
+                {
+                    WorkOrder : string
+                    WorkCenter : string
+                    ItemCode  : string
+                    TotalMachineTimeHr : float32
+                    TotalLabourTimeHr : float32
+                    WorkOrderStatus    : string
+                }
+
+            let toDBWorkOrderInfo (wo: WorkOrderInfo) =
+                let (WorkOrder strWo) = wo.WorkOrder
+                let (WorkCenter strWc) = wo.WorkCenter
+                let (ItemCode strItem) = wo.ItemCode
+                let status =
+                    match wo.Status with
+                        | Open   -> "open"
+                        | Closed -> "closed"
+
+                let (TimeHr totalMachine) = wo.TotalMachineTimeHr
+                let (TimeHr totalLabour)  = wo.TotalLabourTimeHr
+
+                { 
+                    WorkOrder = strWo; 
+                    WorkCenter = strWc;
+                    ItemCode = strItem; 
+                    TotalMachineTimeHr = totalMachine;
+                    TotalLabourTimeHr = totalLabour;
+                    WorkOrderStatus = status
+                }
+
+            let fromDBWorkOrderInfo
+                workOrders
+                workCenters
+                itemCodes
+                (wo: DBWorkOrderInfo) =
+                let workOrderRes = createWorkOrder workOrders wo.WorkOrder
+                let workCenterRes = createWorkCenter workCenters wo.WorkCenter
+                let itemCodeRes  = createItemCode itemCodes wo.ItemCode
+                let totalMachineTimeHrRes = createTimeHr wo.TotalMachineTimeHr
+                let totalLabourTimeHrRes = createTimeHr wo.TotalLabourTimeHr
+                let statusRes = createWorkOrderStatus wo.WorkOrderStatus
+                createWorkOrderInfo 
+                <!> workOrderRes
+                <*> workCenterRes
+                <*> itemCodeRes
+                <*> totalMachineTimeHrRes
+                <*> totalLabourTimeHrRes
+                <*> statusRes  
+
+            (* TIME RECORD CONVERSION FUNCTIONS *)
+            type DBTimeRecord =
+                {
+                    Site            : string
+                    ShopFloor       : string
+                    WorkCenter      : string option
+                    TimeType        : string
+                    StartTime       : DateTime
+                    EndTime         : DateTime
+                    TimeHr          : float32
+                    NbPeople        : float32
+                    Attribution     : string
+                    WorkOrderEntry  : DBWorkOrderInfo option
+                    ActivityEntry   : DBActivityInfo option
+                    Status          : string
+                }
+            
+            let attributionToString =
+                function
+                    | WorkOrderEntry wo     -> "workorder"
+                    | ActivityEntry act     -> "activity"
+
+            let updateAttribution attribution timeRecord = 
+                match attribution with
+                    | WorkOrderEntry wo ->
+                        { timeRecord with WorkOrderEntry = toDBWorkOrderInfo wo |> Some}
+                    | ActivityEntry act ->
+                        { timeRecord with ActivityEntry = toDBActivityInfo act |> Some}
+
+            let recordStatusToString = 
+                function
+                    | Entered   -> "entered"
+                    | Validated -> "validated"
+
+            ///Function to convert one Domain Record into records to insert into Database
+            let toDBTimeRecord  (time : TimeRecord) = 
+                let (Site site) = time.Site
+                let (ShopFloor shopfloor) = time.ShopFloor
+                
+                let workcenter = 
+                    match time.WorkCenter with
+                        | Some (WorkCenter wc) -> Some wc
+                        | None -> None 
+                            
+                let status = recordStatusToString time.Status
+
+                let timetype = time.TimeType.ToString()
+                let (TimeHr t)  = time.Duration.ToTimeHr()
+                
+                {   
+                                Site            = site
+                                ShopFloor       = shopfloor 
+                                WorkCenter      = workcenter 
+                                TimeType        = "machine"
+                                StartTime       = time.Duration.StartTime
+                                EndTime         = time.Duration.EndTime
+                                TimeHr          = t
+                                NbPeople        = 0.f
+                                Attribution     = attributionToString time.Attribution
+                                WorkOrderEntry  = None
+                                ActivityEntry   = None
+                                Status          = status
+                }
+                |> updateAttribution time.Attribution
+
+            let fromTimeRecordDB 
+                sites
+                shopfloors
+                workcenters
+                workorders
+                activities
+                machines
+                itemcodes
+                (time: DBTimeRecord) =
+                    let siteRes = createSite sites time.Site
+                    let shopFloorRes = createShopFloor shopfloors time.ShopFloor
+                    
+                    let workCenterRes = 
+                        time.WorkCenter 
+                        |> Option.map (createWorkCenter workcenters)
+                        |> switchResOpt
+                    
+                    let timeTypeRes = createTimeType time.TimeType
+                    let durationRes = createDuration time.StartTime time.EndTime
+                    let nbPeopleRes = createNbPeople time.NbPeople
+                    let statusRes   = createRecordStatus time.Status
+
+
+                    match time.WorkOrderEntry, time.ActivityEntry with
+                        | Some wo, None -> 
+                            let workOrderEntryRes = (fromDBWorkOrderInfo workorders workcenters itemcodes) wo
+                            let attributionRes = Result.map WorkOrderEntry workOrderEntryRes
+                            createTimeRecord
+                            <!> siteRes
+                            <*> shopFloorRes
+                            <*> workCenterRes
+                            <*> attributionRes
+                            <*> timeTypeRes
+                            <*> durationRes
+                            <*> statusRes
+                            
+                        | None, Some act -> 
+                            let activityEntryRes = (fromDBActivityInfo activities machines) act
+                            let attributionRes   = Result.map ActivityEntry activityEntryRes
+                            createTimeRecord
+                            <!> siteRes
+                            <*> shopFloorRes
+                            <*> workCenterRes
+                            <*> attributionRes
+                            <*> timeTypeRes
+                            <*> durationRes
+                            <*> statusRes
+
+                        | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
+                        | None, None       -> Failure "Both Workorder and Event entry are missing."
+

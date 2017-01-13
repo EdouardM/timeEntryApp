@@ -10,7 +10,7 @@ Create Site table
 DROP TABLE  IF EXISTS Site;
 
 CREATE TABLE Site (
-    Site VARCHAR(4) NOT NULL,
+    Site VARCHAR(3) NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (Site)
 );
@@ -24,7 +24,7 @@ Create Shopfloor table
 
 CREATE TABLE Shopfloor (
     Shopfloor VARCHAR(5) NOT NULL,
-    Site VARCHAR(4) NOT NULL,
+    Site VARCHAR(3) NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (Shopfloor)
 );
@@ -66,18 +66,18 @@ CREATE TABLE Machine (
     PRIMARY KEY (Machine)
 );
 
-CREATE INDEX ShopfloorrId ON Machine (Shopfloor);
+CREATE INDEX ShopfloorId ON Machine (Shopfloor);
 
 INSERT Machine VALUES('F221A', 'Rooslvo', 1);
 
 
 /* =====================================================
-Create Work Orders Entry table  
+Create Work Orders Info table  
 ===================================================== */
 
-DROP TABLE  IF EXISTS WorkOrderEntry;
+DROP TABLE  IF EXISTS WorkOrderInfo;
 
-CREATE TABLE WorkOrderEntry (
+CREATE TABLE WorkOrderInfo (
     WorkOrder VARCHAR(10) NOT NULL,
     WorkCenter VARCHAR(4) NOT NULL,
     ItemCode VARCHAR(6) NOT NULL,
@@ -88,46 +88,81 @@ CREATE TABLE WorkOrderEntry (
     PRIMARY KEY (WorkOrder)
 );
 
-CREATE INDEX WorkCenterId ON WorkOrderEntry (WorkCenter);
+CREATE INDEX WorkCenterId ON WorkOrderInfo (WorkCenter);
 
 /* =====================================================
-Create Event table  
+Create Activity table  
 ===================================================== */
 
-DROP TABLE  IF EXISTS Event;    
+DROP TABLE  IF EXISTS Activity;    
 
-CREATE TABLE Event (
-    Event VARCHAR(4) NOT NULL,
-    HasInfo TINYINT(1) NOT NULL,
-    AllowZeroPerson TINYINT(1) NOT NULL,
+CREATE TABLE Activity (
+    Code VARCHAR(4) NOT NULL,
+    Site VARCHAR(3) NOT NULL,
+    RecordLevel ENUM('workcenter', 'shopfloor') NOT NULL,
+    AccessAll TINYINT(1) NOT NULL,
+    ExtraInfo ENUM('withinfo', 'withoutinfo') NOT NULL,
+    TimeType ENUM('machine', 'labour') NOT NULL,
+    isLinked TINYINT(1) NOT NULL, 
+    LinkedActivity VARCHAR(4), 
     Active TINYINT(1) NOT NULL,
-    PRIMARY KEY (Event)
+    PRIMARY KEY (Activity)
 );
 
-INSERT Event VALUES('FOR', 0, 0, 1)
-INSERT Event VALUES('DIV', 0, 0, 1)
-INSERT Event VALUES('PAN', 1, 0, 1)
-INSERT Event VALUES('ARR', 1, 0, 1)
- 
+INSERT Activity VALUES('FOR', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MFOR', 1)
+INSERT Activity VALUES('MFOR','F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'FOR', 1)
+INSERT Activity VALUES('DIV', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MDIV', 1)
+INSERT Activity VALUES('MDIV', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'DIV', 1)
+INSERT Activity VALUES('PAN', 'F21', 'workcenter', 1, 'withinfo', 'machine', 1, 'MPAN', 1)
+INSERT Activity VALUES('MPAN', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'PAN', 1)
+INSERT Activity VALUES('ARR', 'F21', 'workcenter', 1, 'withinfo', 'machine', 1, 'MARR', 1)
+INSERT Activity VALUES('MARR', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'ARR', 1)
+
 
 /* =====================================================
-Create Event Entry table  
+Create Activity WorkCenter Access table  
 ===================================================== */
 
-DROP TABLE  IF EXISTS EventEntry;
+DROP TABLE  IF EXISTS ActivityWorkCenterAccess;
 
-CREATE TABLE EventEntry (
-    EventEntryId INT NOT NULL auto_increment,
-    Event VARCHAR(4) NOT NULL,
+CREATE TABLE ActivityWorkCenterAccess (
+    Activity VARCHAR(4) NOT NULL,
+    WorkCenter VARCHAR(4) NOT NULL,
+    Active TINYINT(1) NOT NULL,
+    PRIMARY KEY (Activity, WorkCenter)
+);
+
+/* =====================================================
+Create Activity ShopFloor Access table  
+===================================================== */
+
+DROP TABLE  IF EXISTS ActivityShopFloorAccess;
+
+CREATE TABLE ActivityShopFloorAccess (
+    Activity VARCHAR(4) NOT NULL,
+    ShopFloor VARCHAR(5) NOT NULL,
+    Active TINYINT(1) NOT NULL,
+    PRIMARY KEY (Activity, ShopFloor)
+);
+
+/* =====================================================
+Create Activity Info table  
+===================================================== */
+
+DROP TABLE  IF EXISTS ActivityInfo;
+
+CREATE TABLE ActivityInfo (
+    ActivityInfoId INT NOT NULL auto_increment,
+    Activity VARCHAR(4) NOT NULL,
     Machine VARCHAR(10),
     Cause VARCHAR(50),
     Solution VARCHAR(50),
     Comments VARCHAR(200),
     Active TINYINT(1) NOT NULL,
-    PRIMARY KEY (EventEntryId)
+    PRIMARY KEY (ActivityInfoId)
 );
 
-CREATE INDEX EventId ON EventEntry (Event);
+CREATE INDEX ActivityId ON ActivityInfo (Activity);
 
 /* =====================================================
 Create Time Record table  
@@ -139,28 +174,27 @@ CREATE TABLE TimeRecord (
     TimeRecordId INT NOT NULL auto_increment,
     Site VARCHAR(4) NOT NULL,
     Shopfloor VARCHAR(5) NOT NULL,
-    WorkCenter VARCHAR(4) NOT NULL,
+    WorkCenter VARCHAR(4),
     TimeType ENUM('machine', 'labour') NOT NULL,
     StartTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
     EndTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01', 
-    DurationHr FLOAT(7,4) NOT NULL, 
-    Allocation ENUM('workorder','event') NOT NULL,
+    TimeHr FLOAT(7,4) NOT NULL, 
     NbPeople FLOAT(3,1) NOT NULL,
+    Attribution ENUM('workorder','event') NOT NULL,
     WorkOrder VARCHAR(10),
-    EventEntryId INT,
+    ActivityInfoId INT,
     RecordStatus ENUM('entered', 'validated') NOT NULL,
     Active TINYINT(1) NOT NULL,
-    --TODO Add user who created / modified record
-    --UserId INT NOT NULL,
+    Login VARCHAR(8) NOT NULL,
     LastUpdate TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
     PRIMARY KEY (TimeRecordId)
 );
 
 CREATE INDEX SiteId ON TimeRecord (Site);
 CREATE INDEX ShopfloorId ON TimeRecord (Shopfloor);
--- CREATE INDEX UserId ON TimeRecord (UserId);
+CREATE INDEX Login ON TimeRecord (Login);
 CREATE INDEX WorkOrderEntryId ON TimeRecord (WorkOrder);
-CREATE INDEX EventEntryId ON TimeRecord (EventEntryId);
+CREATE INDEX ActivityInfoId ON TimeRecord (ActivityInfoId);
 
 
 /* =====================================================
