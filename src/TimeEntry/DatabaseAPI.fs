@@ -398,6 +398,137 @@ module DBCommands =
         |> List.iter(fun machine -> machine.Delete() )
         trySubmit ctx
 
+
+   (* ACTIVITY WORKCENTER ACCESS FUNCTIONS *)
+    type GetActivityWorkCenters = string -> string list
+    
+    let getActivityWorkCenters: GetActivityWorkCenters =
+        fun code -> 
+                let ctx = Sql.GetDataContext()         
+                query {
+                    for activity in ctx.Timeentryapp.Activity do
+                        join authActivity in ctx.Timeentryapp.Activityworkcenteraccess on (activity.Code = authActivity.Activity)
+                        where (activity.Code = code && activity.Active = 1y && authActivity.Active = 1y)
+                        select (authActivity.WorkCenter)
+                }
+                |> Seq.toList
+
+    type InsertActivityWorkCenters = ActivityCode -> WorkCenter -> Result<unit>
+    let insertActivityWorkCenters: InsertActivityWorkCenters =
+        fun activity workcenter ->
+            let (ActivityCode code) = activity
+            let (WorkCenter authworkcenter)  =  workcenter
+            let ctx             = Sql.GetDataContext() 
+            let auth = ctx.Timeentryapp.Activityworkcenteraccess.Create()
+            auth.Activity       <- code
+            auth.WorkCenter     <- authworkcenter
+            auth.Active         <- 1y
+
+            trySubmit ctx
+
+    type ToggleActivityWorkCenters = Activation -> string -> string -> Result<unit>
+    let toggleActivityWorkCenters: ToggleActivityWorkCenters =
+        fun activation code workcenter -> 
+            let ctx = Sql.GetDataContext()
+            let current, future = flags activation
+            let dbsOpt = 
+                query {
+                    for authwc in ctx.Timeentryapp.Activityworkcenteraccess do
+                        where (authwc.Activity = code && authwc.WorkCenter = workcenter && authwc.Active = current)
+                        select authwc }
+                |> Seq.tryHead
+
+            match dbsOpt with
+                | Some dbs -> 
+                    dbs.Active <- future
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                        ex -> Failure ex.Message
+                | None -> Failure <| sprintf "Authorization for activity \'%s\' on workcenter %s is missing or %s." code workcenter  activation.State
+
+    type DesactivateActivityWorkCenters = string -> string -> Result<unit>
+    let desactivateActivityWorkCenters: DesactivateActivityWorkCenters  = toggleActivityWorkCenters Desactivate
+
+    type ActivateActivityWorkCenters = string -> string -> Result<unit>
+    let activateActivityWorkCenters: ActivateActivityWorkCenters = toggleActivityWorkCenters Activate
+
+    let deleteActivityWorkCenters () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for authwc in ctx.Timeentryapp.Activityworkcenteraccess do
+                select authwc
+        }
+        |> Seq.toList
+        |> List.iter(fun authwc -> authwc.Delete() )
+        trySubmit ctx
+
+   (* ACTIVITY SHOPFLOOR ACCESS FUNCTIONS *)
+    type GetActivityShopFloors = string -> string list
+    
+    let getActivityShopFloors: GetActivityShopFloors =
+        fun code -> 
+                let ctx = Sql.GetDataContext()         
+                query {
+                    for activity in ctx.Timeentryapp.Activity do
+                        join authActivity in ctx.Timeentryapp.Activityshopflooraccess on (activity.Code = authActivity.Activity)
+                        where (activity.Code = code && activity.Active = 1y && authActivity.Active = 1y)
+                        select (authActivity.ShopFloor)
+                }
+                |> Seq.toList
+
+    type InsertActivityShopFloors = ActivityCode -> ShopFloor -> Result<unit>
+    let insertActivityShopFloors: InsertActivityShopFloors =
+        fun activity shopfloor ->
+            let (ActivityCode code) = activity
+            let (ShopFloor authshopfloor)  =  shopfloor
+            let ctx             = Sql.GetDataContext() 
+            let auth = ctx.Timeentryapp.Activityshopflooraccess.Create()
+            auth.Activity       <- code
+            auth.ShopFloor     <- authshopfloor
+            auth.Active         <- 1y
+
+            trySubmit ctx
+
+    type ToggleActivityShopFloors = Activation -> string -> string -> Result<unit>
+    let toggleActivityShopFloors: ToggleActivityShopFloors =
+        fun activation code shopfloor -> 
+            let ctx = Sql.GetDataContext()
+            let current, future = flags activation
+            let dbsOpt = 
+                query {
+                    for authwc in ctx.Timeentryapp.Activityshopflooraccess do
+                        where (authwc.Activity = code && authwc.ShopFloor = shopfloor && authwc.Active = current)
+                        select authwc }
+                |> Seq.tryHead
+
+            match dbsOpt with
+                | Some dbs -> 
+                    dbs.Active <- future
+                    try 
+                        ctx.SubmitUpdates()
+                        |> Success
+                    with
+                        ex -> Failure ex.Message
+                | None -> Failure <| sprintf "Authorization for activity \'%s\' on shopfloor %s is missing or %s." code shopfloor  activation.State
+
+    type DesactivateActivityShopFloors = string -> string -> Result<unit>
+    let desactivateActivityShopFloors: DesactivateActivityShopFloors  = toggleActivityShopFloors Desactivate
+
+    type ActivateActivityShopFloors = string -> string -> Result<unit>
+    let activateActivityShopFloors: ActivateActivityShopFloors = toggleActivityShopFloors Activate
+
+    let deleteActivityshopfloors () = 
+        let ctx = Sql.GetDataContext()
+        query {
+            for authwc in ctx.Timeentryapp.Activityworkcenteraccess do
+                select authwc
+        }
+        |> Seq.toList
+        |> List.iter(fun authwc -> authwc.Delete() )
+        trySubmit ctx
+
     (* ACTIVITY FUNCTIONS  *)
     type GetActivityCodes = unit -> string list
     let getActivityCodes: GetActivityCodes =
@@ -443,11 +574,28 @@ module DBCommands =
                     select activity
             }
             |> Seq.toList
-            |> onlyOne "Acitivity" code
+            |> onlyOne "Activity" code
 
     let getActivity: GetActivity =
             getActivityEntity
-            >> Result.map (fun (activity) -> activity.MapTo<DBActivity>() )
+            >> Result.map (fun (record) ->
+                let accessList = 
+                    match record.RecordLevel with
+                        | "workcenter"  -> getActivityWorkCenters record.Code
+                        | "shopfloor"   -> getActivityShopFloors record.Code
+                        | _             -> []
+
+                {
+                    DBActivity.Site     = record.Site
+                    Code                = record.Code
+                    AccessAll           = sbyteTobool record.AccessAll
+                    AccessList          = accessList
+                    RecordLevel         = record.RecordLevel
+                    isLinked            = sbyteTobool record.IsLinked
+                    TimeType            = record.TimeType
+                    ExtraInfo           = record.ExtraInfo
+                    LinkedActivity      = record.LinkedActivity
+                })
 
     type UpdateActivity = Activity -> Result<unit>
     

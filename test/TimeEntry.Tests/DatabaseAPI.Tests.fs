@@ -195,12 +195,12 @@ let testMachine =
 
 [<Tests>]
 let testActivity = 
-  let format = { 
+  let pan = { 
                 Site            = Site "F21"; 
-                Code            = ActivityCode "FOR"; 
+                Code            = ActivityCode "PAN"; 
                 RecordLevel     = WorkCenterLevel AllWorkCenters; 
                 TimeType        = MachineTime; 
-                ActivityLink    = Linked <| ActivityCode "MFOR"; 
+                ActivityLink    = Linked <| ActivityCode "MPAN"; 
                 ExtraInfo       = ExtraInfo.WithoutInfo
                 }
 
@@ -211,7 +211,7 @@ let testActivity =
       
       let step1 = "We expect to get one activity after insert."
       
-      insertActivity(format)
+      insertActivity(pan)
       |> stopOnFailure
 
       let cnt = getActivityCodes() |> List.length
@@ -220,7 +220,7 @@ let testActivity =
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no activity after desactivation."
       
-      desactivateActivity("FOR")
+      desactivateActivity("PAN")
       |> stopOnFailure
 
       let cnt = getActivityCodes() |> List.length
@@ -229,7 +229,7 @@ let testActivity =
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one activity after reactivation."
       
-      activateActivity("FOR")
+      activateActivity("PAN")
       |> stopOnFailure
 
       let cnt = getActivityCodes() |> List.length
@@ -238,13 +238,13 @@ let testActivity =
     testCase "Update" <| fun _ -> 
       let step4 = "We get the updated activity after update."
       
-      let format' = {format with ExtraInfo = WithInfo}
+      let pan' = {pan with ExtraInfo = WithInfo}
       
-      updateActivity format'
+      updateActivity pan'
       |> stopOnFailure
 
-      let expected = Success <| toDBActivity format'
-      let dbwc = getActivity("FOR")
+      let expected = Success <| toDBActivity pan'
+      let dbwc = getActivity("PAN")
 
       Expect.equal dbwc expected step4]
 
@@ -297,7 +297,7 @@ let testWorkOrder =
       Expect.equal dbwo expected step4]
 
 [<Tests>]
-let testEventEntries =
+let testGenerateData =
   let config = { FsCheck.Config.Default with MaxTest = 10000 }   
   
   testList "FsCheck" [
