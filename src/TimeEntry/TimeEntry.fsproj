@@ -42,12 +42,14 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Compile Include="Helpers.fs" />
+    <Compile Include="ConstrainedTypes.fs" />
     <Compile Include="DomainTypes.fs" />
     <Compile Include="Constructors.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DatabaseAPI.fs" />
     <Compile Include="DbService.fs" />
     <None Include="DTOTypes.fs" />
+    <None Include="SQLScript.fsx" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />

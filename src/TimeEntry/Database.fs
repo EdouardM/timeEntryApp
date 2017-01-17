@@ -283,7 +283,7 @@ namespace TimeEntry
                     createUser  
                     <!> loginRes
                     <*> nameRes
-                    <*> (Success dbuser.Password)
+                    <*> (Success <| (Password dbuser.Password) )
                     <*> accessRes
                     <*> levelRes
 

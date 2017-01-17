@@ -3,7 +3,7 @@ namespace TimeEntry
 module DomainTypes =
     open System
     open TimeEntry.Result
-    open TimeEntry.ConstrainedString
+    open TimeEntry.ConstrainedTypes
     
     //Domain Model:
     // http://fsharpforfunandprofit.com/ddd/
