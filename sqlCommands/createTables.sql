@@ -42,7 +42,7 @@ DROP TABLE  IF EXISTS WorkCenter;
 
 CREATE TABLE WorkCenter (
     Shopfloor VARCHAR(5) NOT NULL,
-    WorkCenter VARCHAR(4) NOT NULL,
+    WorkCenter VARCHAR(5) NOT NULL,
     StartHour INT NOT NULL, 
     EndHour INT NOT NULL,
     Active TINYINT(1) NOT NULL,

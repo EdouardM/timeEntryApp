@@ -9,10 +9,10 @@ module DomainTypes =
     // http://fsharpforfunandprofit.com/ddd/
 
     (* DEFINE ONE SITE *)
-    type Site  = Site of string
+    type Site  = Site of String3
     
      (* DEFINE ONE SHOPFLOOR *)
-    type ShopFloor  = ShopFloor of string
+    type ShopFloor  = ShopFloor of String5
 
     type ShopFloorInfo = 
         {
@@ -25,7 +25,7 @@ module DomainTypes =
     ///Type modeling hours of a day
     type Hour = Hour of uint32
 
-    type WorkCenter  = WorkCenter of string
+    type WorkCenter  = WorkCenter of String5
     type WorkCenterInfo = 
         {
             WorkCenter      : WorkCenter
@@ -35,7 +35,7 @@ module DomainTypes =
         }
     
     (* DEFINE ONE MACHINE *)
-    type Machine = Machine of string
+    type Machine = Machine of String10
 
     type MachineInfo =
         {
@@ -66,7 +66,7 @@ module DomainTypes =
                             | MachineTime -> "machine"
                             | LabourTime  -> "labour"  
   
-    type ActivityCode = ActivityCode of string
+    type ActivityCode = ActivityCode of String4
     
 
     type ExtraInfo = 
@@ -96,9 +96,9 @@ module DomainTypes =
     type ActivityDetails =
         {
             Machine     :   Machine
-            Cause       :   string
-            Solution    :   string 
-            Comments    :   string
+            Cause       :   String50
+            Solution    :   String50 
+            Comments    :   String200
         }
 
     type ActivityInfo = 
@@ -112,9 +112,9 @@ module DomainTypes =
 
     type AuthLevel = | User | KeyUser | Admin
 
-    type Login = Login of string
-    type UserName = UserName of string
-    type Password = Password of string
+    type Login = Login of String8
+    type UserName = UserName of String50
+    type Password = Password of String50
 
 
     type UserInfo =
@@ -132,9 +132,9 @@ module DomainTypes =
 
 
     (* DEFINE ONE WORKORER *)
-    type WorkOrder = WorkOrder of string
+    type WorkOrder = WorkOrder of String10
 
-    type ItemCode  = ItemCode of string
+    type ItemCode  = ItemCode of String6
 
     type WorkOrderStatus =
         | Open

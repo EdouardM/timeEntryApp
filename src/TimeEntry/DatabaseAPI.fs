@@ -5,6 +5,7 @@ module DBCommands =
     open FSharp.Data.Sql
     open TimeEntry.Result
     open TimeEntry.Conversions
+    open TimeEntry.ConstrainedTypes
     open TimeEntry.DomainTypes
     open TimeEntry.Constructors
     open TimeEntry.DataBase
@@ -75,7 +76,7 @@ module DBCommands =
     ///Inserts a new site
     let insertSite: InsertSite =
         fun site ->
-            let (Site s) = site
+            let (Site (String3 s)) = site
             let ctx = Sql.GetDataContext()
             let dbs = ctx.Timeentryapp.Site.Create()
             dbs.Site <- s
@@ -265,7 +266,7 @@ module DBCommands =
     type UpdateWorkCenter = WorkCenterInfo -> Result<unit>
     let updateWorkCenter: UpdateWorkCenter =
         fun workcenterinfo ->
-            let (WorkCenter w) =  workcenterinfo.WorkCenter
+            let (WorkCenter (String5 w)) =  workcenterinfo.WorkCenter
             let ctx = Sql.GetDataContext()
             let wcinfoRes =
                 query {
@@ -416,8 +417,8 @@ module DBCommands =
     type InsertActivityWorkCenters = ActivityCode -> WorkCenter -> Result<unit>
     let insertActivityWorkCenters: InsertActivityWorkCenters =
         fun activity workcenter ->
-            let (ActivityCode code) = activity
-            let (WorkCenter authworkcenter)  =  workcenter
+            let (ActivityCode (String4 code)) = activity
+            let (WorkCenter (String5 authworkcenter))  =  workcenter
             let ctx             = Sql.GetDataContext() 
             let auth = ctx.Timeentryapp.Activityworkcenteraccess.Create()
             auth.Activity       <- code
@@ -481,12 +482,12 @@ module DBCommands =
     type InsertActivityShopFloors = ActivityCode -> ShopFloor -> Result<unit>
     let insertActivityShopFloors: InsertActivityShopFloors =
         fun activity shopfloor ->
-            let (ActivityCode code) = activity
-            let (ShopFloor authshopfloor)  =  shopfloor
+            let (ActivityCode (String4 code)) = activity
+            let (ShopFloor (String5 authshopfloor))  =  shopfloor
             let ctx             = Sql.GetDataContext() 
             let auth = ctx.Timeentryapp.Activityshopflooraccess.Create()
             auth.Activity       <- code
-            auth.ShopFloor     <- authshopfloor
+            auth.ShopFloor      <- authshopfloor
             auth.Active         <- 1y
 
             trySubmit ctx
@@ -601,7 +602,7 @@ module DBCommands =
     
     let updateActivity: UpdateActivity =
         fun activity -> 
-            let (ActivityCode code) = activity.Code 
+            let (ActivityCode (String4 code)) = activity.Code 
             let ctx = Sql.GetDataContext()
             let activityRes = getActivityEntity code
             let dbac = toDBActivity activity
@@ -752,7 +753,7 @@ module DBCommands =
         let ctx = Sql.GetDataContext()
         let wo = ctx.Timeentryapp.Workorderinfo.Create()
         let dbwo = toDBWorkOrderInfo workOrderInfo
-        let (WorkCenter wc) = workOrderInfo.WorkCenter
+        let (WorkCenter (String5 wc)) = workOrderInfo.WorkCenter
         let workcenterRes = getWorkCenter wc
         match workcenterRes with
             | Success wc -> 
@@ -786,7 +787,7 @@ module DBCommands =
     type UpdateworkOrderInfo = WorkOrderInfo -> Result<unit>
     let updateWorkOrderInfo: UpdateworkOrderInfo =
         fun workOrderInfo -> 
-            let (WorkOrder wo) =  workOrderInfo.WorkOrder
+            let (WorkOrder (String10 wo)) =  workOrderInfo.WorkOrder
             let ctx = Sql.GetDataContext()
             let workOrderInfoRes = 
                 query {
@@ -937,8 +938,8 @@ module DBCommands =
     type InsertUserAuth = Login -> Site -> Result<unit>
     let insertUserAuth: InsertUserAuth =
         fun login site ->
-            let (Login usrlogin) = login
-            let (Site authsite)  =  site
+            let (Login (String8 usrlogin)) = login
+            let (Site (String3 authsite))  =  site
             let ctx             = Sql.GetDataContext() 
             let auth = ctx.Timeentryapp.Userauthorization.Create()
             auth.Login  <- usrlogin
@@ -1049,7 +1050,7 @@ module DBCommands =
     let updateUser: UpdateUser =
         fun newuser ->
             let ctx = Sql.GetDataContext()
-            let (Login login) = newuser.Login
+            let (Login (String8 login)) = newuser.Login
             let dbus = toDBUserInfo newuser
             
             let userRes = 

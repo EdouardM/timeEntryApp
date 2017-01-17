@@ -38,7 +38,7 @@ module Result =
             | Success x -> f x
             | Failure msg -> Failure msg  
 
-    let (>>=) = bind
+    let (>>=) f g = f >> map g
 
     let (>=>) f g = f >> bind g
     

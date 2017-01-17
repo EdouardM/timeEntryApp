@@ -7,6 +7,7 @@ open TimeEntry.DataBase
 open TimeEntry.DBCommands
 open TimeEntry.DBService
 open TimeEntry.Result
+open TimeEntry.ConstrainedTypes
 
 let stopOnFailure = function
   | Success x   -> ()
@@ -17,7 +18,8 @@ let stopOnFailure = function
 
 [<Tests>]
 let testSite = 
-  let site = "F21"
+  let site = Site (String3 "F21")
+  let siteCode = "F21"
   
   testList "Site Database API" [
     testCase "Insert & Get" <| fun _ -> 
@@ -26,7 +28,7 @@ let testSite =
       |> stopOnFailure
       
       let step1 = "We expect to get one site after insert."
-      insertSite(Site "F21")
+      insertSite(site)
       |> stopOnFailure
       
       let cnt = getSiteCodes() |> List.length
@@ -35,7 +37,7 @@ let testSite =
     testCase "Desactivate" <| fun _ ->
 
       let step2 = "We expect to get no site after desactivation."
-      desactivateSite(site)
+      desactivateSite(siteCode)
       |> stopOnFailure
       
       let cnt = getSiteCodes() |> List.length
@@ -44,7 +46,7 @@ let testSite =
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one site after reactivation."
 
-      activateSite(site)
+      activateSite(siteCode)
       |> stopOnFailure
 
       let cnt = getSiteCodes() |> List.length
@@ -52,7 +54,7 @@ let testSite =
 
 [<Tests>]
 let testShopfloor = 
-  let sf: ShopFloorInfo = {Site = Site "F21"; ShopFloor = ShopFloor "F211A"}
+  let sf: ShopFloorInfo = {Site = Site (String3 "F21"); ShopFloor = ShopFloor (String5 "F211A") }
   let sfCode = "F211A"
 
   testList "ShopFloor Database API" [
@@ -94,9 +96,9 @@ let testShopfloor =
 
 [<Tests>]
 let testWorkCenter = 
-  let site = Site "F21"
-  let sf: ShopFloorInfo =  {Site = site; ShopFloor = ShopFloor "F211A"}
-  let wc: WorkCenterInfo = {WorkCenterInfo.WorkCenter = WorkCenter "F1"; ShopFloorInfo = sf; StartHour = Hour 4u; EndHour = Hour 4u}
+  let site = Site (String3 "F21")
+  let sf: ShopFloorInfo =  {Site = site; ShopFloor = ShopFloor (String5 "F211A")}
+  let wc: WorkCenterInfo = {WorkCenterInfo.WorkCenter = WorkCenter (String5 "F1"); ShopFloorInfo = sf; StartHour = Hour 4u; EndHour = Hour 4u}
   let wcCode = "F1"
 
   testList "WorkCenter Database API" [
@@ -155,9 +157,9 @@ let testWorkCenter =
 
 [<Tests>]
 let testMachine = 
-  let sf: ShopFloorInfo = {Site = Site "F21"; ShopFloor = ShopFloor "F211A"}
-  let m1: MachineInfo = {Machine = Machine "Rooslvo"; ShopFloorInfo = sf}
-  let (Machine machCode) = m1.Machine
+  let sf: ShopFloorInfo = {Site = Site (String3 "F21"); ShopFloor = ShopFloor (String5 "F211A")}
+  let m1: MachineInfo = {Machine = Machine (String10 "Rooslvo"); ShopFloorInfo = sf}
+  let (Machine (String10 machCode)) = m1.Machine
 
   testList "Machine Database API" [
     testCase "Insert & Get" <| fun _ -> 
@@ -196,11 +198,11 @@ let testMachine =
 [<Tests>]
 let testActivity = 
   let pan = { 
-                Site            = Site "F21"; 
-                Code            = ActivityCode "PAN"; 
+                Site            = Site (String3 "F21"); 
+                Code            = ActivityCode (String4 "PAN"); 
                 RecordLevel     = WorkCenterLevel AllWorkCenters; 
                 TimeType        = MachineTime; 
-                ActivityLink    = Linked <| ActivityCode "MPAN"; 
+                ActivityLink    = Linked <| ActivityCode (String4 "MPAN"); 
                 ExtraInfo       = ExtraInfo.WithoutInfo
                 }
 
@@ -252,14 +254,14 @@ let testActivity =
 [<Tests>]
 let testWorkOrder =  
   let wo = { 
-          WorkOrder   = WorkOrder "12243"; 
-          ItemCode    = ItemCode "099148"; 
-          WorkCenter  = WorkCenter "F1"; 
+          WorkOrder   = WorkOrder (String10 "0123456789"); 
+          ItemCode    = ItemCode (String6 "099148"); 
+          WorkCenter  = WorkCenter (String5 "F1"); 
           TotalMachineTimeHr = TimeHr 0.f; 
           TotalLabourTimeHr = TimeHr 0.f; 
           Status      =  Open }
 
-  let (WorkOrder woCode) = wo.WorkOrder
+  let (WorkOrder (String10 woCode)) = wo.WorkOrder
   testList "WorkOrder Database API" [    
     testCase "Insert & Get" <| fun () -> 
       removeExistingData()
@@ -282,8 +284,8 @@ let testWorkOrder =
       //change all fields except workorder code (Id)
       let wo' = { 
           WorkOrder   = wo.WorkOrder
-          ItemCode    = ItemCode "099146"; 
-          WorkCenter  = WorkCenter "F2"; 
+          ItemCode    = ItemCode (String6 "099146"); 
+          WorkCenter  = WorkCenter (String5 "F2"); 
           TotalMachineTimeHr = TimeHr 230.f; 
           TotalLabourTimeHr = TimeHr 120.f; 
           Status      =  Closed }

@@ -1,7 +1,7 @@
 namespace TimeEntry
     open System
     open TimeEntry.Result
-    open TimeEntry.Option
+    open TimeEntry.ConstrainedTypes
     open TimeEntry.DomainTypes
     open TimeEntry.Constructors
 
@@ -14,16 +14,16 @@ namespace TimeEntry
                 }
             
             let toDBShopfloorInfo (sfinfo: ShopFloorInfo) =
-                let (Site site)     = sfinfo.Site
-                let (ShopFloor sf)  = sfinfo.ShopFloor
+                let (Site (String3 site) )     = sfinfo.Site
+                let (ShopFloor (String5 sf) )  = sfinfo.ShopFloor
                 { Site = site; ShopFloor = sf }
          
             let fromDBShopfloorInfo 
                 sites
                 shopfloors
                 (sfinfo: DBShopFloorInfo) =
-                    let siteRes = createSite sites sfinfo.Site
-                    let shopfloorRes = createShopFloor shopfloors sfinfo.ShopFloor
+                    let siteRes = validateSite sites sfinfo.Site
+                    let shopfloorRes = validateShopFloor shopfloors sfinfo.ShopFloor
                     createShopFloorInfo 
                     <!> siteRes
                     <*> shopfloorRes
@@ -38,7 +38,7 @@ namespace TimeEntry
                 }
             
             let toDBWorkCenterInfo (wcInfo: WorkCenterInfo) =
-                let (WorkCenter wc) = wcInfo.WorkCenter
+                let (WorkCenter (String5 wc)) = wcInfo.WorkCenter
                 let sf              = toDBShopfloorInfo wcInfo.ShopFloorInfo
                 let (Hour startH)   = wcInfo.StartHour
                 let (Hour endH)     = wcInfo.EndHour
@@ -49,9 +49,9 @@ namespace TimeEntry
                 workcenters
                 (wcInfo: DBWorkCenterInfo) =
                     let shopfloorInfoRes = fromDBShopfloorInfo wcInfo.ShopFloorInfo 
-                    let workcenterRes = createWorkCenter workcenters wcInfo.WorkCenter
-                    let starthourRes = createHour wcInfo.StartHour
-                    let endhourRes   = createHour wcInfo.EndHour
+                    let workcenterRes = validateWorkCenter workcenters wcInfo.WorkCenter
+                    let starthourRes = validateHour wcInfo.StartHour
+                    let endhourRes   = validateHour wcInfo.EndHour
                     createWorkCenterInfo
                     <!> shopfloorInfoRes
                     <*> workcenterRes
@@ -66,7 +66,7 @@ namespace TimeEntry
                 }
 
             let toDBMachineInfo (machInfo: MachineInfo) =
-                let (Machine mach) = machInfo.Machine
+                let (Machine (String10 mach)) = machInfo.Machine
                 let sf             = toDBShopfloorInfo machInfo.ShopFloorInfo
                 { Machine = mach; ShopFloorInfo = sf}
          
@@ -75,7 +75,7 @@ namespace TimeEntry
                 sites
                 shopfloors
                 (machInfo: DBMachineInfo) =
-                let machineRes = createMachine machines machInfo.Machine
+                let machineRes = validateMachine machines machInfo.Machine
                 let shopfloorInfoRes = fromDBShopfloorInfo sites shopfloors machInfo.ShopFloorInfo 
                 createMachineInfo
                 <!> machineRes
@@ -96,23 +96,23 @@ namespace TimeEntry
                 }
 
             let toDBActivity (activity: Activity) =
-                let (ActivityCode code) = activity.Code
-                let (Site s) = activity.Site
+                let (ActivityCode (String4 code) )  = activity.Code
+                let (Site (String3 s))              = activity.Site
                 let timetype = activity.TimeType.ToString()
                 let level, accessall, accessList = 
                     match activity.RecordLevel with
                         | ShopFloorLevel (AllShopFloors)    -> ("shopfloor", true, [])
                         | ShopFloorLevel (ShopFloorList sf) -> 
-                            let sfcodes = sf |> List.map(fun (ShopFloor s) -> s) 
+                            let sfcodes = sf |> List.map(fun (ShopFloor (String5 s)) -> s) 
                             ("shopfloor", false, sfcodes)
                         | WorkCenterLevel (AllWorkCenters)  -> ("workcenter", true, [])
                         | WorkCenterLevel (WorkCenterList wc) -> 
-                            let wccodes = wc |> List.map(fun (WorkCenter w) -> w) 
+                            let wccodes = wc |> List.map(fun (WorkCenter (String5 w)) -> w) 
                             ("shopfloor", false, wccodes)
                 let islinked, linkedact = 
                     match activity.ActivityLink with
-                        | Linked (ActivityCode act) -> true, Some act
-                        | NotLinked                 -> false,None
+                        | Linked (ActivityCode (String4 act))   -> true, Some act
+                        | NotLinked                             -> false,None
 
                 let extrainfo = activity.ExtraInfo.ToString()
                         
@@ -134,32 +134,32 @@ namespace TimeEntry
                 workcenters
                 activities 
                 (dbActivity: DBActivity) =
-                let siteRes     = createSite sites dbActivity.Site
-                let codeRes     = createActivityCode activities dbActivity.Code
-                let timetypeRes = createTimeType dbActivity.TimeType
-                let extraInfoRes = createExtraInfo dbActivity.ExtraInfo
+                let siteRes     = validateSite sites dbActivity.Site
+                let codeRes     = validateActivityCode activities dbActivity.Code
+                let timetypeRes = validateTimeType dbActivity.TimeType
+                let extraInfoRes = validateExtraInfo dbActivity.ExtraInfo
 
                 let levelRes = 
                     match dbActivity.RecordLevel with
                         | "shopfloor" -> 
-                            let sfRes  = dbActivity.AccessList |> List.map (createShopFloor shopfloors) |> sequence
-                            createShopFloorAccess 
+                            let sfRes  = dbActivity.AccessList |> List.map (validateShopFloor shopfloors) |> sequence
+                            validateShopFloorAccess 
                             <!> (Success dbActivity.AccessAll) 
                             <*> sfRes
                             |> flatten
                             |> ( Result.map ShopFloorLevel )
                         | "workshop" -> 
-                            let wcRes  = dbActivity.AccessList |> List.map (createWorkCenter workcenters) |> sequence
-                            createWorkCenterAccess 
+                            let wcRes  = dbActivity.AccessList |> List.map (validateWorkCenter workcenters) |> sequence
+                            validateWorkCenterAccess 
                             <!> (Success dbActivity.AccessAll) 
                             <*> wcRes
                             |> flatten
                             |> ( Result.map WorkCenterLevel )
                         | lvl -> Failure <| sprintf "Unexpected level : %s" lvl
 
-                let activityLinkRes = createActivityLink (createActivityCode activities) dbActivity.isLinked dbActivity.LinkedActivity
+                let activityLinkRes = validateActivityLink (validateActivityCode activities) dbActivity.isLinked dbActivity.LinkedActivity
 
-                createActivity
+                validateActivity
                 <!> siteRes
                 <*> codeRes
                 <*> levelRes
@@ -178,11 +178,11 @@ namespace TimeEntry
             let toDBActivityInfo = 
                 function
                     | Detailed (act, info) -> 
-                        let (ActivityCode code) = act
-                        let  (Machine machine) = info.Machine
-                        let cause   = info.Cause
-                        let solution = info.Solution
-                        let comments = info.Comments
+                        let (ActivityCode (String4 code))   = act
+                        let (Machine (String10 machine))    = info.Machine
+                        let (String50 cause)                = info.Cause
+                        let (String50 solution)             = info.Solution
+                        let (String200 comments)            = info.Comments
                         {   Activity    = code
                             Machine     = Some machine
                             Cause       = Some cause
@@ -190,7 +190,7 @@ namespace TimeEntry
                             Comments    = Some comments
                         }
                     | Normal (act) -> 
-                        let (ActivityCode code) = act
+                        let (ActivityCode (String4 code)) = act
                         {   Activity    = code
                             Machine     = None
                             Cause       = None
@@ -202,26 +202,26 @@ namespace TimeEntry
                 activities
                 machines
                 (activityInfo: DBActivityInfo) =
-                let activityRes = createActivityCode activities activityInfo.Activity
+                let activityRes = validateActivityCode activities activityInfo.Activity
    
                 let machineRes   = 
                         activityInfo.Machine
                         |> failIfMissing "Machine missing"
-                        |> bind (createMachine machines)
+                        |> bind (validateMachine machines)
 
-                let causeRes     = failIfMissing "Cause missing" activityInfo.Cause
-                let solutionRes  = failIfMissing "Solution missing" activityInfo.Solution
-                let commentsRes  = failIfMissing "Comments missing" activityInfo.Comments
+                let causeRes     = (failIfMissing "Cause missing"    >=> validateCause) activityInfo.Cause
+                let solutionRes  = (failIfMissing "Solution missing" >=> validateSolution) activityInfo.Solution
+                let commentsRes  = (failIfMissing "Comments missing" >=> validateComments) activityInfo.Comments
                 
                 let activityDetailsResOpt = 
-                    createActivityDetails 
+                    validateActivityDetails 
                     <!> machineRes 
                     <*> causeRes 
                     <*> solutionRes 
                     <*> commentsRes
                     |> Result.map Some
 
-                createActivityEntry <!> activityRes <*> activityDetailsResOpt
+                validateActivityEntry <!> activityRes <*> activityDetailsResOpt
                 |> flatten
             (* USER CONVERSION FUNCTIONS *)
             type DBUserInfo =
@@ -241,9 +241,9 @@ namespace TimeEntry
                     | Admin     -> "admin"
             
             let toDBUserInfo  (user : UserInfo) = 
-                let (Login login)   = user.Login
-                let (UserName name) = user.Name
-                let (Password pwd)  = user.Password
+                let (Login (String8 login))   = user.Login
+                let (UserName (String50 name)) = user.Name
+                let (Password (String50 pwd))  = user.Password
                 let level = authLevelToString user.Level
                 match user.SiteAccess with
                     | AllSites -> 
@@ -256,7 +256,7 @@ namespace TimeEntry
                             SiteList    = []
                         }
                     | SiteList l -> 
-                        let sites = l |> List.map (fun (Site s) -> s)
+                        let sites = l |> List.map (fun (Site (String3 s)) -> s)
                         {
                             Login       = login
                             Name        = name
@@ -271,19 +271,20 @@ namespace TimeEntry
                 names
                 logins
                 (dbuser : DBUserInfo) = 
-                    let loginRes  = createLogin logins dbuser.Login
-                    let nameRes   = createUserName names dbuser.Name
-                    let sitesRes  = dbuser.SiteList |> List.map (createSite sites) |> sequence
+                    let loginRes  = validateLogin logins dbuser.Login
+                    let nameRes   = validateUserName names dbuser.Name
+                    let passworRes = validatePassword dbuser.Password
+                    let sitesRes  = dbuser.SiteList |> List.map (validateSite sites) |> sequence
                     let accessRes = 
-                        createSiteAccess 
+                        validateSiteAccess 
                         <!> (Success dbuser.AllSites) 
                         <*> sitesRes
                         |> flatten
-                    let levelRes  = createAuthLevel dbuser.Level
-                    createUser  
+                    let levelRes  = validateAuthLevel dbuser.Level
+                    validateUser  
                     <!> loginRes
                     <*> nameRes
-                    <*> (Success <| (Password dbuser.Password) )
+                    <*> passworRes
                     <*> accessRes
                     <*> levelRes
 
@@ -301,9 +302,9 @@ namespace TimeEntry
                 }
 
             let toDBWorkOrderInfo (wo: WorkOrderInfo) =
-                let (WorkOrder strWo) = wo.WorkOrder
-                let (WorkCenter strWc) = wo.WorkCenter
-                let (ItemCode strItem) = wo.ItemCode
+                let (WorkOrder (String10 strWo))     = wo.WorkOrder
+                let (WorkCenter (String5 strWc))     = wo.WorkCenter
+                let (ItemCode (String6 strItem))     = wo.ItemCode
                 let status =
                     match wo.Status with
                         | Open   -> "open"
@@ -326,13 +327,13 @@ namespace TimeEntry
                 workCenters
                 itemCodes
                 (wo: DBWorkOrderInfo) =
-                let workOrderRes = createWorkOrder workOrders wo.WorkOrder
-                let workCenterRes = createWorkCenter workCenters wo.WorkCenter
-                let itemCodeRes  = createItemCode itemCodes wo.ItemCode
-                let totalMachineTimeHrRes = createTimeHr wo.TotalMachineTimeHr
-                let totalLabourTimeHrRes = createTimeHr wo.TotalLabourTimeHr
-                let statusRes = createWorkOrderStatus wo.WorkOrderStatus
-                createWorkOrderInfo 
+                let workOrderRes = validateWorkOrder workOrders wo.WorkOrder
+                let workCenterRes = validateWorkCenter workCenters wo.WorkCenter
+                let itemCodeRes  = validateItemCode itemCodes wo.ItemCode
+                let totalMachineTimeHrRes = validateTimeHr wo.TotalMachineTimeHr
+                let totalLabourTimeHrRes = validateTimeHr wo.TotalLabourTimeHr
+                let statusRes = validateWorkOrderStatus wo.WorkOrderStatus
+                validateWorkOrderInfo 
                 <!> workOrderRes
                 <*> workCenterRes
                 <*> itemCodeRes
@@ -376,12 +377,12 @@ namespace TimeEntry
 
             ///Function to convert one Domain Record into records to insert into Database
             let toDBTimeRecord  (time : TimeRecord) = 
-                let (Site site) = time.Site
-                let (ShopFloor shopfloor) = time.ShopFloor
+                let (Site (String3 site)) = time.Site
+                let (ShopFloor (String5 shopfloor)) = time.ShopFloor
                 
                 let workcenter = 
                     match time.WorkCenter with
-                        | Some (WorkCenter wc) -> Some wc
+                        | Some (WorkCenter (String5 wc)) -> Some wc
                         | None -> None 
                             
                 let status = recordStatusToString time.Status
@@ -414,25 +415,25 @@ namespace TimeEntry
                 machines
                 itemcodes
                 (time: DBTimeRecord) =
-                    let siteRes = createSite sites time.Site
-                    let shopFloorRes = createShopFloor shopfloors time.ShopFloor
+                    let siteRes = validateSite sites time.Site
+                    let shopFloorRes = validateShopFloor shopfloors time.ShopFloor
                     
                     let workCenterRes = 
                         time.WorkCenter 
-                        |> Option.map (createWorkCenter workcenters)
+                        |> Option.map (validateWorkCenter workcenters)
                         |> switchResOpt
                     
-                    let timeTypeRes = createTimeType time.TimeType
-                    let durationRes = createDuration time.StartTime time.EndTime
-                    let nbPeopleRes = createNbPeople time.NbPeople
-                    let statusRes   = createRecordStatus time.Status
+                    let timeTypeRes = validateTimeType time.TimeType
+                    let durationRes = validateDuration time.StartTime time.EndTime
+                    let nbPeopleRes = validateNbPeople time.NbPeople
+                    let statusRes   = validateRecordStatus time.Status
 
 
                     match time.WorkOrderEntry, time.ActivityEntry with
                         | Some wo, None -> 
                             let workOrderEntryRes = (fromDBWorkOrderInfo workorders workcenters itemcodes) wo
                             let attributionRes = Result.map WorkOrderEntry workOrderEntryRes
-                            createTimeRecord
+                            validateTimeRecord
                             <!> siteRes
                             <*> shopFloorRes
                             <*> workCenterRes
@@ -444,7 +445,7 @@ namespace TimeEntry
                         | None, Some act -> 
                             let activityEntryRes = (fromDBActivityInfo activities machines) act
                             let attributionRes   = Result.map ActivityEntry activityEntryRes
-                            createTimeRecord
+                            validateTimeRecord
                             <!> siteRes
                             <*> shopFloorRes
                             <*> workCenterRes
@@ -455,4 +456,3 @@ namespace TimeEntry
 
                         | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."
                         | None, None       -> Failure "Both Workorder and Event entry are missing."
-
