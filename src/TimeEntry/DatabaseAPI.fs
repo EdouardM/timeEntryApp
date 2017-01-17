@@ -1016,6 +1016,7 @@ module DBCommands =
                 {
                             Login       = user.Login
                             Name        = user.UserRealName
+                            Password    = user.Password
                             Level       = user.AuthLevel
                             AllSites    = sbyteTobool user.AllSites
                             SiteList    = sites

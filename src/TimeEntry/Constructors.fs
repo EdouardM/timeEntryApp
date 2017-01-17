@@ -91,6 +91,9 @@ module Constructors =
 
     let createLogin = create Login "user login"
 
+    let createPassword = Password
+
+
     let createSiteAccess accessAll authorizedSites = 
         match accessAll, authorizedSites with
             | true, []      -> Success (AllSites)
@@ -105,8 +108,8 @@ module Constructors =
             | "admin"   -> Success Admin
             | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
 
-    let createUser login name access level = 
-        { Login = login ; Name = name; SiteAccess = access; Level = level}
+    let createUser login name password access level = 
+        { Login = login ; Name = name; Password = password; SiteAccess = access; Level = level}
 
     (* WORKORDER CONSTRUCTORS *)
     let createWorkOrder = create WorkOrder "work order number"

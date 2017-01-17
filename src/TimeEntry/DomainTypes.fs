@@ -114,13 +114,22 @@ module DomainTypes =
 
     type Login = Login of string
     type UserName = UserName of string
+    type Password = Password of string
+
+
     type UserInfo =
         {
             Login       : Login
             Name        : UserName
+            Password    : Password
             SiteAccess  : SiteAccess
             Level       : AuthLevel
         }
+
+    type User = 
+        | LoggedUser of UserInfo
+        | UnLoggedUser of Login * Password
+
 
     (* DEFINE ONE WORKORER *)
     type WorkOrder = WorkOrder of string

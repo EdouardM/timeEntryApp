@@ -228,6 +228,7 @@ namespace TimeEntry
                 {
                     Login       : string
                     Name        : string
+                    Password    : string
                     Level       : string
                     AllSites    : bool
                     SiteList    : string list
@@ -242,12 +243,14 @@ namespace TimeEntry
             let toDBUserInfo  (user : UserInfo) = 
                 let (Login login)   = user.Login
                 let (UserName name) = user.Name
+                let (Password pwd)  = user.Password
                 let level = authLevelToString user.Level
                 match user.SiteAccess with
                     | AllSites -> 
                         {
                             Login       = login
                             Name        = name
+                            Password    = pwd
                             Level       = level
                             AllSites    = true
                             SiteList    = []
@@ -257,6 +260,7 @@ namespace TimeEntry
                         {
                             Login       = login
                             Name        = name
+                            Password    = pwd
                             Level       = level
                             AllSites    = false
                             SiteList    = sites
@@ -279,6 +283,7 @@ namespace TimeEntry
                     createUser  
                     <!> loginRes
                     <*> nameRes
+                    <*> (Success dbuser.Password)
                     <*> accessRes
                     <*> levelRes
 

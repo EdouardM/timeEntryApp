@@ -206,6 +206,7 @@ DROP TABLE  IF EXISTS User;
 CREATE TABLE User (
     Login VARCHAR(8),
     UserRealName VARCHAR(50) NOT NULL,
+    Password VARCHAR(50) NOT NULL,
     AllSites TINYINT(1) NOT NULL,
     AuthLevel ENUM('user', 'keyuser', 'admin') NOT NULL,
     Active TINYINT(1) NOT NULL,

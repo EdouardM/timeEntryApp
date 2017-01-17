@@ -307,19 +307,15 @@ let testGenerateData =
     removeExistingData()
     |> stopOnFailure
       
-    //Insert Reference data
     insertReferenceData()
-    |> Success
-    |> stopOnFailure
   
     let sites = getSiteCodes()
     let generateSite() = FsCheck.Gen.elements sites 
     
-    let shopfloor = getShopFloorCodes()
-    let generateShopfloor() = FsCheck.Gen.elements sites 
+    let shopfloors = getShopFloorCodes()
+    let generateShopfloor() = FsCheck.Gen.elements shopfloors 
     
-      
-  
+ 
     // you can also override the FsCheck config
     testPropertyWithConfig config "Product is distributive over addition" <|
       fun a b c ->
