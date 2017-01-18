@@ -200,6 +200,58 @@ module DomainTypes =
     //Model the creation of one time Record
     //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
 
+    type UserCredentialData = { Login = Login ; Password = Password }
+    type SiteCreationData   = { Site  = Site ; UserInfo = UserInfo  }
+
+
+    type MaintenanceActions = 
+        | CreateSite
+        | DesactivateSite
+        | CreateShopFloor
+        | DesactivateShopFloor
+        | CreateWorkCenter
+        | UpdateWorkCenter
+        | CreateMachine
+        | UpdateMachine
+        | CreateActivity
+
+    type PossibleActions = 
+        | MaintenanceActions
+        | ValidateTimeRecord
+        | RecordTime
+
+    type TimeEntryInput =
+        | Logout  
+        | UserCredential    of UserCredentialData
+        | SiteCreation      of SiteCreationData
+        | SiteModification  of Site * UserInfo
+        | ShopFloorCreation of ShopFloorInfo * UserInfo
+        | TimeEntryMode     of TimeEntryMode 
+
+    type TimeEntryState = 
+        | VerifyUser
+        //Connect user and list possible actions he can do:
+        | WelcomePage of UserInfo * PossibleActions list
+        | TimeEtnry of UserInfo * TimeRecord List
+
+
+    (*  SERVICES *)
+
+    //Use case or services: 
+    type UserLogin  = string * string   -> Result<UserCredentialData>
+
+    type WelcomeUser = UserCredentialData -> Result<UserInfo * PossibleActions list>
+    
+    //User may not have the right to create one site or input is invalid
+    type CreateSite = SiteCreationData -> Result<Site>
+    //User may not have the right to update one site or input is invalid
+    type UpdateSite = Site   * UserInfo -> Result<Site>
+
+
+    type CreateShopFloorInfo = Site * string * UserInfo -> Result<ShopFloorInfo>
+    
+
+
     // Use Types
     //type EntryRequest = { User: UserInfo; Entry : TimeRecord }
 

@@ -431,7 +431,7 @@ namespace TimeEntry
 
                     match time.WorkOrderEntry, time.ActivityEntry with
                         | Some wo, None -> 
-                            let workOrderEntryRes = (fromDBWorkOrderInfo workorders workcenters itemcodes) wo
+                            let workOrderEntryRes = (fromDBWorkOrderInfo workorders workcenters itemcodes) wos
                             let attributionRes = Result.map WorkOrderEntry workOrderEntryRes
                             validateTimeRecord
                             <!> siteRes

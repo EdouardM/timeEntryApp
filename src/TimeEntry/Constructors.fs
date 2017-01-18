@@ -6,14 +6,15 @@ module Constructors =
     open TimeEntry.ConstrainedTypes
     open TimeEntry.DomainTypes
 
-    ///Helper function to create domain types values validated against a list of valid input
+    ///Helper function to validate domain types values against a list of valid input
     let validate ctor name validList = 
         (fun id -> 
             match List.exists (fun s -> s = id ) validList with
                 | true -> Success (id)
                 | false -> Failure <| sprintf "Can't find %s: %s" name id)
         >=> ctor
-
+    
+    ///Helper function to create a new domain type value outside of the list of existing valid records
     let create ctor name validList = 
         (fun id -> 
             match List.exists (fun s -> s = id ) validList with
@@ -23,7 +24,7 @@ module Constructors =
 
     (* SITE CONSTRUCTORS / VALIDATION *)
     
-    let createSite = create ( stringExact3      >>= DomainTypes.Site)  "site"
+    let createSite = create ( stringExact3 >>= DomainTypes.Site)  "site"
     let validateSite = validate ( stringExact3  >>= DomainTypes.Site)  "site"
 
     (* SHOPFLOOR CONSTRUCTORS *)
