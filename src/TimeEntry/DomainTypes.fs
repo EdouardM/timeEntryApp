@@ -196,61 +196,90 @@ module DomainTypes =
     
     //Model id of record in Database
     type TimeRecordId = uint32
-                  
-    //Model the creation of one time Record
-    //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
 
-    type UserCredentialData = { Login = Login ; Password = Password }
-    type SiteCreationData   = { Site  = Site ; UserInfo = UserInfo  }
+// --------------------------------------------------
+
+/// Capabitilities available in application
+// https://gist.github.com/swlaschin/909c5b24bf921e5baa8c#file-capabilitybasedsecurity_consoleexample-fsx
+
+    type CreateSiteCap = (unit -> Result<Site>)
+    type DesactivateSiteCap = (unit -> Result<unit>)
 
 
-    type MaintenanceActions = 
-        | CreateSite
-        | DesactivateSite
-        | CreateShopFloor
-        | DesactivateShopFloor
-        | CreateWorkCenter
-        | UpdateWorkCenter
-        | CreateMachine
-        | UpdateMachine
-        | CreateActivity
+    type SiteMaintenanceCap = 
+        { 
+            Creation    : CreateSiteCap
+            Desactivate : DesactivateSiteCap
+        }
 
+
+    type CreateShopFloorCap = (unit -> Result<ShopFloorInfo>)
+    type UpdateShopFloorCap = (unit -> ShopFloorInfo -> Result<ShopFloorInfo>)
+    type DesactivateShopFloorCap = (unit -> Result<unit>)
+
+
+    type ShopFloorMaintenanceCap = 
+        { 
+            Creation    : CreateShopFloorCap
+            Update      : UpdateShopFloorCap
+            Desactivate : DesactivateShopFloorCap
+        }
+
+
+    type CapabilityProvider = 
+        {
+            //User may have the right to maintain site, shopfloor, workcenter
+            SiteMaintenance : SiteMaintenanceCap option
+            ShopFloorMaintenance : ShopFloorMaintenanceCap option
+        }
+
+
+    //To be put in capabilityProvider
     type PossibleActions = 
         | MaintenanceActions
         | ValidateTimeRecord
         | RecordTime
 
-    type TimeEntryInput =
-        | Logout  
-        | UserCredential    of UserCredentialData
-        | SiteCreation      of SiteCreationData
-        | SiteModification  of Site * UserInfo
-        | ShopFloorCreation of ShopFloorInfo * UserInfo
-        | TimeEntryMode     of TimeEntryMode 
+(* INPUT DATA *)
 
-    type TimeEntryState = 
-        | VerifyUser
-        //Connect user and list possible actions he can do:
-        | WelcomePage of UserInfo * PossibleActions list
-        | TimeEtnry of UserInfo * TimeRecord List
+    type UserCredentialData         = { Login : Login ; Password : Password }
+    type SiteMaintenanceData        = { Site  : Site  ; UserInfo : UserInfo  }
+    type ShopFloorMaintenanceData   = { Site  : Site  ; ShopFloor : ShopFloor; UserInfo : UserInfo }
 
-
-    (*  SERVICES *)
+(*  SERVICES *)
 
     //Use case or services: 
-    type UserLogin  = string * string   -> Result<UserCredentialData>
+    type UserLogin  = UserCredentialData  -> Result<UserInfo>
 
-    type WelcomeUser = UserCredentialData -> Result<UserInfo * PossibleActions list>
-    
     //User may not have the right to create one site or input is invalid
-    type CreateSite = SiteCreationData -> Result<Site>
+    type CreateSite = SiteMaintenanceData -> Result<Site>
     //User may not have the right to update one site or input is invalid
-    type UpdateSite = Site   * UserInfo -> Result<Site>
+    type DesactivateSite = SiteMaintenanceData -> Result<unit>
 
-
-    type CreateShopFloorInfo = Site * string * UserInfo -> Result<ShopFloorInfo>
+    type CreateShopFloorInfo = ShopFloorMaintenanceData -> Result<ShopFloorInfo>
     
 
+(* APPLICATION STATE *)
+
+    type TimeEntryInput =
+        | Exit
+        | UserCredential        of UserCredentialData
+        | SiteSelection         of Site
+        | ShopFloorSelection    of ShopFloor
+        | TimeEntryMode         of TimeEntryMode
+        | Home
+
+    type TimeEntryState = 
+        | LoggedOut
+        //Connect user and list possible actions he can do:
+        | LoggedIn              of UserInfo
+        | SiteSelected          of UserInfo * Site
+        | ShopFloorSelected     of UserInfo * ShopFloor
+        | Exit          
+    
+
+    //Model the creation of one time Record
+    //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
 
     // Use Types
     //type EntryRequest = { User: UserInfo; Entry : TimeRecord }
