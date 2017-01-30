@@ -256,7 +256,7 @@ namespace TimeEntry
                         | KeyUser   -> "keyuser"
                         | Admin     -> "admin"
                 
-                let toDBUserInfo  (user : UserInfo) = 
+                let toDB  (user : UserInfo) = 
                     let (Login (String8 login))   = user.Login
                     let (UserName (String50 name)) = user.Name
                     let (Password (String50 pwd))  = user.Password
@@ -282,13 +282,12 @@ namespace TimeEntry
                                 SiteList    = sites
                             }  
 
-                let fromDBUserInfo  
+                let fromDB  
                     sites
-                    names
                     logins
                     (dbuser : DBUserInfo) = 
                         let loginRes  = validateLogin logins dbuser.Login
-                        let nameRes   = validateUserName names dbuser.Name
+                        let nameRes   = createUserName dbuser.Name
                         let passworRes = createPassword dbuser.Password
                         let sitesRes  = dbuser.SiteList |> List.map (validateSite sites) |> sequence
                         let accessRes = 
@@ -377,25 +376,25 @@ namespace TimeEntry
                         Status          : string
                     }
                 
-                let attributionToString =
+                let private attributionToString =
                     function
                         | WorkOrderEntry wo     -> "workorder"
                         | ActivityEntry act     -> "activity"
 
-                let updateAttribution attribution timeRecord = 
+                let private updateAttribution attribution timeRecord = 
                     match attribution with
                         | WorkOrderEntry wo ->
                             { timeRecord with WorkOrderEntry = WorkOrderInfo.toDB wo |> Some}
                         | ActivityEntry act ->
                             { timeRecord with ActivityEntry = ActivityInfo.toDB act |> Some}
 
-                let recordStatusToString = 
+                let private recordStatusToString = 
                     function
                         | Entered   -> "entered"
                         | Validated -> "validated"
 
                 ///Function to convert one Domain Record into records to insert into Database
-                let toDBTimeRecord  (time : TimeRecord) = 
+                let toDB (time : TimeRecord) = 
                     let (Site (String3 site)) = time.Site
                     let (ShopFloor (String5 shopfloor)) = time.ShopFloor
                     
@@ -425,7 +424,7 @@ namespace TimeEntry
                     }
                     |> updateAttribution time.Attribution
 
-                let fromTimeRecordDB 
+                let fromDB 
                     sites
                     shopfloors
                     workcenters

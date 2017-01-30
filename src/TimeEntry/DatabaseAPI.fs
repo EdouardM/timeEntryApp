@@ -76,7 +76,7 @@ module DBCommands =
         type InsertSite = Site -> Result<unit>
 
         ///Inserts a new site
-        let insertSite: InsertSite =
+        let insert: InsertSite =
             fun site ->
                 let (Site (String3 s)) = site
                 let ctx = Sql.GetDataContext()
@@ -111,12 +111,12 @@ module DBCommands =
 
         ///Desactivates a site if active
         type DesactivateSite = Site -> Result<unit>
-        let desactivateSite: DesactivateSite  = toggleSite Desactivate
+        let desactivate: DesactivateSite  = toggleSite Desactivate
 
         type ActivateSite = Site -> Result<unit>
-        let activateSite: ActivateSite = toggleSite Activate
+        let activate: ActivateSite = toggleSite Activate
 
-        let deleteSites () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for site in ctx.Timeentryapp.Site do
@@ -163,7 +163,7 @@ module DBCommands =
         type InsertShopfloor = ShopFloorInfo -> Result<unit>
 
         ///Inserts a new shopfloor
-        let insertShopfloor: InsertShopfloor =
+        let insert: InsertShopfloor =
             fun shopfloorinfo ->
                 let sf = ShopFloor.toDB shopfloorinfo 
                 let ctx = Sql.GetDataContext()
@@ -176,7 +176,7 @@ module DBCommands =
 
         type ToggleShopfloor = Activation -> string -> Result<unit>
 
-        let toggleShopfloor: ToggleShopfloor =
+        let private toggleShopfloor: ToggleShopfloor =
             fun activation s -> 
                 let ctx = Sql.GetDataContext()
                 let current, future = flags activation
@@ -200,12 +200,12 @@ module DBCommands =
 
         ///Desactivates a site if active
         type DesactivateShopfloor = string -> Result<unit>
-        let desactivateShopfloor: DesactivateShopfloor  = toggleShopfloor Desactivate
+        let desactivate: DesactivateShopfloor  = toggleShopfloor Desactivate
 
         type ActivateShopfloor = string -> Result<unit>
-        let activateShopfloor: ActivateShopfloor = toggleShopfloor Activate
+        let activate: ActivateShopfloor = toggleShopfloor Activate
 
-        let deleteShopfloors () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for shopfloor in ctx.Timeentryapp.Shopfloor do
@@ -256,7 +256,7 @@ module DBCommands =
         //Insert new workcenter in DB
         type InsertWorkCenter = WorkCenterInfo -> Result<unit>
 
-        let insertWorkCenter: InsertWorkCenter =
+        let insert: InsertWorkCenter =
             fun workcenterInfo -> 
                 let ctx = Sql.GetDataContext()
                 let wc = ctx.Timeentryapp.Workcenter.Create()
@@ -274,7 +274,7 @@ module DBCommands =
                 | ex -> Failure <| sprintf "%s" ex.Message
 
         type UpdateWorkCenter = WorkCenterInfo -> Result<unit>
-        let updateWorkCenter: UpdateWorkCenter =
+        let update: UpdateWorkCenter =
             fun workcenterinfo ->
                 let (WorkCenter (String5 w)) =  workcenterinfo.WorkCenter
                 let ctx = Sql.GetDataContext()
@@ -303,7 +303,7 @@ module DBCommands =
                 
 
         type ToggleWorkCenter = Activation -> string -> Result<unit>
-        let toggleWorkCenter: ToggleWorkCenter =
+        let private toggleWorkCenter: ToggleWorkCenter =
             fun activation wc -> 
                 let ctx = Sql.GetDataContext()
                 let current, future = flags activation
@@ -327,12 +327,12 @@ module DBCommands =
 
         ///Desactivates a site if active
         type DesactivateWorkCenter = string -> Result<unit>
-        let desactivateWorkCenter: DesactivateWorkCenter  = toggleWorkCenter Desactivate
+        let desactivate: DesactivateWorkCenter  = toggleWorkCenter Desactivate
 
         type ActivateWorkCenter = string -> Result<unit>
-        let activateWorkCenter: ActivateWorkCenter = toggleWorkCenter Activate
+        let activate: ActivateWorkCenter = toggleWorkCenter Activate
 
-        let deleteWorkCenters () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for workcenter in ctx.Timeentryapp.Workcenter do
@@ -362,7 +362,7 @@ module DBCommands =
         type InsertMachine = MachineInfo -> Result<unit>
 
         ///Inserts a new site
-        let insertMachine: InsertMachine =
+        let insert: InsertMachine =
             fun machineInfo ->
                 let mach = Machine.toDB machineInfo
                 let ctx = Sql.GetDataContext()
@@ -374,7 +374,7 @@ module DBCommands =
                 trySubmit ctx
 
         type ToggleMachine = Activation -> string -> Result<unit>
-        let toggleMachine: ToggleMachine =
+        let private toggleMachine: ToggleMachine =
             fun activation m -> 
                 let ctx = Sql.GetDataContext()
                 let current, future = flags activation
@@ -397,12 +397,12 @@ module DBCommands =
 
         ///Desactivates a site if active
         type DesactivateMachine = string -> Result<unit>
-        let desactivateMachine: DesactivateMachine  = toggleMachine Desactivate
+        let desactivate: DesactivateMachine  = toggleMachine Desactivate
 
         type ActivateMachine = string -> Result<unit>
-        let activateMachine: ActivateMachine = toggleMachine Activate
+        let activate: ActivateMachine = toggleMachine Activate
 
-        let deleteMachines () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for machine in ctx.Timeentryapp.Machine do
@@ -431,7 +431,7 @@ module DBCommands =
                     |> Seq.toList
 
         type InsertActivityWorkCenters = ActivityCode -> WorkCenter -> Result<unit>
-        let insertActivityWorkCenters: InsertActivityWorkCenters =
+        let insert: InsertActivityWorkCenters =
             fun activity workcenter ->
                 let (ActivityCode (String4 code)) = activity
                 let (WorkCenter (String5 authworkcenter))  =  workcenter
@@ -444,7 +444,7 @@ module DBCommands =
                 trySubmit ctx
 
         type ToggleActivityWorkCenters = Activation -> string -> string -> Result<unit>
-        let toggleActivityWorkCenters: ToggleActivityWorkCenters =
+        let private toggleActivityWorkCenters: ToggleActivityWorkCenters =
             fun activation code workcenter -> 
                 let ctx = Sql.GetDataContext()
                 let current, future = flags activation
@@ -466,12 +466,12 @@ module DBCommands =
                     | None -> Failure <| sprintf "Authorization for activity \'%s\' on workcenter %s is missing or %s." code workcenter  activation.State
 
         type DesactivateActivityWorkCenters = string -> string -> Result<unit>
-        let desactivateActivityWorkCenters: DesactivateActivityWorkCenters  = toggleActivityWorkCenters Desactivate
+        let desactivate: DesactivateActivityWorkCenters  = toggleActivityWorkCenters Desactivate
 
         type ActivateActivityWorkCenters = string -> string -> Result<unit>
-        let activateActivityWorkCenters: ActivateActivityWorkCenters = toggleActivityWorkCenters Activate
+        let activate: ActivateActivityWorkCenters = toggleActivityWorkCenters Activate
 
-        let deleteActivityWorkCenters () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for authwc in ctx.Timeentryapp.Activityworkcenteraccess do
@@ -565,7 +565,7 @@ module DBCommands =
 
         ///Insert new activity in DB
         type InsertActivity = Activity -> Result<unit>
-        let insertActivity: InsertActivity =
+        let insert: InsertActivity =
             fun activity -> 
                 let ctx = Sql.GetDataContext()
                 let ac = ctx.Timeentryapp.Activity.Create()
@@ -621,7 +621,7 @@ module DBCommands =
 
         type UpdateActivity = Activity -> Result<unit>
         
-        let updateActivity: UpdateActivity =
+        let update: UpdateActivity =
             fun activity -> 
                 let (ActivityCode (String4 code)) = activity.Code 
                 let ctx         = Sql.GetDataContext()
@@ -647,7 +647,7 @@ module DBCommands =
                 
 
         type ToggleActivity = Activation -> string -> Result<unit>
-        let toggleActivity: ToggleActivity =
+        let private toggleActivity: ToggleActivity =
             fun activation ev -> 
                 let ctx = Sql.GetDataContext()
                 let current, future = flags activation
@@ -669,12 +669,12 @@ module DBCommands =
                     | None -> Failure <| sprintf "Activity \'%s\' is missing or %s." ev activation.State
 
         type DesactivateActivity = string -> Result<unit>
-        let desactivateActivity: DesactivateActivity  = toggleActivity Desactivate
+        let desactivate: DesactivateActivity  = toggleActivity Desactivate
 
         type ActivateActivity = string -> Result<unit>
-        let activateActivity: ActivateActivity = toggleActivity Activate
+        let activate: ActivateActivity = toggleActivity Activate
 
-        let deleteActivities () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for activity in ctx.Timeentryapp.Activity do
@@ -689,7 +689,7 @@ module DBCommands =
         open DBConversions.ActivityInfo
         ///Insert new workcenter in DB and return Id of inserted record if it succeded
         type InsertActivityInfo = ActivityInfo -> Result<uint32>
-        let insertActivityInfo: InsertActivityInfo =
+        let insert: InsertActivityInfo =
             fun activityInfo  ->
                 let ctx = Sql.GetDataContext()
                 let ac = ctx.Timeentryapp.Activityinfo.Create()
@@ -728,7 +728,7 @@ module DBCommands =
         
         type UpdatActivityInfo = ActivityInfoId -> ActivityInfo -> Result<unit>
 
-        let updateActivityInfo: UpdatActivityInfo =
+        let update: UpdatActivityInfo =
             fun actInfoId activityInfo ->
                 let ctx = Sql.GetDataContext()
                 let dbac = ActivityInfo.toDB activityInfo
@@ -746,7 +746,7 @@ module DBCommands =
 
                     | Failure msg -> Failure msg
 
-        let deleteActivityInfo () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for activityInfo in ctx.Timeentryapp.Activityinfo do
@@ -775,7 +775,7 @@ module DBCommands =
 
         //Insert new workcenter in DB
         type InsertWorkOrder = WorkOrderInfo -> Result<unit>
-        let insertWorkOrderInfo workOrderInfo  =
+        let insert workOrderInfo  =
             let ctx = Sql.GetDataContext()
             let wo = ctx.Timeentryapp.Workorderinfo.Create()
             let dbwo = WorkOrderInfo.toDB workOrderInfo
@@ -814,7 +814,7 @@ module DBCommands =
                 >>= (fun workorder -> workorder.MapTo<DBWorkOrderInfo>() )
                 
         type UpdateworkOrderInfo = WorkOrderInfo -> Result<unit>
-        let updateWorkOrderInfo: UpdateworkOrderInfo =
+        let update: UpdateworkOrderInfo =
             fun workOrderInfo -> 
                 let (WorkOrder (String10 wo)) =  workOrderInfo.WorkOrder
                 let ctx = Sql.GetDataContext()
@@ -833,7 +833,7 @@ module DBCommands =
 
                     | Failure msg -> Failure msg
 
-        let deleteWorkOrders () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for workorder in ctx.Timeentryapp.Workorderinfo do
@@ -887,7 +887,7 @@ module DBCommands =
                 |> Seq.toList
                 |> onlyOne "TimeRecord" (string id)
 
-        let insertDBTimeRecord : ActivityInfoId option -> DBTimeRecord -> Result<uint32> = 
+        let private insertDBTimeRecord : ActivityInfoId option -> DBTimeRecord -> Result<uint32> = 
             fun actInfoId record ->
                 let ctx = Sql.GetDataContext()
                 let wo = record.WorkOrderEntry |> Option.map(fun dbwo -> dbwo.WorkOrder)
@@ -915,28 +915,28 @@ module DBCommands =
 
         type InsertTimeRecord = TimeRecord -> Result<uint32>
 
-        let insertTimeRecord : InsertTimeRecord =
+        let insert : InsertTimeRecord =
             fun timeRecord ->
                 let ctx = Sql.GetDataContext()
                 match timeRecord.Attribution with
                     | WorkOrderEntry workOrderInfo ->
                         
-                        let dbrecords = toDBTimeRecord timeRecord
+                        let dbrecords = TimeRecord.toDB timeRecord
                         dbrecords
                         |> insertDBTimeRecord None
 
                     | ActivityEntry activityInfo -> 
-                        let dbrecords = toDBTimeRecord timeRecord
+                        let dbrecords = TimeRecord.toDB timeRecord
                         dbrecords
                         |> fun record -> 
-                                insertActivityInfo activityInfo 
+                                ActivityInfoAPI.insert activityInfo 
                                 //Add User in EventEntry to be sure to get the correct ID!
                                 //|> map lastEventEntryId
                                 |> bind (fun id -> insertDBTimeRecord (Some id) record)
                         
                 //Update work ORder to add time...
         
-        let deleteTimeRecords () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for timerecord in ctx.Timeentryapp.Timerecord do
@@ -949,22 +949,23 @@ module DBCommands =
 
     (* USER AUTHORIZATION FUNCTIONS *)
     module UserAuthAPI =
-        type GetUserAuth = string -> string list
+        type GetUserAuth = Login -> string list
         
         let getUserAuth: GetUserAuth =
             fun login -> 
+                    let (Login (String8 l)) = login
                     let ctx = Sql.GetDataContext()         
                     query {
                         for user in ctx.Timeentryapp.User do
                             join authsite in ctx.Timeentryapp.Userauthorization on (user.Login = authsite.Login)
-                            where (user.Login = login && user.Active = 1y && authsite.Active = 1y)
+                            where (user.Login = l && user.Active = 1y && authsite.Active = 1y)
                             select (authsite.Site)
                     }
                     |> Seq.toList
 
         //Insert new User Authorization in DB
         type InsertUserAuth = Login -> Site -> Result<unit>
-        let insertUserAuth: InsertUserAuth =
+        let insert: InsertUserAuth =
             fun login site ->
                 let (Login (String8 usrlogin)) = login
                 let (Site (String3 authsite))  =  site
@@ -999,12 +1000,12 @@ module DBCommands =
                     | None -> Failure <| sprintf "Authorization for user \'%s\' on site %s is missing or %s." login site  activation.State
 
         type DesactivateUserAuth = string -> string -> Result<unit>
-        let desactivateUserAuth: DesactivateUserAuth  = toggleUserAuth Desactivate
+        let desactivate: DesactivateUserAuth  = toggleUserAuth Desactivate
 
         type ActivateUserAuth = string -> string -> Result<unit>
-        let activateUserAuth: ActivateUserAuth = toggleUserAuth Activate
+        let activate: ActivateUserAuth = toggleUserAuth Activate
 
-        let deleteUserAuth () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for userauth in ctx.Timeentryapp.Userauthorization do
@@ -1032,18 +1033,18 @@ module DBCommands =
                 |> Seq.toList
 
 
-        type GetUser = string -> Result<DBUserInfo>
+        type GetUser = Login -> Result<DBUserInfo>
 
         let private getUserEntity login =
             let ctx = Sql.GetDataContext()
-            
+            let (Login (String8 l)) = login
             query {
                 for user in ctx.Timeentryapp.User do
-                where (user.Login = login && user.Active = 1y)
+                where (user.Login = l && user.Active = 1y)
                 select user
             }
             |> Seq.toList
-            |> onlyOne "User" login
+            |> onlyOne "User" l
 
         let getUser: GetUser =
             fun login -> 
@@ -1065,11 +1066,11 @@ module DBCommands =
         //Insert new user in DB
         type InsertUser = UserInfo -> Result<unit>
 
-        let insertUser: InsertUser =
+        let insert: InsertUser =
             fun user -> 
                 let ctx     = Sql.GetDataContext()
                 let usr     = ctx.Timeentryapp.User.Create()
-                let dbUser    = toDBUserInfo user
+                let dbUser    = UserInfo.toDB user
                 usr.Login         <- dbUser.Login
                 usr.UserRealName  <- dbUser.Name
                 usr.AuthLevel     <- dbUser.Level
@@ -1083,13 +1084,12 @@ module DBCommands =
 
         type UpdateUser = UserInfo -> Result<unit>
 
-        let updateUserInfo: UpdateUser =
+        let update: UpdateUser =
             fun newuser ->
                 let ctx = Sql.GetDataContext()
-                let (Login (String8 login)) = newuser.Login
-                let dbus = toDBUserInfo newuser
+                let dbus = UserInfo.toDB newuser
                 
-                let userRes = getUserEntity login
+                let userRes = getUserEntity newuser.Login
 
                 match userRes with
                     | Success user -> 
@@ -1105,9 +1105,8 @@ module DBCommands =
         let updatePassword: UpdatePassword =
             fun login password ->
                 let ctx = Sql.GetDataContext()
-                let (Login (String8 l) ) = login
                 let (Password (String50 p) ) = password
-                let userRes = getUserEntity l
+                let userRes = getUserEntity login
 
                 match userRes with
                     | Success user -> 
@@ -1140,12 +1139,12 @@ module DBCommands =
                     | None -> Failure <| sprintf "User \'%s\' is missing or %s." login  activation.State
 
         type DesactivateUser = string -> Result<unit>
-        let desactivateUser: DesactivateUser  = toggleUser Desactivate
+        let desactivate: DesactivateUser  = toggleUser Desactivate
 
         type ActivateUser = string -> Result<unit>
-        let activateUser: ActivateUser = toggleUser Activate
+        let activate: ActivateUser = toggleUser Activate
 
-        let deleteUsers () = 
+        let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
                 for user in ctx.Timeentryapp.User do

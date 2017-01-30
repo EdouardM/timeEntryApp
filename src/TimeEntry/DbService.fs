@@ -3,21 +3,21 @@ namespace TimeEntry
 module DBService = 
     open Result
     open ConstrainedTypes
+    open Constructors
     open DomainTypes
     open DBCommands  
 
     let removeExistingData = 
-        deleteTimeRecords 
-        >=> deleteActivityInfo
-        >=> deleteUserAuth
-        >=> deleteUser
-        >=> deleteActivities
-        >=> deleteWorkOrders
-        >=> deleteMachines
-        >=> deleteWorkCenters
-        >=> deleteShopfloors
-        >=> deleteSites
-
+        TimeRecordAPI.deleteAll 
+        >=> ActivityInfoAPI.deleteAll
+        >=> UserAuthAPI.deleteAll
+        >=> UserInfoAPI.deleteAll
+        >=> ActivityAPI.deleteAll
+        >=> WorkOrderInfoAPI.deleteAll
+        >=> MachineAPI.deleteAll
+        >=> WorkCenterAPI.deleteAll
+        >=> ShopFloorAPI.deleteAll
+        >=> SiteAPI.deleteAll
         
     let insertReferenceData () = 
         let s1 = Site (String3 "F21")
@@ -82,25 +82,49 @@ module DBService =
         
         let actInfo1 = Normal (ActivityCode (String4 "FOR"))
         
-        insertSite(s1) |> ignore
-        insertSite(s2) |> ignore
+        SiteAPI.insert(s1) |> ignore
+        SiteAPI.insert(s2) |> ignore
 
-        insertShopfloor(sf1) |> ignore        
-        insertShopfloor(sf2) |> ignore
+        ShopFloorAPI.insert(sf1) |> ignore        
+        ShopFloorAPI.insert(sf2) |> ignore
 
-        insertWorkCenter(wc1) |> ignore
-        insertWorkCenter(wc2) |> ignore
+        WorkCenterAPI.insert(wc1) |> ignore
+        WorkCenterAPI.insert(wc2) |> ignore
 
-        insertMachine(m1) |> ignore
+        MachineAPI.insert(m1) |> ignore
 
-        insertMachine(m2) |> ignore
+        MachineAPI.insert(m2) |> ignore
 
         [formatF21; mformatF21; divF21; mdivF21; arrF21; marrF21]
-        |> List.map insertActivity
+        |> List.map ActivityAPI.insert
         |> ignore
-        insertActivityInfo actInfo1 |> ignore
-        insertActivityInfo actInfo2 |> ignore
+        ActivityInfoAPI.insert actInfo1 |> ignore
+        ActivityInfoAPI.insert actInfo2 |> ignore
 
 
+    let getUserInfo login = 
+        let sites = SiteAPI.getSiteCodes()
+        let logins = UserInfoAPI.getUserLogins()
 
-    
+        UserInfoAPI.getUser login
+        |> Result.bind (DBConversions.UserInfo.fromDB sites logins)
+
+    let getSite site = 
+        let sites = SiteAPI.getSiteCodes()
+        validateSite sites site
+
+    //let insertSite sites = (createSite sites) >=> SiteAPI.insertSite
+
+    //let desactivateSite sites = (createSite sites) >=> SiteAPI.desactivateSite
+
+    //let activateSite sites = (createSite sites) >=> SiteAPI.activateSite
+
+    (* let updatePassword 
+        logins 
+        login 
+        password = 
+                let logRes = createLogin logins login
+                let passwordRes = createPassword password
+                UserInfoAPI.updatePassword <!> logRes <*> passwordRes
+                |> flatten
+    *)
