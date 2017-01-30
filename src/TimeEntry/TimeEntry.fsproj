@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Name>TimeEntry</Name>
@@ -45,11 +45,14 @@
     <Compile Include="ConstrainedTypes.fs" />
     <Compile Include="DomainTypes.fs" />
     <Compile Include="Constructors.fs" />
-    <Compile Include="Database.fs" />
-    <Compile Include="DatabaseAPI.fs" />
+    <Compile Include="DBConversions.fs" />
+    <Compile Include="DBCommands.fs" />
     <Compile Include="DbService.fs" />
+    <Compile Include="Authorization.fs" />
+    <Compile Include="Application.fs" />
     <None Include="DTOTypes.fs" />
     <None Include="SQLScript.fsx" />
+    <Compile Include="DBConversions.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -167,11 +170,4 @@
       </ItemGroup>
     </When>
   </Choose>
-  <ItemGroup>
-    <Reference Include="FSharp.Data.SqlProvider">
-      <HintPath>..\..\packages\SQLProvider\lib\FSharp.Data.SqlProvider.dll</HintPath>
-      <Private>True</Private>
-      <Paket>True</Paket>
-    </Reference>
-  </ItemGroup>
 </Project>
