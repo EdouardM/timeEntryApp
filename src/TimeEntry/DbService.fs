@@ -118,7 +118,7 @@ module DBService =
     
     let newSite site = 
         let sites = SiteAPI.getSiteCodes()
-        createSite sites site
+        Site.create sites site
 
     //let insertSite sites = (createSite sites) >=> SiteAPI.insertSite
 

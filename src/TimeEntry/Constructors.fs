@@ -23,145 +23,166 @@ module Constructors =
         >=> ctor
 
     (* SITE CONSTRUCTORS / VALIDATION *)
-    
-    let createSite = create ( stringExact3 >>= DomainTypes.Site)  "site"
-    let validateSite = validate ( stringExact3  >>= DomainTypes.Site)  "site"
+    module Site = 
+        let create = create ( stringExact3 >>= DomainTypes.Site)  "site"
+        let validate = validate ( stringExact3  >>= DomainTypes.Site)  "site"
 
     (* SHOPFLOOR CONSTRUCTORS *)
-    let createShopFloor = create ( stringExact5 >>= ShopFloor)  "shopfloor"
-    let validateShopFloor = validate (stringExact5 >>= ShopFloor) "shopfloor"
+    module ShopFloor = 
+        let create = create ( stringExact5 >>= ShopFloor)  "shopfloor"
+        let validate = validate (stringExact5 >>= ShopFloor) "shopfloor"
 
-
-    let createShopFloorInfo site shopfloor = 
-        { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
-
-
+    module ShopFloorInfo =
+        let create site shopfloor = 
+            { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
+    (* HOUR *)
+    module Hour = 
+        let validate = 
+            function
+                | h when h > 23u -> Failure "Hour can't be bigger than 23."
+                | h -> Success (Hour h)
+        
     (* WORKCENTER CONSTRUCTORS *)
-    let validateWorkCenter = validate (stringMax5 >>= WorkCenter) "workcenter"
-    let validateHour = 
-        function
-            | h when h > 23u -> Failure "Hour can't be bigger than 23."
-            | h -> Success (Hour h)
-    
-    let createWorkCenterInfo shopFloor workCenter startTime endTime = 
-        { WorkCenter = workCenter; ShopFloorInfo = shopFloor; StartHour = startTime; EndHour = endTime }
-    
+    module WorkCenter =
+        let validate = validate (stringMax5 >>= WorkCenter) "workcenter"
+    module WorkCenterInfo = 
+        let create shopFloor workCenter startTime endTime = 
+            { WorkCenter = workCenter; ShopFloorInfo = shopFloor; StartHour = startTime; EndHour = endTime }
+        
     (* MACHINE CONSTRUCTORS *)
-    let validateMachine = validate (stringMax10 >>= Machine) "machine"
+    module Machine = 
+        let validate = validate (stringMax10 >>= Machine) "machine"
 
-    let createMachineInfo machine shopFloor =
-        { Machine = machine; ShopFloorInfo = shopFloor}
-    
+    module MachineInfo = 
+        let create machine shopFloor =
+            { Machine = machine; ShopFloorInfo = shopFloor}
+        
     (* ACTIVITY CONSTRUCTORS *)
-    let validateShopFloorAccess accessAll authorizedShopFloor =
-        match accessAll, authorizedShopFloor with
-            | true, []      -> Success (AllShopFloors)
-            | false, []     -> Failure "Must have at least one authorized shopfloor when access is set to shopfloor list."
-            | false, sf     -> Success (ShopFloorList sf)
-            | true, sf      -> Failure "Should have empty list of shopfloors when access is set to all."
+    module ShopFloorAccess = 
+        let validate accessAll authorizedShopFloor =
+            match accessAll, authorizedShopFloor with
+                | true, []      -> Success (AllShopFloors)
+                | false, []     -> Failure "Must have at least one authorized shopfloor when access is set to shopfloor list."
+                | false, sf     -> Success (ShopFloorList sf)
+                | true, sf      -> Failure "Should have empty list of shopfloors when access is set to all."
+    module WorkCenterAccess = 
+        let validate accessAll authorizedWorkCenter =
+            match accessAll, authorizedWorkCenter with
+                | true, []      -> Success (AllWorkCenters)
+                | false, []     -> Failure "Must have at least one authorized workcenter when access is set to workcenter list."
+                | false, wc     -> Success (WorkCenterList wc)
+                | true, wc      -> Failure "Should have empty list of workcenter when access is set to all."
+    module TimeType =     
+        let validate = 
+            function
+                | "labour"      -> Success (LabourTime)
+                | "machine"     -> Success (MachineTime)
+                | ty            -> Failure <| sprintf "Invalid time type: %s" ty
+    module ExtraInfo =
+        let validate = 
+            function 
+                | "withinfo"    -> Success (ExtraInfo.WithInfo)
+                | "withoutinfo" -> Success (ExtraInfo.WithoutInfo)
+                | extra         -> Failure <| sprintf "Invalid extra info: %s" extra
+
+    module ActivityCode = 
+        let validate = validate (stringMax4 >>= ActivityCode) "activity"
+
+    module Activity =
+        let validate site code level timetype link extrainfo =
+            { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extrainfo }
+        
+    module ActivityLink =
+        let validate (validateActivityCode: string -> Result<ActivityCode>) islinked linkedActivity = 
+            match islinked, linkedActivity with
+                | true, Some act    -> (validateActivityCode act |> Result.map Linked )
+                | false,    None    -> Success NotLinked
+                | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
+                | true,     None    -> Failure "One activity marked as linked must have a linked activity."
+    module Cause =
+        let validate   = stringMax50
+    module Solution = 
+        let validate = stringMax50
+    module Comments =
+        let validate = stringMax200
+
+    module ActivityDetails =
+        let validate machine cause solution comments = 
+            { ActivityDetails.Machine = machine; Cause = cause; Solution = solution; Comments = comments}
     
+    module ActivityInfo = 
+        let validate activity details =
+            match details  with
+                | Some d      -> Success (Detailed (activity,d))
+                | None        -> Success (Normal activity)
+                
+    (* USER CREDENTIAL *)
+    module UserCredential =
+        let create login password = 
+            { Login = login; Password = password }
 
-    let validateWorkCenterAccess accessAll authorizedWorkCenter =
-        match accessAll, authorizedWorkCenter with
-            | true, []      -> Success (AllWorkCenters)
-            | false, []     -> Failure "Must have at least one authorized workcenter when access is set to workcenter list."
-            | false, wc     -> Success (WorkCenterList wc)
-            | true, wc      -> Failure "Should have empty list of workcenter when access is set to all."
-    
-    let validateTimeType = 
-        function
-            | "labour"      -> Success (LabourTime)
-            | "machine"     -> Success (MachineTime)
-            | ty            -> Failure <| sprintf "Invalid time type: %s" ty
-    let validateExtraInfo = 
-        function 
-            | "withinfo"    -> Success (ExtraInfo.WithInfo)
-            | "withoutinfo" -> Success (ExtraInfo.WithoutInfo)
-            | extra         -> Failure <| sprintf "Invalid extra info: %s" extra
-
-    let validateActivityCode = validate (stringMax4 >>= ActivityCode) "activity"
-
-    let validateActivity site code level timetype link extrainfo =
-        { Site = site; RecordLevel = level; Code = code; TimeType = timetype; ActivityLink = link; ExtraInfo = extrainfo }
-    
-    let validateActivityLink (validateActivityCode: string -> Result<ActivityCode>) islinked linkedActivity = 
-        match islinked, linkedActivity with
-            | true, Some act    -> (validateActivityCode act |> Result.map Linked )
-            | false,    None    -> Success NotLinked
-            | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
-            | true,     None    -> Failure "One activity marked as linked must have a linked activity."
-
-
-    let validateCause    = stringMax50
-    let validateSolution = stringMax50
-    let validateComments = stringMax200
-
-    let validateActivityDetails machine cause solution comments = 
-        { ActivityDetails.Machine = machine; Cause = cause; Solution = solution; Comments = comments}
-
-    let validateActivityEntry activity details =
-        match details  with
-            | Some d      -> Success (Detailed (activity,d))
-            | None        -> Success (Normal activity)
-            
     (* USER CONSTRUCTORS *)
-    
-    let createUserName   = stringMax50 >>= UserName
+    module UserName =     
+        let create = stringMax50 >>= UserName
+    module Login =     
+        let create   = create (stringMax8 >>= Login) "user login"
 
-    let createLogin   = create (stringMax8 >>= Login) "user login"
+        let validate = validate (stringMax8 >>= Login) "user login"
+    module Password =     
+        let create = (stringMax50 >>= Password)
 
-    let validateLogin = validate (stringMax8 >>= Login) "user login"
+    module SiteAccess = 
+        let validate accessAll authorizedSites = 
+            match accessAll, authorizedSites with
+                | true, []      -> Success (AllSites)
+                | false, []     -> Failure "User must have at least one authorized site when access is set to Site List."
+                | false, sites  -> Success (SiteList sites)
+                | true, l       -> Failure "Should have empty list of sites when access is set to AllSites."
+    module AuthLevel =     
+        let validate = 
+            function
+                | "user"    -> Success User
+                | "keyuser" -> Success KeyUser
+                | "admin"   -> Success Admin
+                | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
 
-    let createPassword = (stringMax50 >>= Password)
-
-
-    let validateSiteAccess accessAll authorizedSites = 
-        match accessAll, authorizedSites with
-            | true, []      -> Success (AllSites)
-            | false, []     -> Failure "User must have at least one authorized site when access is set to Site List."
-            | false, sites  -> Success (SiteList sites)
-            | true, l       -> Failure "Should have empty list of sites when access is set to AllSites."
-    
-    let validateAuthLevel = 
-        function
-            | "user"    -> Success User
-            | "keyuser" -> Success KeyUser
-            | "admin"   -> Success Admin
-            | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
-
-    let validateUser login name password access level = 
-        { Login = login ; Name = name; Password = password; SiteAccess = access; Level = level}
+    module UserInfo = 
+        let validate login name password access level = 
+            { Login = login ; Name = name; Password = password; SiteAccess = access; Level = level}
 
     (* WORKORDER CONSTRUCTORS *)
-    let validateWorkOrder = validate (stringExact10 >>= WorkOrder) "work order number"
-
-    let validateItemCode = validate (stringMax6 >>= ItemCode) "item code"
-
-    let validateWorkOrderStatus =
-        function
+    module WorkOrder = 
+        let validate = validate (stringExact10 >>= WorkOrder) "work order number"
+    module ItemCode = 
+        let validate = validate (stringMax6 >>= ItemCode) "item code"
+    module WorkOrderStatus = 
+        let validate =
+            function
             | "open"    ->  Success Open
             | "closed"  ->  Success Closed
             | _         ->  Failure "Invalid workorder status."
 
-    let validateTimeHr = 
-        function
-            | h when h < 0.f        -> Failure "Total hour can't be negative."
-            | h when h > 999.9999f  -> Failure "Total hour can't be bigger than 999.9999 hr."
-            | h -> Success (TimeHr h)
+    module TimeHr =
+        let validate = 
+            function
+                | h when h < 0.f        -> Failure "Total hour can't be negative."
+                | h when h > 999.9999f  -> Failure "Total hour can't be bigger than 999.9999 hr."
+                | h -> Success (TimeHr h)
 
-    let validateWorkOrderInfo workOrder workCenter itemCode totalMachine totalLabour status = 
-        { 
-            WorkOrder = workOrder; 
-            WorkCenter = workCenter; 
-            ItemCode = itemCode; 
-            TotalMachineTimeHr = totalMachine; 
-            TotalLabourTimeHr = totalLabour; 
-            Status = status
-        }    
+    module WorkOrderInfo = 
+        let validate workOrder workCenter itemCode totalMachine totalLabour status = 
+            { 
+                WorkOrder = workOrder; 
+                WorkCenter = workCenter; 
+                ItemCode = itemCode; 
+                TotalMachineTimeHr = totalMachine; 
+                TotalLabourTimeHr = totalLabour; 
+                Status = status
+            }    
 
     (* TIME RECORD CONSTRUCTOS*)
-
-    let validateDuration (startTime: DateTime) (endTime: DateTime) =
+    module Duration = 
+        let validate (startTime: DateTime) (endTime: DateTime) =
         if     startTime.Year >= 2010 
             && startTime.Year <= 2100 
             && endTime.Year >= 2010
@@ -178,19 +199,22 @@ module Constructors =
 
     ///Validate a number of people:
     ///Number of people can only be integer or half of integer and positive
-    let validateNbPeople nb = 
-        if nb >= 0.f then
-            let r = floor nb
-            let d = nb - r
-            if d >= 0.5f then Success (NbPeople (r + 0.5f))
-            else Success(NbPeople r)
-        else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
+    module NbPeople = 
+        let validate nb = 
+            if nb >= 0.f then
+                let r = floor nb
+                let d = nb - r
+                if d >= 0.5f then Success (NbPeople (r + 0.5f))
+                else Success(NbPeople r)
+            else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
 
-    let validateRecordStatus = 
-        function
-            | "entered"   -> Success Entered
-            | "validated" -> Success Validated
-            | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
+    module RecordStatus =
+        let validate = 
+            function
+                | "entered"   -> Success Entered
+                | "validated" -> Success Validated
+                | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
 
-    let validateTimeRecord  site shopfloor workcenter attribution timetype duration status =
-        { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; Status = status}
+    module TimeRecord = 
+        let validate site shopfloor workcenter attribution timetype duration status =
+            { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; Status = status}
