@@ -6,28 +6,22 @@ module Authorization =
     open TimeEntry.Constructors
 
 
-    let onlyForSameLogin (login: Login ) (user: UserInfo) (f:Login -> 'a) = 
-        if user.Login = login then
-            Some (fun () -> f login)
+    let onlyForSameLogin (login: Login ) (userinfo: UserInfo) (f: Login -> 'a) = 
+        if userinfo.Login = login then
+            Some f
         else
             None
 
-    let onlyForAdmin (login: Login) (user: UserInfo) (f: Login -> 'a) = 
+    let onlyForAdmin (user: UserInfo) (f: 'a -> 'b) = 
         if user.Level = Admin then 
-            Some ( fun () -> f login )
+            Some f
         else
             None 
 
-    let passwordUpdate (login: Login ) (user: UserInfo) (f:Login * Password -> 'a) = 
-        if user.Login = login then 
-            Some ( fun password -> f (login, password) )
-        else
-            None 
-
-
-    let userNameUpdate (login: Login ) (user: UserInfo) (f:Login * UserName -> 'a) = 
-        if user.Login = login then 
-            Some ( fun username -> f (login, username) )
-        else
-            None 
-
+    let onlyForAuthSites (site: Site) (userinfo: UserInfo) (f: Site -> 'a) = 
+        match userinfo.SiteAccess with
+            | AllSites -> Some f
+            | SiteList sites ->
+                if List.contains site sites then
+                    Some f
+                else None

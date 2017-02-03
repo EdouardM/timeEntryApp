@@ -109,15 +109,22 @@ module DBService =
         UserInfoAPI.getUser login
         |> Result.bind (DBConversions.UserInfo.fromDB sites logins)
 
-    let getSite site = 
+    
+    let updatePassword 
+        login 
+        password = 
+                UserInfoAPI.updatePassword login password
+                |> Result.bind(fun () -> getUserInfo login)
+    
+    let newSite site = 
         let sites = SiteAPI.getSiteCodes()
-        validateSite sites site
+        createSite sites site
 
     //let insertSite sites = (createSite sites) >=> SiteAPI.insertSite
 
-    //let desactivateSite sites = (createSite sites) >=> SiteAPI.desactivateSite
+    let desactivateSite = SiteAPI.desactivate
 
-    //let activateSite sites = (createSite sites) >=> SiteAPI.activateSite
+    let activateSite = SiteAPI.activate
 
     (* let updatePassword 
         logins 
