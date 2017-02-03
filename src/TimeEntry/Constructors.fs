@@ -105,11 +105,14 @@ module Constructors =
             | None        -> Success (Normal activity)
             
     (* USER CONSTRUCTORS *)
-    let validateUserName = validate (stringMax50 >>= UserName) "user name"
+    
+    let createUserName   = stringMax50 >>= UserName
+
+    let createLogin   = create (stringMax8 >>= Login) "user login"
 
     let validateLogin = validate (stringMax8 >>= Login) "user login"
 
-    let validatePassword = (stringMax50 >>= Password)
+    let createPassword = (stringMax50 >>= Password)
 
 
     let validateSiteAccess accessAll authorizedSites = 

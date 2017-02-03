@@ -1,11 +1,12 @@
 namespace TimeEntry
-    open System
-    open TimeEntry.Result
-    open TimeEntry.ConstrainedTypes
-    open TimeEntry.DomainTypes
-    open TimeEntry.Constructors
 
     module DBConversions =
+        open System
+        open TimeEntry.Result
+        open TimeEntry.ConstrainedTypes
+        open TimeEntry.DomainTypes
+        open TimeEntry.Constructors
+        
             (* SHOPFLOOR CONVERSION FUNCTIONS *)
             module ShopFloor =
 
