@@ -2,88 +2,108 @@ namespace TimeEntry
     module DTO =
         open System
         open Result
+        open ConstrainedTypes
         open DomainTypes
         open Constructors
-        ///Domain to store data deserialized from JSON format
-        type WorkCenterInfoDTO =
-            {
-                Site        : string
-                ShopFloor   : string
-                WorkCenter  : string
-                StartHour   : int
-                EndHour     : int
 
-            }
+        module UserCredential =
+            type UserCredentialDTO = 
+                {
+                    Login : string
+                    Password : string 
+                }
         
-        let workCenterInfoFromDTO 
-            validSites
-            validShopFloors
-            validWorkCenters
-            (dto: WorkCenterInfoDTO) =
-                let siteResult = createSite validSites dto.Site
-                let shopfloorResult  = createShopfloor validShopFloors dto.ShopFloor
-                let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
-                let startHourResult  = createHour dto.StartHour
-                let endHourResult    = createHour dto.EndHour
-                createWorkCenterInfo 
-                <!> siteResult 
-                <*> shopfloorResult 
-                <*> workcenterResult 
-                <*> startHourResult 
-                <*> endHourResult
-        
-       
-        type WorkOrderDTO =
-            {
-                WorkOrder       : string
-                ItemCode        : string
-                Weight          : float
-            }
-        let workOrderFromDTO 
-            validWorkOrders
-            validItemCodes
-            (dto: WorkOrderDTO) =
-                let workorderResult  = createWorkOrder validWorkOrders dto.WorkOrder
-                let itemCodeResult   = createItemCode validItemCodes dto.ItemCode
-                let weightResult     = createWeight dto.Weight
-                createWorkOrderEntry
-                <!> workorderResult
-                <*> itemCodeResult 
-                <*> weightResult 
+            let toDTO (usercredential : UserCredentialData) = 
+                let (Login (String8 l)) = usercredential.Login
+                let (Password (String50 p)) = usercredential.Password
+                { Login = l ; Password = p }
 
-        type TimeRecordDTO =
-            {
-                Site        : string
-                ShopFloor   : string
-                WorkCenter  : string
-                TimeType    : string
-                StartTime   : DateTime
-                EndTime     : DateTime
-                NbPeople    : float
-            }
-        
-        let timeRecordFromDTO 
-            validSites
-            validShopFloors
-            validWorkCenters
-            (dto: TimeRecordDTO) =
-                let siteResult = createSite validSites dto.Site
-                let shopfloorResult  = createShopfloor validShopFloors dto.ShopFloor
-                let workcenterResult = createWorkCenter validWorkCenters dto.WorkCenter
-                let workcenterInfoResult = createWorkCenterInfo <!> siteResult <*> shopfloorResult <*> workcenterResult
-                let timetypeResult = 
-                    match dto.TimeType with
-                        | "Machine" -> Success MachineTime
-                        | "Labour"  -> Success LabourTime
-                        | ty         -> Failure <| sprintf "Wrong time type: %s" ty
+            let fromDTO 
+                logins
+                (usercredDTO : UserCredentialDTO) = 
+                let loginRes = Login.validate logins usercredDTO.Login
+                let passwordRes = Password.create usercredDTO.Password
+                UserCredential.create <!> loginRes <*> passwordRes
 
-                let durationResult = createDuration dto.StartTime dto.EndTime
-                let nbPeopleResult = createNbPeople dto.NbPeople
+        module WorkCenterInfo =
+            ///Domain to store data deserialized from JSON format
+            type WorkCenterInfoDTO =
+                {
+                    Site        : string
+                    ShopFloor   : string
+                    WorkCenter  : string
+                    StartHour   : uint32
+                    EndHour     : uint32
 
-                let timeEntryResult = createTimeEntry <!> timetypeResult <*> nbPeopleResult <*> durationResult
-                let timeRecordResult = createTimeRecord <!> siteResult <*> shopfloorResult <*> workcenterResult <*> timeEntryResult
-                timeRecordResult
+                }
+            
+            let workCenterInfoFromDTO 
+                sites
+                shopfloors
+                workcenters
+                (dto: WorkCenterInfoDTO) =
+                    let siteRes          = Site.create sites dto.Site
+                    let shopfloorRes     = ShopFloor.validate shopfloors dto.ShopFloor
+                    let shopfloorInfoRes = ShopFloorInfo.create <!> siteRes <*> shopfloorRes
 
+                    let workcenterResult = WorkCenter.validate workcenters dto.WorkCenter
+                    let startHourResult  = Hour.validate dto.StartHour
+                    let endHourResult    = Hour.validate dto.EndHour   
+                    WorkCenterInfo.create 
+                    <!> shopfloorInfoRes
+                    <*> workcenterResult 
+                    <*> startHourResult 
+                    <*> endHourResult
+            
+        module WorkOrder = 
+            type WorkOrderDTO =
+                {
+                    WorkOrder       : string
+                    ItemCode        : string
+                }
+(*            let workOrderFromDTO 
+                validWorkOrders
+                validItemCodes
+                (dto: WorkOrderDTO) =
+                    let workorderResult  = WorkOrder.validate validWorkOrders dto.WorkOrder
+                    let itemCodeResult   = ItemCode.validate validItemCodes dto.ItemCode
+                    WorkOrderInfo.validate
+                    <!> workorderResult
+                    <*> itemCodeResult 
+*)
+        module TimeRecord = 
+            type TimeRecordDTO =
+                {
+                    Site        : string
+                    ShopFloor   : string
+                    WorkCenter  : string
+                    TimeType    : string
+                    StartTime   : DateTime
+                    EndTime     : DateTime
+                    NbPeople    : float
+                }
+            
+(*            let timeRecordFromDTO 
+                validSites
+                validShopFloors
+                validWorkCenters
+                (dto: TimeRecordDTO) =
+                    let siteResult = Site.validate validSites dto.Site
+                    let shopfloorResult  = ShopFloor.validate validShopFloors dto.ShopFloor
+                    let workcenterResult = WorkCenter.validate validWorkCenters dto.WorkCenter
+                    let workcenterInfoResult = WorkCenterInfo.create <!> siteResult <*> shopfloorResult <*> workcenterResult
+                    let timetypeResult = 
+                        match dto.TimeType with
+                            | "Machine" -> Success MachineTime
+                            | "Labour"  -> Success LabourTime
+                            | ty         -> Failure <| sprintf "Wrong time type: %s" ty
+
+                    let durationResult = Duration.validate dto.StartTime dto.EndTime
+                    let nbPeopleResult = NbPeople.validate dto.NbPeople
+
+                    let timeRecordResult = TimeRecord.validate <!> siteResult <*> shopfloorResult <*> workcenterResult
+                    timeRecordResult
+    *)
     (*
     let updateRecordFromJSON updatetimerecord user timestamp log jsonObj  =
         let timerecordId = jsonObj.Id

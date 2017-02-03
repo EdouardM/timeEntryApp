@@ -3,7 +3,7 @@ module TimEntry.Tests.DatabasAPI
 open Expecto
 
 open TimeEntry.DomainTypes
-open TimeEntry.DataBase
+open TimeEntry.DBConversions
 open TimeEntry.DBCommands
 open TimeEntry.DBService
 open TimeEntry.Result
@@ -19,7 +19,6 @@ let stopOnFailure = function
 [<Tests>]
 let testSite = 
   let site = Site (String3 "F21")
-  let siteCode = "F21"
   
   testList "Site Database API" [
     testCase "Insert & Get" <| fun _ -> 
@@ -28,28 +27,28 @@ let testSite =
       |> stopOnFailure
       
       let step1 = "We expect to get one site after insert."
-      insertSite(site)
+      SiteAPI.insert site
       |> stopOnFailure
       
-      let cnt = getSiteCodes() |> List.length
+      let cnt = SiteAPI.getSiteCodes() |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Desactivate" <| fun _ ->
 
       let step2 = "We expect to get no site after desactivation."
-      desactivateSite(siteCode)
+      SiteAPI.desactivate site
       |> stopOnFailure
       
-      let cnt = getSiteCodes() |> List.length
+      let cnt = SiteAPI.getSiteCodes() |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one site after reactivation."
 
-      activateSite(siteCode)
+      SiteAPI.activate site
       |> stopOnFailure
 
-      let cnt = getSiteCodes() |> List.length
+      let cnt = SiteAPI.getSiteCodes() |> List.length
       Expect.equal cnt 1 step3 ]
 
 [<Tests>]
@@ -64,34 +63,34 @@ let testShopfloor =
       
       let step1 = "We expect to get one shopfloor after insert."
       
-      insertShopfloor(sf) 
+      ShopFloorAPI.insert(sf) 
       |> stopOnFailure
 
-      let cnt = getShopFloorCodes() |> List.length
+      let cnt = ShopFloorAPI.getShopFloorCodes() |> List.length
       Expect.equal cnt 1 step1
 
       let step1' = "We get the same shopfloor."
       
-      let dbsf = getShopFloorInfo(sfCode)
-      let expected = toDBShopfloorInfo sf |> Success
+      let dbsf = ShopFloorAPI.getShopFloorInfo(sfCode)
+      let expected = ShopFloor.toDB sf |> Success
       
       Expect.equal dbsf expected step1';
 
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no shopfloor after desactivation."
-      desactivateShopfloor(sfCode)
+      ShopFloorAPI.desactivate(sfCode)
       |> stopOnFailure
 
-      let cnt = getShopFloorCodes() |> List.length
+      let cnt = ShopFloorAPI.getShopFloorCodes() |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one shopfloor after reactivation."
       
-      activateShopfloor(sfCode)
+      ShopFloorAPI.activate(sfCode)
       |> stopOnFailure
 
-      let cnt = getShopFloorCodes() |> List.length
+      let cnt = ShopFloorAPI.getShopFloorCodes() |> List.length
       Expect.equal cnt 1 step3 ]
 
 [<Tests>]
@@ -107,39 +106,41 @@ let testWorkCenter =
       |> stopOnFailure
 
       //Insert necessary data 
-      insertSite(site)    |> ignore
-      insertShopfloor(sf) |> ignore
+      SiteAPI.insert(site)    
+      |> stopOnFailure
+      ShopFloorAPI.insert(sf) 
+      |> stopOnFailure
 
       let step1 = "We expect to get one workcenter after insert."
       
-      insertWorkCenter(wc) 
+      WorkCenterAPI.insert(wc) 
       |> stopOnFailure
 
-      let cnt = getWorkCenterCodes() |> List.length
+      let cnt = WorkCenterAPI.getWorkCenterCodes() |> List.length
       Expect.equal cnt 1 step1
       
       let step1' = "We get the same workcenter after insert."
       
-      let dbwc = getWorkCenter(wcCode)
-      let expected = toDBWorkCenterInfo wc |> Success
+      let dbwc = WorkCenterAPI.getWorkCenter(wcCode)
+      let expected = WorkCenter.toDB wc |> Success
 
       Expect.equal dbwc expected step1';
 
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no workcenter after desactivation."
-      desactivateWorkCenter(wcCode)
+      WorkCenterAPI.desactivate(wcCode)
       |> stopOnFailure
 
-      let cnt = getWorkCenterCodes() |> List.length
+      let cnt = WorkCenterAPI.getWorkCenterCodes() |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one workcenter after reactivation."
       
-      activateWorkCenter(wcCode)
+      WorkCenterAPI.activate(wcCode)
       |> stopOnFailure
 
-      let cnt = getWorkCenterCodes() |> List.length
+      let cnt = WorkCenterAPI.getWorkCenterCodes() |> List.length
       Expect.equal cnt 1 step3
 
     testCase "Update" <| fun _ -> 
@@ -147,11 +148,11 @@ let testWorkCenter =
       
       let wc2 = {wc with StartHour = Hour 5u; EndHour = Hour 5u}
       
-      updateWorkCenter(wc2)
+      WorkCenterAPI.update(wc2)
       |> stopOnFailure
 
-      let expected = Success <| toDBWorkCenterInfo wc2
-      let dbwc = getWorkCenter(wcCode)
+      let expected = Success <| WorkCenter.toDB wc2
+      let dbwc = WorkCenterAPI.getWorkCenter(wcCode)
 
       Expect.equal dbwc expected step4 ]
 
@@ -169,30 +170,31 @@ let testMachine =
       let step1 = "We expect to get one machine after insert."
       
       //Insert necessary data
-      insertShopfloor(sf) |> ignore
-
-      insertMachine m1
+      ShopFloorAPI.insert(sf) 
       |> stopOnFailure
 
-      let cnt = getMachineCodes() |> List.length
+      MachineAPI.insert m1
+      |> stopOnFailure
+
+      let cnt = MachineAPI.getMachineCodes() |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no machine after desactivation."
       
-      desactivateMachine(machCode)
+      MachineAPI.desactivate(machCode)
       |> stopOnFailure
 
-      let cnt = getMachineCodes() |> List.length
+      let cnt = MachineAPI.getMachineCodes() |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one machine after reactivation."
       
-      activateMachine(machCode)
+      MachineAPI.activate(machCode)
       |> stopOnFailure
 
-      let cnt = getMachineCodes() |> List.length
+      let cnt = MachineAPI.getMachineCodes() |> List.length
       Expect.equal cnt 1 step3 ]
 
 [<Tests>]
@@ -213,28 +215,28 @@ let testActivity =
       
       let step1 = "We expect to get one activity after insert."
       
-      insertActivity(pan)
+      ActivityAPI.insert(pan)
       |> stopOnFailure
 
-      let cnt = getActivityCodes() |> List.length
+      let cnt = ActivityAPI.getActivityCodes() |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Desactivate" <| fun _ ->
       let step2 = "We expect to get no activity after desactivation."
       
-      desactivateActivity("PAN")
+      ActivityAPI.desactivate("PAN")
       |> stopOnFailure
 
-      let cnt = getActivityCodes() |> List.length
+      let cnt = ActivityAPI.getActivityCodes() |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one activity after reactivation."
       
-      activateActivity("PAN")
+      ActivityAPI.activate("PAN")
       |> stopOnFailure
 
-      let cnt = getActivityCodes() |> List.length
+      let cnt = ActivityAPI.getActivityCodes() |> List.length
       Expect.equal cnt 1 step3
       
     testCase "Update" <| fun _ -> 
@@ -242,11 +244,11 @@ let testActivity =
       
       let pan' = {pan with ExtraInfo = WithInfo}
       
-      updateActivity pan'
+      ActivityAPI.update pan'
       |> stopOnFailure
 
-      let expected = Success <| toDBActivity pan'
-      let dbwc = getActivity("PAN")
+      let expected = Success <| Activity.toDB pan'
+      let dbwc = ActivityAPI.getActivity("PAN")
 
       Expect.equal dbwc expected step4]
 
@@ -272,10 +274,10 @@ let testWorkOrder =
       
       let step1 = "We expect to get one work order after insert."
       
-      insertWorkOrderInfo wo 
+      WorkOrderInfoAPI.insert wo 
       |> stopOnFailure
 
-      let cnt = getWorkOrderCodes() |> List.length
+      let cnt = WorkOrderInfoAPI.getWorkOrderCodes() |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Update" <| fun _ -> 
@@ -290,11 +292,11 @@ let testWorkOrder =
           TotalLabourTimeHr = TimeHr 120.f; 
           Status      =  Closed }
       
-      updateWorkOrderInfo wo'
+      WorkOrderInfoAPI.update wo'
       |> stopOnFailure
 
-      let expected = Success <| toDBWorkOrderInfo wo'
-      let dbwo = getWorkOrder(woCode)
+      let expected = Success <| WorkOrderInfo.toDB wo'
+      let dbwo = WorkOrderInfoAPI.getWorkOrder(woCode)
 
       Expect.equal dbwo expected step4]
 
@@ -311,10 +313,10 @@ let testGenerateData =
       
     insertReferenceData()
   
-    let sites = getSiteCodes()
+    let sites = SiteAPI.getSiteCodes()
     let generateSite() = FsCheck.Gen.elements sites 
     
-    let shopfloors = getShopFloorCodes()
+    let shopfloors = ShopFloorAPI.getShopFloorCodes()
     let generateShopfloor() = FsCheck.Gen.elements shopfloors 
     
  

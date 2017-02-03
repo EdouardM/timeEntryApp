@@ -196,7 +196,109 @@ module DomainTypes =
     
     //Model id of record in Database
     type TimeRecordId = uint32
-                  
+
+// --------------------------------------------------
+
+/// Capabitilities available in application
+// https://gist.github.com/swlaschin/909c5b24bf921e5baa8c#file-capabilitybasedsecurity_consoleexample-fsx
+
+    type SelectSiteCap      = (Site -> Result<Site>)
+    type DesactivateSiteCap = (Site -> Result<unit>)
+    type ActivateSiteCap    = (Site -> Result<unit>)
+    
+    type CreateSiteCap      = (string -> Result<Site>)
+
+
+    type SiteMaintenanceCap = 
+        { 
+            Creation    : CreateSiteCap
+            Activate    : ActivateSiteCap
+            Desactivate : DesactivateSiteCap
+        }
+
+
+    type CreateShopFloorCap = ( unit -> Result<ShopFloorInfo> )
+    type UpdateShopFloorCap = ( unit -> ShopFloorInfo -> Result<ShopFloorInfo> )
+    type DesactivateShopFloorCap = ( unit -> Result<unit> )
+
+
+    type ShopFloorMaintenanceCap = 
+        { 
+            Creation    : CreateShopFloorCap
+            Update      : UpdateShopFloorCap
+            Desactivate : DesactivateShopFloorCap
+        }
+
+
+    type UpdatePasswordCap =  ( Login -> Password -> Result<UserInfo> )
+    type UpdateUserNameCap =  ( unit -> UserName -> Result<UserInfo> )
+    type UpdateUserInfoCap = ( unit -> UserInfo -> Result<UserInfo> )
+
+    type UserMaintenanceCap = 
+        {
+            UpdatePassword : UpdatePasswordCap option
+            UpdateUserName : UpdateUserNameCap option 
+            UpdateUserInfo : UpdateUserInfoCap option
+
+        }
+
+    type CapabilityProvider = 
+        {
+            //User may have the right to maintain site, shopfloor, workcenter
+            SiteMaintenance      : SiteMaintenanceCap option
+            ShopFloorMaintenance : ShopFloorMaintenanceCap option
+            UserMaintenance      : UserMaintenanceCap option
+        }
+
+
+    //To be put in capabilityProvider
+    type Capability = 
+        | LoginCap
+        | UpdatePasswordCap
+        | CreateSiteCap
+        | SelectSiteCap
+        | UnselectSite
+        | DesactivateSite
+        | Logout
+
+(* INPUT DATA *)
+
+    type UserCredentialData     = { Login : Login ; Password : Password }
+    type LoggedInData           = { UserInfo : UserInfo }
+    type UpdatePasswordData     = { UserInfo : UserInfo }
+    type SiteSelectedData       = { UserInfo : UserInfo ; Site : Site}
+    type ShopFloorSelectedData  = { Site  : Site  ; ShopFloor : ShopFloor; UserInfo : UserInfo }
+
+(*  SERVICES *)
+    
+    //Use case or services: 
+    type UserLogin  = UserCredentialData  -> Result<LoggedInData>
+
+    type UpdatePassword = Login -> Password -> LoggedInData -> Result<UpdatePasswordData> 
+    
+    type SelectSite = Site -> LoggedInData -> Result<SiteSelectedData>
+
+    type UnSelectSite = SiteSelectedData -> LoggedInData
+
+    //User may not have the right to create one site or input is invalid
+    type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
+
+    //User may not have the right to update one site or input is invalid
+    type DesactivateSite = SiteSelectedData -> Result<unit>
+
+(* APPLICATION STATE *)
+
+    type TimeEntryState = 
+        | LoggedOut
+        //Connect user and list possible actions he can do:
+        | LoggedIn              of LoggedInData
+        | PasswordUpdated       of UpdatePasswordData
+        | SiteSelected          of SiteSelectedData
+        | SiteCreated           of SiteSelectedData
+        | ShopFloorSelected     of ShopFloorSelectedData   
+
+
+
     //Model the creation of one time Record
     //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
 

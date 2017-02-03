@@ -5,7 +5,8 @@
 
 //#r "./bin/Debug/TimeEntry.exe"
 
-#load "./Helpers.fs" 
+#load "./Helpers.fs"
+#load "./ConstrainedTypes.fs"
 #load "./DomainTypes.fs"
 #load "./Constructors.fs"
 #load "./Database.fs"
@@ -14,9 +15,10 @@
 open FSharp.Data.Sql
 open TimeEntry.Result
 open TimeEntry.Conversions
+open TimeEntry.ConstrainedTypes
 open TimeEntry.DomainTypes
 open TimeEntry.Constructors
-open TimeEntry.DataBase
+open TimeEntry.DBConversions
 open TimeEntry.DBCommands
 open TimeEntry.DBService
 
@@ -51,7 +53,8 @@ type DBContext = Sql.dataContext
 
 FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent |> Event.add (printfn "Executing SQL: %s")
 
-insertSite(Site "F21")
+insertNewSite [ "F21"; "F22"] ("F23")
+
 insertSite(Site "F22")
 
 getSiteCodes()
