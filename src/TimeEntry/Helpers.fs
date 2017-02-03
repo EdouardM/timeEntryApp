@@ -72,6 +72,20 @@ module Result =
     //https://fsharpforfunandprofit.com/posts/elevated-world-4/#sequence
     let sequence x = traverse id x
 
+    let log = function 
+                | Success x -> x
+                | Failure msg -> printfn "%s""
+
+    type ResultBuilder() =
+        member this.Bind(m, f) = bind f m
+        member this.Return(x) = retn x
+
+        member this.Zero() = this.Return()
+
+        member this.Combine(m1, f) = this.Bind(m1, f)
+
+    let result = ResultBuilder()
+
 module Conversions = 
     
     let boolToSbyte = function
