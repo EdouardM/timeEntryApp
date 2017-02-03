@@ -117,9 +117,9 @@ module Constructors =
                 | None        -> Success (Normal activity)
                 
     (* USER CREDENTIAL *)
-    module UserCredential =
+    module UserCredentialData =
         let create login password = 
-            { Login = login; Password = password }
+            { UserCredentialData.Login = login; Password = password }
 
     (* USER CONSTRUCTORS *)
     module UserName =     
@@ -183,18 +183,18 @@ module Constructors =
     (* TIME RECORD CONSTRUCTOS*)
     module Duration = 
         let validate (startTime: DateTime) (endTime: DateTime) =
-        if     startTime.Year >= 2010 
-            && startTime.Year <= 2100 
-            && endTime.Year >= 2010
-            && endTime.Year <= 2100
-        then
-            if startTime <= endTime 
-            then 
-                Success { StartTime = startTime; EndTime = endTime } 
-            else 
-                Failure <| sprintf "Start time must be before End time.\nStart time: %A\tEnd time: %A" startTime endTime
-        else
-            Failure <| sprintf "Date year must be within the range from 2010 to 2100.\nStart Year: %d\End Year: %d" startTime.Year endTime.Year
+            if     startTime.Year >= 2010 
+                && startTime.Year <= 2100 
+                && endTime.Year >= 2010
+                && endTime.Year <= 2100
+            then
+                if startTime <= endTime 
+                then 
+                    Success { StartTime = startTime; EndTime = endTime } 
+                else 
+                    Failure <| sprintf "Start time must be before End time.\nStart time: %A\tEnd time: %A" startTime endTime
+            else
+                Failure <| sprintf "Date year must be within the range from 2010 to 2100.\nStart Year: %d\End Year: %d" startTime.Year endTime.Year
 
 
     ///Validate a number of people:

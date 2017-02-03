@@ -23,7 +23,7 @@ namespace TimeEntry
                 (usercredDTO : UserCredentialDTO) = 
                 let loginRes = Login.validate logins usercredDTO.Login
                 let passwordRes = Password.create usercredDTO.Password
-                UserCredential.create <!> loginRes <*> passwordRes
+                UserCredentialData.create <!> loginRes <*> passwordRes
 
         module WorkCenterInfo =
             ///Domain to store data deserialized from JSON format

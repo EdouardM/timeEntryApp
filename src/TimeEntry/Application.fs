@@ -105,11 +105,11 @@ module Application =
         //or store in a cookie
         let mutable sessionState = LoggedOut
         
-        let getLoggedInData sessionState =
-            match sessionState with
+        let getLoggedInData =
+            function
                 | LoggedIn data -> Success data
                 | _             -> Failure "Not in LoggedIn status, cannot access LoggedIn data."
-        
+
         let updateState logmsg = 
                 function
                     | Success newState ->  
@@ -119,54 +119,40 @@ module Application =
         let loginController usercredential (userLogin: UserLogin) =
             match sessionState with
                 | LoggedOut -> 
-                    let result = userLogin usercredential
-                    match result with
-                        | Success data -> 
-                            sessionState <- LoggedIn data
-                        | Failure msg  ->
-                            printfn "%s" msg
+                    userLogin usercredential
+                    |> Result.map(LoggedIn)
+                    |> updateState "Logged in."
                 | _ -> printfn "Already logged in."
 
-
         let updatePasswordController login password (updatePassword: UpdatePassword) = 
-            match sessionState with
-                | LoggedIn data -> 
-                    let result =  updatePassword login password data
-                    
-                    match result with
-                        | Success data -> 
-                            sessionState <- PasswordUpdated data
-                        | Failure msg  ->
-                            printfn "%s" msg
-                
-                | _ -> printfn "Not possible to update password."
+            result {
+                let! loggedInData       = getLoggedInData sessionState
+                let! updatePasswordData = updatePassword login password loggedInData
+                return (PasswordUpdated updatePasswordData)
+            }
+            |> updateState "Password updated. "
 
         let logoutController () =
             sessionState <- LoggedOut
 
-
-
-        let siteSelector state site (selectSite: SelectSite) (getSite: string -> Result<Site>) =
-            let siteRes = getSite site
-            let loggedInDataRes = getLoggedInData state
-            selectSite
-            <!> siteRes 
-            <*> loggedInDataRes
-            |> flatten
-            |> Result.map(SiteSelected)
-            
-
-
-        let siteSelectController site (selectSite: SelectSite) (getSite: string -> Result<Site>) =
-            siteSelector sessionState site selectSite getSite
+        let siteSelectController input (selectSite: SelectSite) (getSite: string -> Result<Site>) =
+            result {
+                let! site           = getSite input
+                let! loggedInData   = getLoggedInData sessionState
+                let! selectSiteData = selectSite site loggedInData
+                
+                return (SiteSelected selectSiteData )
+            }
             |> updateState "Site selected"
         
 
         let siteCreationController input (createSite: CreateSite) =            
-            let loggedInDataRes = getLoggedInData sessionState
-            createSite <!> (Success input) <*> loggedInDataRes
-            |> flatten
-            |> Result.map(SiteCreated)
+            result {
+                let! loggedInData  = getLoggedInData sessionState
+                let! createSiteData = createSite input loggedInData
+                
+                return (SiteCreated createSiteData)
+            }
             |> updateState "Site created"
 
 
