@@ -105,6 +105,17 @@ module Application =
         //or store in a cookie
         let mutable sessionState = LoggedOut
         
+        let getLoggedInData sessionState =
+            match sessionState with
+                | LoggedIn data -> Success data
+                | _             -> Failure "Not in LoggedIn status, cannot access LoggedIn data."
+        
+        let updateState logmsg = 
+                function
+                    | Success newState ->  
+                                printfn "%s" logmsg
+                                sessionState <- newState
+                    | Failure msg -> printfn "%s" msg 
         let loginController usercredential (userLogin: UserLogin) =
             match sessionState with
                 | LoggedOut -> 
@@ -134,10 +145,6 @@ module Application =
             sessionState <- LoggedOut
 
 
-        let getLoggedInData sessionState =
-            match sessionState with
-                | LoggedIn data -> Success data
-                | _             -> Failure "Not in LoggedIn status, cannot access LoggedIn data."
 
         let siteSelector state site (selectSite: SelectSite) (getSite: string -> Result<Site>) =
             let siteRes = getSite site
@@ -149,12 +156,6 @@ module Application =
             |> Result.map(SiteSelected)
             
 
-        let updateState logmsg = 
-                function
-                    | Success newState ->  
-                                printfn "%s" logmsg
-                                sessionState <- newState
-                    | Failure msg -> printfn "%s" msg 
 
         let siteSelectController site (selectSite: SelectSite) (getSite: string -> Result<Site>) =
             siteSelector sessionState site selectSite getSite

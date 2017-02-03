@@ -45,12 +45,12 @@
     <Compile Include="ConstrainedTypes.fs" />
     <Compile Include="DomainTypes.fs" />
     <Compile Include="Constructors.fs" />
+    <Compile Include="DTOTypes.fs" />
     <Compile Include="DBConversions.fs" />
     <Compile Include="DBCommands.fs" />
     <Compile Include="Authorization.fs" />
     <Compile Include="DbService.fs" />
     <Compile Include="Application.fs" />
-    <None Include="DTOTypes.fs" />
     <None Include="SQLScript.fsx" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
