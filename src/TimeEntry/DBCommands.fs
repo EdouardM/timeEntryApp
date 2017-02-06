@@ -2,6 +2,7 @@ namespace TimeEntry
 
 module DBCommands =
     
+    open System.Linq
     open FSharp.Data.Sql
     open TimeEntry.Result
     open TimeEntry.Conversions
@@ -26,7 +27,6 @@ module DBCommands =
 
 
     type DBContext = Sql.dataContext
-
     type Activation = 
         | Activate
         | Desactivate
@@ -49,28 +49,40 @@ module DBCommands =
             | x::xs -> Failure <| sprintf "More than one %s found for: %s" name key
 
 
-    let trySubmit (ctx: DBContext) = 
+    let trySubmit context (ctx: DBContext) = 
         try 
             ctx.SubmitUpdates()
-            Success ()
+            |> Success
         with
-            ex -> Failure ex.Message
+            ex -> Failure <| sprintf "%s: %s" context ex.Message
 
 
     (* SITE FUNCTIONS *)
     module SiteAPI = 
 
-        type GetSiteCodes = unit -> string list
+        type SiteEntity = DBContext.``timeentryapp.siteEntity``
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<SiteEntity>  -> IQueryable<SiteEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (s:SiteEntity) -> s.Active = 1y))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (s:SiteEntity) -> s.Active = 0y))
+                    | All -> id
+            queryable
+
+        type GetSiteCodes = ActiveStatus -> string list
 
         ///Returns a list of codes of active sites
         let getSiteCodes: GetSiteCodes =
-            fun () ->
+            fun activeStatus ->
                 let ctx = Sql.GetDataContext()
                 query {
                     for site in ctx.Timeentryapp.Site do
-                        where (site.Active = 1y)
-                        select site.Site
+                        select site
                 }
+                |> activeFilter activeStatus
+                |> (fun (iq:IQueryable<SiteEntity>) -> iq.Select( fun (s: SiteEntity) -> s.Site))
                 |> Seq.toList
 
         type InsertSite = Site -> Result<unit>
@@ -83,7 +95,7 @@ module DBCommands =
                 let dbs = ctx.Timeentryapp.Site.Create()
                 dbs.Site <- s
                 dbs.Active <- 1y
-                trySubmit ctx
+                trySubmit "Insert Site" ctx
 
                 
         type ToggleSite = Activation -> Site -> Result<unit>
@@ -124,7 +136,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun site -> site.Delete() )
-            trySubmit ctx
+            trySubmit "Delete All Sites:" ctx
 
     
     
@@ -132,17 +144,45 @@ module DBCommands =
     module ShopFloorAPI =
         open DBConversions.ShopFloor
 
-        type GetShopfloorCodes = unit -> string list
-
-        ///Returns a list of codes of active shopfloors
-        let getShopFloorCodes: GetShopfloorCodes =
-            fun () ->
+        type ShopFloorEntity = DBContext.``timeentryapp.shopfloorEntity``
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<ShopFloorEntity>  -> IQueryable<ShopFloorEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (s:ShopFloorEntity) -> s.Active = 1y))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (s:ShopFloorEntity) -> s.Active = 0y))
+                    | All -> id
+            queryable
+        let private siteFilter (site:Site) = 
+            let s = site.ToString()
+            let queryable: (IQueryable<ShopFloorEntity>  -> IQueryable<ShopFloorEntity>) =
+                (fun iq -> iq.Where( fun (sf:ShopFloorEntity) -> sf.Site = s))
+                
+            queryable
+        
+        let private getShopFloorEntities () = 
                 let ctx = Sql.GetDataContext()
                 query {
                     for shopfloor in ctx.Timeentryapp.Shopfloor do
-                        where (shopfloor.Active = 1y)
-                        select shopfloor.Shopfloor
+                        select shopfloor
                 }
+
+        type GetShopfloorCodes = ActiveStatus -> string list
+        let getShopFloorCodes: GetShopfloorCodes = 
+            fun activeStatus -> 
+                getShopFloorEntities()
+                |> activeFilter activeStatus
+                |> (fun (iq:IQueryable<ShopFloorEntity>) -> iq.Select( fun (s: ShopFloorEntity) -> s.Shopfloor))
+                |> Seq.toList
+
+        ///Returns a list of codes of shopfloors of one site:
+        let getShopFloorCodesBySite =
+            fun activeStatus site ->
+                getShopFloorEntities()
+                |> activeFilter activeStatus
+                |> siteFilter site
+                |> (fun (iq:IQueryable<ShopFloorEntity>) -> iq.Select( fun (s: ShopFloorEntity) -> s.Shopfloor))
                 |> Seq.toList
 
 
@@ -172,7 +212,7 @@ module DBCommands =
                 dbsf.Shopfloor  <- sf.ShopFloor
                 dbsf.Active     <- 1y
                 
-                trySubmit ctx
+                trySubmit "Insert Shopfloor info" ctx
 
         type ToggleShopfloor = Activation -> string -> Result<unit>
 
@@ -213,7 +253,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun shopfloor -> shopfloor.Delete() )
-            trySubmit ctx
+            trySubmit "Delete All Shopfloors" ctx
 
     (* WORKCENTER FUNCTIONS  *)
     module WorkCenterAPI =
@@ -232,6 +272,15 @@ module DBCommands =
 
 
         type GetWorkCenter = string -> Result<DBWorkCenterInfo>
+
+        let private getWorkCenterEntity (ctx: DBContext) wc =  
+            query {
+                for workcenter in ctx.Timeentryapp.Workcenter do
+                    where (workcenter.WorkCenter = wc && workcenter.Active = 1y)
+                    select workcenter
+            }
+            |> Seq.toList
+            |> onlyOne "WorkCenter" wc
 
         let getWorkCenter: GetWorkCenter =
             fun wc -> 
@@ -278,27 +327,17 @@ module DBCommands =
             fun workcenterinfo ->
                 let (WorkCenter (String5 w)) =  workcenterinfo.WorkCenter
                 let ctx = Sql.GetDataContext()
-                let wcinfoRes =
-                    query {
-                        for workcenter in ctx.Timeentryapp.Workcenter do
-                            where (workcenter.WorkCenter = w && workcenter.Active = 1y)
-                            select workcenter
-                    }
-                    |> Seq.toList
-                    |> onlyOne "Workcenter" w
-
-                let dbWc = toDB workcenterinfo
+                
+                let wcinfoRes = getWorkCenterEntity ctx w
+                let dbWc = WorkCenter.toDB workcenterinfo
                 match wcinfoRes with
                     | Success wcinfo -> 
                         wcinfo.Shopfloor <- dbWc.ShopFloorInfo.ShopFloor
                         wcinfo.StartHour <- dbWc.StartHour
                         wcinfo.EndHour <- dbWc.EndHour
                         
-                        try 
-                            ctx.SubmitUpdates()
-                            |> Success
-                        with
-                        | ex -> Failure      <| sprintf "Update Workcenter: %s" ex.Message
+                        trySubmit "Update Workcenter" ctx
+
                     | Failure msg -> Failure <| sprintf "Upate Workcenter: %s" msg
                 
 
@@ -340,7 +379,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun workcenter -> workcenter.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all Workcenters" ctx
 
     (* MACHINE FUNCTIONS *)
     module MachineAPI = 
@@ -371,7 +410,7 @@ module DBCommands =
                 dbmach.Shopfloor    <- mach.ShopFloorInfo.ShopFloor
                 dbmach.Active       <- 1y
                 
-                trySubmit ctx
+                trySubmit "Insert Machine" ctx
 
         type ToggleMachine = Activation -> string -> Result<unit>
         let private toggleMachine: ToggleMachine =
@@ -410,7 +449,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun machine -> machine.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all Machines" ctx
 
 
     
@@ -441,7 +480,7 @@ module DBCommands =
                 auth.WorkCenter     <- authworkcenter
                 auth.Active         <- 1y
 
-                trySubmit ctx
+                trySubmit "Insert Activity Workcenter link" ctx
 
         type ToggleActivityWorkCenters = Activation -> string -> string -> Result<unit>
         let private toggleActivityWorkCenters: ToggleActivityWorkCenters =
@@ -479,7 +518,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun authwc -> authwc.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all Workcenters" ctx
 
     (* ACTIVITY SHOPFLOOR ACCESS FUNCTIONS *)
         type GetActivityShopFloors = string -> string list
@@ -506,7 +545,7 @@ module DBCommands =
                 auth.ShopFloor      <- authshopfloor
                 auth.Active         <- 1y
 
-                trySubmit ctx
+                trySubmit "Insert Activity Shopfloor link" ctx
 
         type ToggleActivityShopFloors = Activation -> string -> string -> Result<unit>
         let private toggleActivityShopFloors: ToggleActivityShopFloors =
@@ -544,7 +583,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun authwc -> authwc.Delete() )
-            trySubmit ctx
+            trySubmit "Delete Activity Shopfloor links" ctx
 
     
     (* ACTIVITY FUNCTIONS  *)
@@ -588,8 +627,7 @@ module DBCommands =
 
         type GetActivity = string -> Result<DBActivity>
 
-        let private getActivityEntity code = 
-                let ctx = Sql.GetDataContext() 
+        let private getActivityEntity (ctx: DBContext) code = 
                 query {
                     for activity in ctx.Timeentryapp.Activity do
                         where (activity.Code = code && activity.Active = 1y)
@@ -599,25 +637,28 @@ module DBCommands =
                 |> onlyOne "Activity" code
 
         let getActivity: GetActivity =
-                getActivityEntity
-                >>= (fun (record) ->
-                    let accessList = 
-                        match record.RecordLevel with
-                            | "workcenter"  -> getActivityWorkCenters record.Code
-                            | "shopfloor"   -> getActivityShopFloors record.Code
-                            | _             -> []
+                fun code -> 
+                    let ctx = Sql.GetDataContext()
+                    result {
+                        let! record = getActivityEntity ctx code
+                        let accessList = 
+                            match record.RecordLevel with
+                                | "workcenter"  -> getActivityWorkCenters record.Code
+                                | "shopfloor"   -> getActivityShopFloors record.Code
+                                | _             -> []
 
-                    {
-                        DBActivity.Site     = record.Site
-                        Code                = record.Code
-                        AccessAll           = sbyteTobool record.AccessAll
-                        AccessList          = accessList
-                        RecordLevel         = record.RecordLevel
-                        isLinked            = sbyteTobool record.IsLinked
-                        TimeType            = record.TimeType
-                        ExtraInfo           = record.ExtraInfo
-                        LinkedActivity      = record.LinkedActivity
-                    })
+                        return {
+                            DBActivity.Site     = record.Site
+                            Code                = record.Code
+                            AccessAll           = sbyteTobool record.AccessAll
+                            AccessList          = accessList
+                            RecordLevel         = record.RecordLevel
+                            isLinked            = sbyteTobool record.IsLinked
+                            TimeType            = record.TimeType
+                            ExtraInfo           = record.ExtraInfo
+                            LinkedActivity      = record.LinkedActivity
+                        }
+                    }
 
         type UpdateActivity = Activity -> Result<unit>
         
@@ -625,7 +666,7 @@ module DBCommands =
             fun activity -> 
                 let (ActivityCode (String4 code)) = activity.Code 
                 let ctx         = Sql.GetDataContext()
-                let activityRes = getActivityEntity code
+                let activityRes = getActivityEntity ctx code
                 let dbac        = Activity.toDB activity
                 match activityRes with
                     | Success ac -> 
@@ -682,7 +723,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun activity -> activity.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all Activities" ctx
 
     (* ActivityInfo Functions *)
     module ActivityInfoAPI =
@@ -711,20 +752,23 @@ module DBCommands =
 
         type GetActivityInfo = ActivityInfoId -> Result<DBActivityInfo>
 
-        let private getActivityInfoEntity = 
-            fun activityInfoId -> 
-                let ctx = Sql.GetDataContext()
+        let private getActivityInfoEntity (ctx: DBContext) activityInfoId = 
                 query {
-                        for activityInfo in ctx.Timeentryapp.Activityinfo do
+                    
+                    for activityInfo in ctx.Timeentryapp.Activityinfo do
                             where (activityInfo.ActivityInfoId = activityInfoId && activityInfo.Active = 1y)
                             select activityInfo
-                    }
-                    |> Seq.toList
-                    |> onlyOne "ActivityInfo" (string activityInfoId)
-    
+                }
+                |> Seq.toList
+                |> onlyOne "ActivityInfo" (string activityInfoId)
+
         let getActivityInfo: GetActivityInfo = 
-                getActivityInfoEntity
-                >>= (fun (activityinfo) -> activityinfo.MapTo<DBActivityInfo>() )
+                fun activityInfoId -> 
+                    let ctx = Sql.GetDataContext()
+                    result {
+                        let! record = getActivityInfoEntity ctx activityInfoId
+                        return record.MapTo<DBActivityInfo>() 
+                    }
         
         type UpdatActivityInfo = ActivityInfoId -> ActivityInfo -> Result<unit>
 
@@ -733,7 +777,7 @@ module DBCommands =
                 let ctx = Sql.GetDataContext()
                 let dbac = ActivityInfo.toDB activityInfo
                 
-                let activityInfoRes = getActivityInfoEntity actInfoId
+                let activityInfoRes = getActivityInfoEntity ctx actInfoId
 
                 match activityInfoRes with
                     | Success ac -> 
@@ -742,7 +786,7 @@ module DBCommands =
                             ac.Cause    <- dbac.Cause
                             ac.Solution <- dbac.Solution
                             ac.Comments <- dbac.Comments
-                            trySubmit ctx
+                            trySubmit "Update Activity Info" ctx
 
                     | Failure msg -> Failure msg
 
@@ -754,7 +798,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun activityInfo -> activityInfo.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all Actitivty Info" ctx
 
     
     (* workOrderInfo Functions *)
@@ -791,7 +835,7 @@ module DBCommands =
                     wo.TotalLabourTimeHr    <- (float32 0.)
                     wo.Active <- 1y
                     
-                    trySubmit ctx
+                    trySubmit "Insert Workorder info" ctx
 
                 | Failure msg -> Failure msg
 
@@ -799,8 +843,7 @@ module DBCommands =
         type GetWorkOrder = string -> Result<DBWorkOrderInfo>
         
         let private getWorkOrderEntity = 
-            fun wo ->
-                let ctx = Sql.GetDataContext()
+            fun (ctx: DBContext) wo ->
                 query {
                     for workorder in ctx.Timeentryapp.Workorderinfo do
                         where (workorder.WorkOrder = wo && workorder.Active = 1y)
@@ -810,15 +853,19 @@ module DBCommands =
                 |> onlyOne "WorkOrder" wo
         
         let getWorkOrder: GetWorkOrder =
-                getWorkOrderEntity
-                >>= (fun workorder -> workorder.MapTo<DBWorkOrderInfo>() )
+                fun wo -> 
+                    let ctx = Sql.GetDataContext()
+                    result {
+                        let! workorder = getWorkOrderEntity ctx wo
+                        return workorder.MapTo<DBWorkOrderInfo>() 
+                    }
                 
         type UpdateworkOrderInfo = WorkOrderInfo -> Result<unit>
         let update: UpdateworkOrderInfo =
             fun workOrderInfo -> 
                 let (WorkOrder (String10 wo)) =  workOrderInfo.WorkOrder
                 let ctx = Sql.GetDataContext()
-                let workOrderInfoRes =  getWorkOrderEntity wo
+                let workOrderInfoRes =  getWorkOrderEntity ctx wo
 
                 let dbwo = WorkOrderInfo.toDB workOrderInfo
                 match workOrderInfoRes with
@@ -829,7 +876,7 @@ module DBCommands =
                         wo.TotalLabourTimeHr     <- dbwo.TotalLabourTimeHr
                         wo.WorkOrderStatus       <- dbwo.WorkOrderStatus
                         
-                        trySubmit ctx 
+                        trySubmit "Update WorkOrder Info" ctx 
 
                     | Failure msg -> Failure msg
 
@@ -842,7 +889,7 @@ module DBCommands =
             |> Seq.toList
             |> List.iter(fun workorder -> workorder.Delete() )
             
-            trySubmit ctx
+            trySubmit "Delete all Workorders" ctx
 
     (* Time Record Functions *)
     module TimeRecordAPI =
@@ -944,7 +991,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun timerecord -> timerecord.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all Time records" ctx
 
 
     (* USER AUTHORIZATION FUNCTIONS *)
@@ -975,7 +1022,7 @@ module DBCommands =
                 auth.Site   <- authsite
                 auth.Active <- 1y
 
-                trySubmit ctx
+                trySubmit "Insert User Site Authrization" ctx
 
         type ToggleUserAuth = Activation -> string -> string -> Result<unit>
         let private toggleUserAuth: ToggleUserAuth =
@@ -1013,7 +1060,7 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun userauth -> userauth.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all User Site Authorizations" ctx
 
 
     (* USER FUNCTIONS  *)
@@ -1035,8 +1082,7 @@ module DBCommands =
 
         type GetUser = Login -> Result<DBUserInfo>
 
-        let private getUserEntity login =
-            let ctx = Sql.GetDataContext()
+        let private getUserEntity (ctx: DBContext) login =
             let (Login (String8 l)) = login
             query {
                 for user in ctx.Timeentryapp.User do
@@ -1048,11 +1094,12 @@ module DBCommands =
 
         let getUser: GetUser =
             fun login -> 
+                let ctx = Sql.GetDataContext()
                 //Get Authorized Sites first
                 let sites =  getUserAuth login
                 
                 login
-                |> getUserEntity
+                |> getUserEntity ctx
                 |> Result.map (fun user ->
                     {
                                 Login       = user.Login
@@ -1073,6 +1120,7 @@ module DBCommands =
                 let dbUser    = UserInfo.toDB user
                 usr.Login         <- dbUser.Login
                 usr.UserRealName  <- dbUser.Name
+                usr.Password      <- dbUser.Password
                 usr.AuthLevel     <- dbUser.Level
                 usr.AllSites      <- boolToSbyte dbUser.AllSites
                 usr.Active        <- 1y
@@ -1089,15 +1137,16 @@ module DBCommands =
                 let ctx = Sql.GetDataContext()
                 let dbus = UserInfo.toDB newuser
                 
-                let userRes = getUserEntity newuser.Login
+                let userRes = getUserEntity ctx newuser.Login
 
                 match userRes with
                     | Success user -> 
                             user.UserRealName   <- dbus.Name
+                            user.Password       <- dbus.Password
                             user.AllSites       <- boolToSbyte dbus.AllSites
                             user.AuthLevel      <- dbus.Level
-                            trySubmit ctx
-
+                            trySubmit "Update UserInfo" ctx
+                            
                     | Failure msg -> Failure msg
 
         type UpdatePassword = Login -> Password -> Result<unit>
@@ -1106,12 +1155,12 @@ module DBCommands =
             fun login password ->
                 let ctx = Sql.GetDataContext()
                 let (Password (String50 p) ) = password
-                let userRes = getUserEntity login
+                let userRes = getUserEntity ctx login
 
                 match userRes with
                     | Success user -> 
                             user.Password <- p
-                            trySubmit ctx
+                            trySubmit "Update User Password" ctx
 
                     | Failure msg -> Failure msg
 
@@ -1152,4 +1201,4 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun user -> user.Delete() )
-            trySubmit ctx
+            trySubmit "Delete all User Info" ctx

@@ -18,6 +18,15 @@ module Authorization =
         else
             None 
 
+    ///Checks if user has some authorized sites before using function f on them
+    let hasAuthSites (userinfo : UserInfo) (f: SiteAccess -> 'a) = 
+        match userinfo.SiteAccess with
+            | AllSites      -> Some f
+            | SiteList []   -> None
+            | SiteList ls   -> Some f 
+
+
+    ///Checks if user has an authorized access to one site before using function f on it
     let onlyForAuthSites (site: Site) (userinfo: UserInfo) (f: Site -> 'a) = 
         match userinfo.SiteAccess with
             | AllSites -> Some f

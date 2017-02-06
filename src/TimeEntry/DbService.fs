@@ -5,7 +5,8 @@ module DBService =
     open ConstrainedTypes
     open Constructors
     open DomainTypes
-    open DBCommands  
+    open DBCommands
+    open DTO
 
     let removeExistingData = 
         TimeRecordAPI.deleteAll 
@@ -101,9 +102,26 @@ module DBService =
         ActivityInfoAPI.insert actInfo1 |> ignore
         ActivityInfoAPI.insert actInfo2 |> ignore
 
+        let user = { 
+                Login           = Login (String8 "moureed1"); 
+                Password        = Password (String50 "indaclub"); 
+                Name            = UserName (String50 "Edouard"); 
+                SiteAccess      = AllSites
+                Level           = Admin
+                  }
+        UserInfoAPI.insert user |> ignore
+
+    let validateUsercredential usercredential =
+        let logins = UserInfoAPI.getUserLogins()
+        UserCredential.fromDTO logins usercredential
+
+    let validateLogin login = 
+        let logins = UserInfoAPI.getUserLogins()
+        Login.validate logins login
+
 
     let getUserInfo login = 
-        let sites = SiteAPI.getSiteCodes()
+        let sites = SiteAPI.getSiteCodes All
         let logins = UserInfoAPI.getUserLogins()
 
         UserInfoAPI.getUser login
@@ -116,22 +134,29 @@ module DBService =
                 UserInfoAPI.updatePassword login password
                 |> Result.bind(fun () -> getUserInfo login)
     
+    let getAuthSiteCodes = 
+        function 
+            | AllSites    -> SiteAPI.getSiteCodes Active
+            | SiteList ls ->
+                let s = 
+                    ls 
+                    |> List.map(fun site -> site.ToString()) 
+                    |> Set.ofList 
+                
+                SiteAPI.getSiteCodes Active
+                |> Set.ofList
+                |> Set.intersect s
+                |> Set.toList
+
+    let validateSite input = 
+        let sites = SiteAPI.getSiteCodes All
+        Site.validate sites input
+    
     let newSite site = 
-        let sites = SiteAPI.getSiteCodes()
+        let sites = SiteAPI.getSiteCodes All
         Site.create sites site
 
-    //let insertSite sites = (createSite sites) >=> SiteAPI.insertSite
-
     let desactivateSite = SiteAPI.desactivate
-
     let activateSite = SiteAPI.activate
 
-    (* let updatePassword 
-        logins 
-        login 
-        password = 
-                let logRes = createLogin logins login
-                let passwordRes = createPassword password
-                UserInfoAPI.updatePassword <!> logRes <*> passwordRes
-                |> flatten
-    *)
+    let getActiveShopFloorCodesBySite site = ShopFloorAPI.getShopFloorCodesBySite Active site

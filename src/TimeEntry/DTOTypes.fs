@@ -12,7 +12,9 @@ namespace TimeEntry
                     Login : string
                     Password : string 
                 }
-        
+            let createDTO login password = 
+                { Login = login ; Password = password }
+
             let toDTO (usercredential : UserCredentialData) = 
                 let (Login (String8 l)) = usercredential.Login
                 let (Password (String50 p)) = usercredential.Password
@@ -25,7 +27,7 @@ namespace TimeEntry
                 let passwordRes = Password.create usercredDTO.Password
                 UserCredentialData.create <!> loginRes <*> passwordRes
 
-        module WorkCenterInfo =
+    (*      module WorkCenterInfo =
             ///Domain to store data deserialized from JSON format
             type WorkCenterInfoDTO =
                 {
@@ -61,6 +63,7 @@ namespace TimeEntry
                     WorkOrder       : string
                     ItemCode        : string
                 }
+*)
 (*            let workOrderFromDTO 
                 validWorkOrders
                 validItemCodes

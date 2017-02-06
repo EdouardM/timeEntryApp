@@ -13,6 +13,7 @@ module Application =
             fun login userinfo ->
                 onlyForSameLogin login userinfo DBService.updatePassword
 
+        let displayAuthSite userinfo = hasAuthSites userinfo DBService.getAuthSiteCodes 
         let selectAuthSite site userinfo = onlyForAuthSites site userinfo retn
 
         let desactivateOnlyAuthSite site (userinfo:UserInfo) = 
@@ -47,17 +48,30 @@ module Application =
                     | None -> 
                         Failure "You can only update the password of the account you are logged with."
                 
+        let displaySite: DisplaySites = 
+            fun loggedInData -> 
+                let displaySiteCap = displayAuthSite loggedInData.UserInfo
+                match displaySiteCap with
+                    | Some cap -> 
+                        cap loggedInData.UserInfo.SiteAccess
+                        |> Success
+                    | None -> Failure "You can not access to any site."
+
         let selectSite: SelectSite =
             fun site loggedInData -> 
                 let selectSiteCap = selectAuthSite site loggedInData.UserInfo
                 match selectSiteCap with
                     | Some cap ->
                         cap site
-                        |>Result.map(fun site -> { UserInfo = loggedInData.UserInfo; Site = site})
+                        |> Result.map(fun site -> { UserInfo = loggedInData.UserInfo; Site = site})
                     | None -> 
                         Failure "You can only select one site you are authorized to access."
                 
-        
+        let displayShopFloors: DisplayShopFloors = 
+            fun siteSelectedData -> 
+                let msg = sprintf "No active Shopfloor defined for the site: %s" <| siteSelectedData.Site.ToString()
+                getActiveShopFloorCodesBySite siteSelectedData.Site
+                |> failIfEmpty msg
         let unselectSite: UnSelectSite = 
             fun siteSelectedData ->
                 let userinfo = siteSelectedData.UserInfo
@@ -88,78 +102,77 @@ module Application =
         open Services
         open Capabilities
 
-        //Application returns here an id of a capability to communicate to the client
+        //Application returns here one key and the capability to communicate to the client
         //URL in case of web app
         let getCapabilities state =
             match state with
-                | LoggedOut               -> [LoginCap]
-                | LoggedIn  d             -> [UpdatePasswordCap; SelectSiteCap; CreateSiteCap; Logout]
-                | PasswordUpdated d       -> [LoginCap]
-                | SiteSelected  d         -> [UnselectSite; DesactivateSite; Logout]
-                | SiteCreated   d         -> [UnselectSite; DesactivateSite; Logout]
-                | ShopFloorSelected d     -> [UnselectSite; Logout]
-        
-        
-        //Global variable
-        //In web app store it in session variable (.NET type HttpContext.SessionState) 
-        //or store in a cookie
-        let mutable sessionState = LoggedOut
-        
+                | LoggedOut               -> Map.ofList ["L", LoginCap; "E", ExitCap]
+                | LoggedIn  d             -> Map.ofList ["U", UpdatePasswordCap; "S", SelectSiteCap; "C", CreateSiteCap; "L", LogoutCap]
+                | PasswordUpdated d       -> Map.ofList ["U", UpdatePasswordCap; "S", SelectSiteCap; "C", CreateSiteCap; "L", LogoutCap] 
+                | SiteSelected  d         -> Map.ofList ["U", UnselectSiteCap; "S", SelectShopFloorCap; "L", LogoutCap] 
+                | SiteCreated   d         -> Map.ofList ["U", UnselectSiteCap; "L", LogoutCap] 
+                | ShopFloorSelected d     -> Map.ofList ["U", UnselectShopFloorCap; "L", LogoutCap] 
+                | Exit                    -> Map.ofList []  
+                
         let getLoggedInData =
             function
                 | LoggedIn data -> Success data
-                | _             -> Failure "Not in LoggedIn status, cannot access LoggedIn data."
+                | _             -> Failure "Not in LoggeedIn state, cannot access to inner data."
+        let getSelecteSiteData = 
+            function
+                | SiteSelected data -> Success data
+                | _                 -> Failure "Not in Selected Site state, cannot access to inner data."
 
-        let updateState logmsg = 
-                function
-                    | Success newState ->  
-                                printfn "%s" logmsg
-                                sessionState <- newState
-                    | Failure msg -> printfn "%s" msg 
-        let loginController usercredential (userLogin: UserLogin) =
-            match sessionState with
-                | LoggedOut -> 
-                    userLogin usercredential
+        let loginController (userLogin: UserLogin) state usercredential =
+            match state with
+                | LoggedOut ->
+                    usercredential
+                    |> DBService.validateUsercredential
+                    |> Result.bind(userLogin)
                     |> Result.map(LoggedIn)
-                    |> updateState "Logged in."
-                | _ -> printfn "Already logged in."
+                | _ -> Failure "Already logged in."
 
-        let updatePasswordController login password (updatePassword: UpdatePassword) = 
+        let updatePasswordController  (updatePassword: UpdatePassword) state login password = 
             result {
-                let! loggedInData       = getLoggedInData sessionState
+                let! login = DBService.validateLogin login
+                let! password = Constructors.Password.create password  
+                let! loggedInData       = getLoggedInData state
                 let! updatePasswordData = updatePassword login password loggedInData
                 return (PasswordUpdated updatePasswordData)
             }
-            |> updateState "Password updated. "
 
-        let logoutController () =
-            sessionState <- LoggedOut
+        let logoutController () = Success LoggedOut
+        let exitController () = Success Exit
 
-        let siteSelectController input (selectSite: SelectSite) (getSite: string -> Result<Site>) =
+        let displaySitesController (displaySite: DisplaySites) state =
             result {
-                let! site           = getSite input
-                let! loggedInData   = getLoggedInData sessionState
+                let! loggedInData       = getLoggedInData state
+                return! displaySite loggedInData
+            }
+
+        let siteSelectController (selectSite: SelectSite) state input =
+            result {
+                let! site           = DBService.validateSite input
+                let! loggedInData   = getLoggedInData state
                 let! selectSiteData = selectSite site loggedInData
                 
                 return (SiteSelected selectSiteData )
             }
-            |> updateState "Site selected"
         
-
-        let siteCreationController input (createSite: CreateSite) =            
+        let unselectSiteController state =
+            getSelecteSiteData state
+            |> Result.map(fun data -> {LoggedInData.UserInfo = data.UserInfo})
+            |> Result.map(LoggedIn)
+        
+        let displayShopfloorsController (displayShopfloors: DisplayShopFloors) state = 
             result {
-                let! loggedInData  = getLoggedInData sessionState
+                let! siteselectedData = getSelecteSiteData state
+                return! displayShopfloors siteselectedData
+            }
+        let siteCreationController state input (createSite: CreateSite) =            
+            result {
+                let! loggedInData  = getLoggedInData state
                 let! createSiteData = createSite input loggedInData
                 
                 return (SiteCreated createSiteData)
             }
-            |> updateState "Site created"
-
-
-        let renderView state msg =
-            printfn "Result of previous operation was: %s" msg
-            let capabilities = getCapabilities state
-            if List.contains Logout capabilities then
-                printfn "click here to logout"
-            if List.contains LoginCap capabilities then
-                printfn "click here to login"
