@@ -9,8 +9,9 @@
 #load "./ConstrainedTypes.fs"
 #load "./DomainTypes.fs"
 #load "./Constructors.fs"
-#load "./Database.fs"
-#load "./DatabaseAPI.fs"
+#load "./DBConversions.fs"
+#load "./DBCommands.fs"
+#load "./DTOTypes.fs"
 #load "./DbService.fs"
 open FSharp.Data.Sql
 open TimeEntry.Result
@@ -20,6 +21,7 @@ open TimeEntry.DomainTypes
 open TimeEntry.Constructors
 open TimeEntry.DBConversions
 open TimeEntry.DBCommands
+open TimeEntry.DTO
 open TimeEntry.DBService
 
 
@@ -53,86 +55,97 @@ type DBContext = Sql.dataContext
 
 FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent |> Event.add (printfn "Executing SQL: %s")
 
-insertNewSite [ "F21"; "F22"] ("F23")
+removeExistingData()
 
-insertSite(Site "F22")
+let s1 = Site (String3 "F21")
 
-getSiteCodes()
+SiteAPI.insert s1
+SiteAPI.getSiteCodes()
 
-let sf1 = {ShopFloorInfo.ShopFloor = ShopFloor "F211A"; Site = Site "F21"}
-let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor "F221A"; Site = Site "F22"}
+SiteAPI.insert (Site (String3 "F22"))
 
-insertShopfloor(sf1)
-insertShopfloor(sf2)
+let sf1 = {ShopFloorInfo.ShopFloor = ShopFloor (String5 "F211A"); Site = Site (String3 "F21")}
+let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor (String5 "F221A") ; Site = Site (String3 "F22")}
 
-getShopFloorCodes()
+ShopFloorAPI.insert(sf1)
+ShopFloorAPI.insert(sf2)
 
-getShopFloorInfo("F211A")
+ShopFloorAPI.getShopFloorCodes()
 
-let sf3 = {ShopFloorInfo.Site = Site ("F23"); ShopFloor = ShopFloor ("F231A") }
-insertShopfloor (sf3)
+ShopFloorAPI.getShopFloorInfo("F211A")
 
-getShopFloorCodes()
+let sf3 = {ShopFloorInfo.Site = Site (String3 "F23"); ShopFloor = ShopFloor (String5 "F231A") }
+ShopFloorAPI.insert (sf3)
 
-desactivateShopfloor("F231A")
-getShopFloorCodes()
-activateShopfloor("F231A")
+ShopFloorAPI.getShopFloorCodes()
 
-let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter "F1"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
-insertWorkCenter(wc1)
+ShopFloorAPI.desactivate("F231A")
+ShopFloorAPI.getShopFloorCodes()
+ShopFloorAPI.activate("F231A")
+
+let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter (String5 "F1"); ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+WorkCenterAPI.insert(wc1)
 
 let wc1' = {wc1 with StartHour = Hour 5u }
-updateWorkCenter wc1.WorkCenter wc1'
+WorkCenterAPI.update wc1'
 
-let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter "F2"; ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
-insertWorkCenter(wc2)
+let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter (String5 "F2"); ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
+WorkCenterAPI.insert(wc2)
 
 
-getWorkCenterCodes()
-getWorkCenter ("F1")
+WorkCenterAPI.getWorkCenterCodes()
+WorkCenterAPI.getWorkCenter ("F1")
 
 //Test to write
-getWorkCenterCodes()
-desactivateWorkCenter ("F1")
-activateWorkCenter ("F1")
+WorkCenterAPI.getWorkCenterCodes()
+WorkCenterAPI.desactivate ("F1")
+WorkCenterAPI.activate ("F1")
 
-let m1: MachineInfo = {Machine = Machine "Rooslvo"; ShopFloorInfo = sf1}
-insertMachine(m1)
+let m1: MachineInfo = {Machine = Machine (String10 "Rooslvo"); ShopFloorInfo = sf1}
+MachineAPI.insert(m1)
 
-let m2: MachineInfo = {Machine = Machine "Scoel12"; ShopFloorInfo = sf2}
-insertMachine(m2)
+let m2: MachineInfo = {Machine = Machine (String10 "Scoel12"); ShopFloorInfo = sf2}
+MachineAPI.insert(m2)
 
-getMachineCodes()
-desactivateMachine("Rooslvo")
-activateMachine("Rooslvo")
+MachineAPI.getMachineCodes()
+MachineAPI.activate("Rooslvo")
+MachineAPI.desactivate("Rooslvo")
 
-let format = WithoutInfo "FOR"
-let div = ZeroPerson "DIV"
-let pan = WithInfo "PAN"
-let arr = WithInfo "ARR"
+let formatF21 = { 
+            Site            = s1; 
+            Code            = ActivityCode (String4 "FOR"); 
+            RecordLevel     = WorkCenterLevel AllWorkCenters; 
+            TimeType        = MachineTime; 
+            ActivityLink    = Linked <| ActivityCode (String4 "MFOR"); 
+            ExtraInfo       = ExtraInfo.WithoutInfo
+            }
+let mformatF21 = {formatF21 with Code = ActivityCode (String4 "MFOR"); ActivityLink = Linked <| ActivityCode (String4 "FOR")}
 
-[format; div; pan; arr]
-|> List.map insertEvent
+let divF21 = { 
+            Site            = s1; 
+            Code            = ActivityCode (String4 "DIV"); 
+            RecordLevel     = WorkCenterLevel AllWorkCenters; 
+            TimeType        = MachineTime; 
+            ActivityLink    = Linked <| ActivityCode (String4 "MDIV"); 
+            ExtraInfo       = ExtraInfo.WithoutInfo
+            }
 
+let mdivF21 = {formatF21 with Code = ActivityCode (String4 "MDIV"); ActivityLink = Linked <| ActivityCode (String4 "DIV")}
 
-getEventCodes()
+ActivityAPI.insert formatF21
+ActivityAPI.insert mformatF21
+ActivityAPI.insert divF21
+ActivityAPI.insert mdivF21
 
-let ev = ZeroPerson "NET"
-insertEvent(ev)
-getEventCodes()
+ActivityAPI.getActivityCodes()
 
 //TESTS
-getEvent("NET")
-getEvent("EOD")
+let formatF21'= {formatF21 with ExtraInfo = WithInfo}
+ActivityAPI.update formatF21'
+ActivityAPI.getActivity "FOR"
 
-updateEvent( WithoutInfo "NET")
-getEvent("NET")
-
-updateEvent(WithInfo "NET")
-getEvent("NET")
-
-desactivateEvent ("NET")
-activateEvent    ("NET")
+ActivityAPI.desactivate "FOR"
+ActivityAPI.activate    "FOR"
 
 updateEvent (WithoutInfo "NET")
 getEvent ("NET")
@@ -177,8 +190,24 @@ insertTimeRecord timeRecord
 
 getTimeRecord 5u
 let ctx = Sql.GetDataContext()
-let login = "moureed1"
-getUser(login)
+let login = Login (String8 "moureed1")
+
+let user = { 
+                Login           = Login (String8 "moureed1"); 
+                Password        = Password (String50 "indaclud"); 
+                Name            = UserName (String50 "Edouard Moureaux"); 
+                SiteAccess      = AllSites
+                Level           = Admin
+            }
+UserInfoAPI.insert user
+
+UserInfoAPI.getUser (login)
+
+UserInfoAPI.updatePassword login (Password (String50 "depzoiam12"))
+
+let user2 = { user with Password = Password (String50 "hello3")}
+
+UserInfoAPI.update user2
 
 
 // Add a logic to add total time on workorder
