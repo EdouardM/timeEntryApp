@@ -47,6 +47,23 @@ module Result =
             | Some x -> Success x
             | None   -> Failure msg 
 
+    let failIfFalse x msg = 
+        function
+            | true  -> Success x
+            | false -> Failure msg 
+
+    let failIfNotInList l x msg = 
+        List.contains x l
+        |> failIfFalse x msg
+
+    let failIfEmpty msg l  = 
+        List.isEmpty l
+        |> not
+        |> failIfFalse l msg
+
+    let failIfNotInMap (d:Map<_,_>) x msg = 
+        Map.containsKey x d 
+        |> failIfFalse d.[x] msg
 
     let switchResOpt xResOpt =
         match xResOpt with
@@ -75,6 +92,8 @@ module Result =
     type ResultBuilder() =
         member this.Bind(m, f) = bind f m
         member this.Return(x) = retn x
+
+        member this.ReturnFrom(x) = x
 
         member this.Zero() = this.Return()
 

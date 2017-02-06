@@ -8,11 +8,25 @@ module DomainTypes =
     //Domain Model:
     // http://fsharpforfunandprofit.com/ddd/
 
+    (* RECORD ACTIVE STATUS IN DB *)
+    type ActiveStatus = 
+        | Active
+        | Inactive
+        | All
+
     (* DEFINE ONE SITE *)
     type Site  = Site of String3
+        with
+            override this.ToString() = 
+                let (Site (String3 s)) = this
+                s
     
      (* DEFINE ONE SHOPFLOOR *)
     type ShopFloor  = ShopFloor of String5
+        with
+            override this.ToString() = 
+                let (ShopFloor (String5 sf)) = this
+                sf
 
     type ShopFloorInfo = 
         {
@@ -113,7 +127,17 @@ module DomainTypes =
     type AuthLevel = | User | KeyUser | Admin
 
     type Login = Login of String8
+        with
+            override x.ToString() = 
+                let (Login (String8 l)) = x
+                l
+
     type UserName = UserName of String50
+        with
+            override x.ToString() = 
+                let (UserName (String50 n)) = x
+                n
+
     type Password = Password of String50
 
 
@@ -203,53 +227,29 @@ module DomainTypes =
 // https://gist.github.com/swlaschin/909c5b24bf921e5baa8c#file-capabilitybasedsecurity_consoleexample-fsx
 
     type SelectSiteCap      = (Site -> Result<Site>)
+    type DisplaySiteCap     = (Site list -> Result<string list>)
+
     type DesactivateSiteCap = (Site -> Result<unit>)
     type ActivateSiteCap    = (Site -> Result<unit>)
     
     type CreateSiteCap      = (string -> Result<Site>)
 
 
-    type SiteMaintenanceCap = 
-        { 
-            Creation    : CreateSiteCap
-            Activate    : ActivateSiteCap
-            Desactivate : DesactivateSiteCap
-        }
+    type DisplayShopFloorCap = (Site -> Result<string list>) 
 
+    type SelectShopFloorCap  = (ShopFloor -> Result<ShopFloor>)
 
     type CreateShopFloorCap = ( unit -> Result<ShopFloorInfo> )
+    
     type UpdateShopFloorCap = ( unit -> ShopFloorInfo -> Result<ShopFloorInfo> )
+        
     type DesactivateShopFloorCap = ( unit -> Result<unit> )
 
-
-    type ShopFloorMaintenanceCap = 
-        { 
-            Creation    : CreateShopFloorCap
-            Update      : UpdateShopFloorCap
-            Desactivate : DesactivateShopFloorCap
-        }
-
-
     type UpdatePasswordCap =  ( Login -> Password -> Result<UserInfo> )
+    
     type UpdateUserNameCap =  ( unit -> UserName -> Result<UserInfo> )
+    
     type UpdateUserInfoCap = ( unit -> UserInfo -> Result<UserInfo> )
-
-    type UserMaintenanceCap = 
-        {
-            UpdatePassword : UpdatePasswordCap option
-            UpdateUserName : UpdateUserNameCap option 
-            UpdateUserInfo : UpdateUserInfoCap option
-
-        }
-
-    type CapabilityProvider = 
-        {
-            //User may have the right to maintain site, shopfloor, workcenter
-            SiteMaintenance      : SiteMaintenanceCap option
-            ShopFloorMaintenance : ShopFloorMaintenanceCap option
-            UserMaintenance      : UserMaintenanceCap option
-        }
-
 
     //To be put in capabilityProvider
     type Capability = 
@@ -257,9 +257,11 @@ module DomainTypes =
         | UpdatePasswordCap
         | CreateSiteCap
         | SelectSiteCap
-        | UnselectSite
-        | DesactivateSite
-        | Logout
+        | UnselectSiteCap
+        | SelectShopFloorCap
+        | UnselectShopFloorCap
+        | LogoutCap
+        | ExitCap
 
 (* INPUT DATA *)
 
@@ -276,9 +278,15 @@ module DomainTypes =
 
     type UpdatePassword = Login -> Password -> LoggedInData -> Result<UpdatePasswordData> 
     
+    type DisplaySites = LoggedInData -> Result<string list>
+    
     type SelectSite = Site -> LoggedInData -> Result<SiteSelectedData>
 
     type UnSelectSite = SiteSelectedData -> LoggedInData
+
+    type DisplayShopFloors = SiteSelectedData -> Result<string list>
+
+    type SelectShopFloor = SiteSelectedData -> ShopFloor -> Result<ShopFloorSelectedData>
 
     //User may not have the right to create one site or input is invalid
     type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
@@ -290,6 +298,7 @@ module DomainTypes =
 
     type TimeEntryState = 
         | LoggedOut
+        | Exit
         //Connect user and list possible actions he can do:
         | LoggedIn              of LoggedInData
         | PasswordUpdated       of UpdatePasswordData
