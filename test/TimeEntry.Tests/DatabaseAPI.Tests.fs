@@ -30,17 +30,22 @@ let testSite =
       SiteAPI.insert site
       |> stopOnFailure
       
-      let cnt = SiteAPI.getSiteCodes() |> List.length
+      let cnt = SiteAPI.getSiteCodes All |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Desactivate" <| fun _ ->
 
-      let step2 = "We expect to get no site after desactivation."
+      let step2 = "We expect to get no active site after desactivation."
       SiteAPI.desactivate site
       |> stopOnFailure
       
-      let cnt = SiteAPI.getSiteCodes() |> List.length
+      let cnt = SiteAPI.getSiteCodes Active |> List.length
       Expect.equal cnt 0 step2;
+
+      let step2' = "We still have one site in DB after desactivation."
+      let cnt = SiteAPI.getSiteCodes All |> List.length
+      Expect.equal cnt 1 step2';
+
 
     testCase "Activate" <| fun _ ->
       let step3 = "We expect to get one site after reactivation."
@@ -48,7 +53,7 @@ let testSite =
       SiteAPI.activate site
       |> stopOnFailure
 
-      let cnt = SiteAPI.getSiteCodes() |> List.length
+      let cnt = SiteAPI.getSiteCodes Active |> List.length
       Expect.equal cnt 1 step3 ]
 
 [<Tests>]
@@ -66,7 +71,7 @@ let testShopfloor =
       ShopFloorAPI.insert(sf) 
       |> stopOnFailure
 
-      let cnt = ShopFloorAPI.getShopFloorCodes() |> List.length
+      let cnt = ShopFloorAPI.getShopFloorCodes Active |> List.length
       Expect.equal cnt 1 step1
 
       let step1' = "We get the same shopfloor."
@@ -81,7 +86,7 @@ let testShopfloor =
       ShopFloorAPI.desactivate(sfCode)
       |> stopOnFailure
 
-      let cnt = ShopFloorAPI.getShopFloorCodes() |> List.length
+      let cnt = ShopFloorAPI.getShopFloorCodes Active |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
@@ -90,7 +95,7 @@ let testShopfloor =
       ShopFloorAPI.activate(sfCode)
       |> stopOnFailure
 
-      let cnt = ShopFloorAPI.getShopFloorCodes() |> List.length
+      let cnt = ShopFloorAPI.getShopFloorCodes Active |> List.length
       Expect.equal cnt 1 step3 ]
 
 [<Tests>]
@@ -208,7 +213,7 @@ let testActivity =
                 ExtraInfo       = ExtraInfo.WithoutInfo
                 }
 
-  testList "Event Database API" [
+  testList "Activity Database API" [
     testCase "Insert & Get" <| fun _ -> 
       removeExistingData() 
       |> stopOnFailure
@@ -301,32 +306,71 @@ let testWorkOrder =
       Expect.equal dbwo expected step4]
 
 [<Tests>]
-let testGenerateData =
-  let config = { FsCheck.Config.Default with MaxTest = 10000 }   
-  
-  testList "FsCheck" [
+let testUserInfo =  
+  let login = Login (String8 "andrecl1")
 
-    testProperty "Generate Dummy Data" <| fun a b ->
-    
-    removeExistingData()
-    |> stopOnFailure
+  let user = { 
+                Login           = Login (String8 "andrecl1"); 
+                Password        = Password (String50 "peroux2010"); 
+                Name            = UserName (String50 "Clotilde"); 
+                SiteAccess      = AllSites
+                Level           = Admin
+            }
+
+  testList "UserInfoAPI" [    
+    testCase "Insert & Get" <| fun () -> 
+      removeExistingData()
+      |> stopOnFailure
+           
+      insertReferenceData()
+
+      let step1 = "We expect to get one more user after insert."
       
-    insertReferenceData()
-  
-    let sites = SiteAPI.getSiteCodes()
-    let generateSite() = FsCheck.Gen.elements sites 
-    
-    let shopfloors = ShopFloorAPI.getShopFloorCodes()
-    let generateShopfloor() = FsCheck.Gen.elements shopfloors 
-    
- 
-    // you can also override the FsCheck config
-    testPropertyWithConfig config "Product is distributive over addition" <|
-      fun a b c ->
-        a * (b + c) = a * b + a * c
-  ]
+      let cnt = UserInfoAPI.getUserLogins() |> List.length
 
+      UserInfoAPI.insert user 
+      |> stopOnFailure
 
+      let cnt' = UserInfoAPI.getUserLogins() |> List.length
+      Expect.equal cnt' (cnt + 1) step1;
+
+    testCase "Update Name, Password, AuthLevel" <| fun _ -> 
+      let step4 = "We get the updated user after update."
+      
+      let user' = { 
+                Login           = Login (String8 "andrecl1"); 
+                Password        = Password (String50 "aba2oies"); 
+                Name            = UserName (String50 "Clo"); 
+                SiteAccess      = SiteAccess.AllSites
+                Level           = KeyUser
+            }
+
+      UserInfoAPI.update user'
+      |> stopOnFailure
+
+      let expected = Success <| UserInfo.toDB user'
+      let dbus = UserInfoAPI.getUser(login)
+
+      Expect.equal dbus expected step4
+    
+    testCase "UpdatePassword" <| fun _ -> 
+      let step5 = "We get the updated user with updated password after update."
+      
+      UserInfoAPI.update user
+      |> stopOnFailure
+
+      let newPassword = Password (String50 "HELLO")
+      
+      let user' = { user with Password = newPassword }
+
+      UserInfoAPI.updatePassword login newPassword
+      |> stopOnFailure
+
+      let expected = Success <| UserInfo.toDB user'
+      let dbus = UserInfoAPI.getUser(login)
+
+      Expect.equal dbus expected step5 ]
+    
 [<EntryPoint>]
 let main args =
   let config = { defaultConfig with parallel  = false }
