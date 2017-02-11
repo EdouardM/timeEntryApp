@@ -18,6 +18,12 @@ module Authorization =
         else
             None 
 
+    let notForViewer (user: UserInfo) (f: 'a -> 'b) = 
+        if user.Level <> Viewer then
+            Some f
+        else 
+            None
+
     ///Checks if user has some authorized sites before using function f on them
     let hasAuthSites (userinfo : UserInfo) (f: SiteAccess -> 'a) = 
         match userinfo.SiteAccess with
