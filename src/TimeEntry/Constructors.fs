@@ -44,6 +44,7 @@ module Constructors =
         
     (* WORKCENTER CONSTRUCTORS *)
     module WorkCenter =
+        let create = create (failIfNullString >=> stringMax5 >>= WorkCenter) "workcetner"
         let validate = validate (stringMax5 >>= WorkCenter) "workcenter"
     module WorkCenterInfo = 
         let create shopFloor workCenter startTime endTime = 
@@ -51,6 +52,7 @@ module Constructors =
         
     (* MACHINE CONSTRUCTORS *)
     module Machine = 
+        let create = create (failIfNullString >=> stringMax10 >>= Machine) "machine"
         let validate = validate (stringMax10 >>= Machine) "machine"
 
     module MachineInfo = 
@@ -100,7 +102,7 @@ module Constructors =
                 | false, Some act   -> Failure "One activity marked as not linked cannot have a linked activity."
                 | true,     None    -> Failure "One activity marked as linked must have a linked activity."
     module Cause =
-        let validate   = stringMax50
+        let validate   = failIfNullString >=> stringMax50
     module Solution = 
         let validate = stringMax50
     module Comments =
@@ -123,13 +125,13 @@ module Constructors =
 
     (* USER CONSTRUCTORS *)
     module UserName =     
-        let create = stringMax50 >>= UserName
+        let create = failIfNullString >=> stringMax50 >>= UserName
     module Login =     
-        let create   = create (stringMax8 >>= Login) "user login"
+        let create   = create (failIfNullString >=> stringMax8 >>= Login) "user login"
 
         let validate = validate (stringMax8 >>= Login) "user login"
     module Password =     
-        let create = (stringMax50 >>= Password)
+        let create = (failIfNullString >=> stringMax50 >>= Password)
 
     module SiteAccess = 
         let validate accessAll authorizedSites = 
@@ -144,6 +146,7 @@ module Constructors =
                 | "user"    -> Success User
                 | "keyuser" -> Success KeyUser
                 | "admin"   -> Success Admin
+                | "viewer"  -> Success Viewer
                 | level     -> Failure <| sprintf "Unexpected value for authorization level: %s" level
 
     module UserInfo = 
@@ -152,6 +155,7 @@ module Constructors =
 
     (* WORKORDER CONSTRUCTORS *)
     module WorkOrder = 
+        let create = stringExactNum10 >>= WorkOrder
         let validate = validate (stringExact10 >>= WorkOrder) "work order number"
     module ItemCode = 
         let validate = validate (stringMax6 >>= ItemCode) "item code"
@@ -218,3 +222,17 @@ module Constructors =
     module TimeRecord = 
         let validate site shopfloor workcenter attribution timetype duration status =
             { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; Status = status}
+
+    module EntryMethod = 
+        let validate = 
+            function
+                | "P"   -> Success ProductionLine
+                | "I"   -> Success Individual
+                | mode  -> Failure <| sprintf "Invalid Record mode: %s. Valid choices are : 'P' or 'I'" mode 
+
+    module EntryLevel =
+        let validate = 
+            function
+                | "S"   -> Success EntryLevel.ShopFloor
+                | "W"   -> Success EntryLevel.WorkCenter
+                | input -> Failure <| sprintf "Invalid input: %s. Valid choices are : 'S' or 'W'" input

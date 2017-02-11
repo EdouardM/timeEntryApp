@@ -55,13 +55,21 @@ module ConstrainedTypes =
         else Failure <| sprintf "Your input: %s does not have the expected length (Length : %d)"  s len
 
     /// A validation function allowing only alphnumerical characters
-    let alphanumCharacterValidator (s: string) = 
+    let regexMatchValidator pattern msg (s: string)  = 
         let nb = 
-            Regex.Matches(s, "[^0-9a-zA-Z]+")
+            Regex.Matches(s, pattern )
             |> Seq.cast<Match>
             |> Seq.length
         if nb = 0 then Success s
-        else Failure <| sprintf "Only alpahnumerical characters are allowed: %s"  s
+        else Failure msg
+
+    let alphanumCharacterValidator = 
+        let pattern =  "[^0-9a-zA-Z]+" 
+        regexMatchValidator pattern "Only alphanumerical characters are allowed."
+
+    let onlyNumCharacterValidator = 
+        let pattern =  "[^0-9]+" 
+        regexMatchValidator pattern "Only numerical characters are allowed."
 
 
     /// A string of length 3
@@ -99,7 +107,7 @@ module ConstrainedTypes =
     let stringMax8 = create singleLineTrimmed (maxLengthValidator 8 >=> alphanumCharacterValidator) String8
     
 
-    /// A string of length 100
+    /// A string of length 10
     type String10 = String10 of string with
         interface IWrappedString with
             member this.Value = value this
@@ -107,6 +115,7 @@ module ConstrainedTypes =
     /// A constructor for strings of length 10
     let stringMax10     = create singleLineTrimmed (maxLengthValidator 10 >=> alphanumCharacterValidator) String10
     let stringExact10   = create singleLineTrimmed (exactLengthValidator 10 >=> alphanumCharacterValidator) String10
+    let stringExactNum10 = create singleLineTrimmed (exactLengthValidator 10 >=> onlyNumCharacterValidator) String10 
 
     type String50 = String50 of string with
         interface IWrappedString with
