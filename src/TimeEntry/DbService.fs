@@ -160,3 +160,14 @@ module DBService =
     let activateSite = SiteAPI.activate
 
     let getActiveShopFloorCodesBySite site = ShopFloorAPI.getShopFloorCodesBySite Active site
+
+    let getActiveWorkCentersByShopfloor shopfloor = 
+        WorkCenterAPI.getWorkCenterCodesByShopfloor Active shopfloor
+
+    let validateShopFloor site input =
+        let shopfloors = ShopFloorAPI.getShopFloorCodesBySite Active site
+        ShopFloor.validate shopfloors input
+
+    let validateWorkCenter shopfloor input =
+        let workcenters = WorkCenterAPI.getWorkCenterCodesByShopfloor Active shopfloor
+        WorkCenter.validate workcenters input

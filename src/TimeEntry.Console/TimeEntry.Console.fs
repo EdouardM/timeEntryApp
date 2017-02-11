@@ -14,7 +14,7 @@ open TimeEntry.Result
 
 let useCapability state = 
     function
-        | LoginCap -> 
+        | Cap.Login -> 
             printfn "[Login] Enter your login:"
             let login = Console.ReadLine()
             printfn "[Login] Enter your password:"
@@ -23,7 +23,7 @@ let useCapability state =
             UserCredential.createDTO login password
             |> Program.loginController Services.userLogin state
         
-        | UpdatePasswordCap -> 
+        | Cap.UpdatePassword -> 
             printfn "[Update Password] Enter your login:"
             let login = Console.ReadLine()
             printfn "[Update Password] Enter your new password: "
@@ -31,7 +31,7 @@ let useCapability state =
             
             Program.updatePasswordController Services.updatePassword state login password
 
-        | SelectSiteCap -> 
+        | Cap.SelectSite -> 
             result {
                 let! sites = 
                     Program.displaySitesController Services.displaySite state
@@ -40,26 +40,71 @@ let useCapability state =
                 printfn "[Select Site] Enter the site to select:"
                 let site = Console.ReadLine()
 
-                return! Program.siteSelectController Services.selectSite state site 
+                return! Program.selectSiteController Services.selectSite state site 
             }
 
-        | SelectShopFloorCap -> 
+        | Cap.UnselectSite -> Program.unselectSiteController state       
+        | Cap.SelectEntryMethod ->
             result {
-                let! shopfloors = 
-                    Program.displayShopfloorsController Services.displayShopFloors state
+                let! modes = Program.displayEntryMethodController Services.displayEntryMethod state
+                let choices = List.reduce(fun s s' -> s + " , " + s') modes
+                printfn "[Select Time Entry Mode] Possible Choice: %s" choices
+                let mode = Console.ReadLine()
+
+                return! Program.selectEntryMethodController Services.selectEntryMethod state mode
+            }
+        | Cap.UnselectEntryMethod -> Program.unselectEntryMethodController state
+        | Cap.SelectEntryLevel -> 
+            result {
+                let! levels = Program.displayEntryLevelController Services.displayEntryLevel state
+                let input = Option.map(
+                                    fun levels -> 
+                                        let choices = List.reduce(fun s s' -> s + " , " + s') levels
+                                        printfn "[Select Entry Level] Possible Choice: %s" choices
+
+                                        printfn "[Select Entry Level] Enter the Entry Level to select:"
+                                        Console.ReadLine()) levels
+
+                return! Program.selectEntryLevelController Services.selectEntryLevel state input 
+            }
+
+        |Cap.UnselectEntryLevel -> Program.unselectEntryLevelController state
+
+        | Cap.SelectShopFloor -> 
+            result {
+                let! shopfloors = Program.displayShopfloorsController Services.displayShopFloors state
                 let choices = List.reduce(fun s s' -> s + " , " + s') shopfloors
                 printfn "[Select ShopFloor] Possible Choice: %s" choices
 
                 printfn "[Select ShopFloor] Enter the shopfloor to select:"
                 let site = Console.ReadLine()
             
-                //Implement select shopfloor!
-                return! Program.siteSelectController Services.selectSite state site 
+                return! Program.selectShopfloorController Services.selectShopFloor state site 
             }
-            
-        | UnselectSiteCap -> Program.unselectSiteController state
 
-        | ExitCap -> Program.exitController ()
+        | Cap.UnselectShopFloor -> Program.unselectShopFloorController state
+
+        | Cap.SelectWorkCenter -> 
+            result {
+                let! workcenters = Program.displayWorkCentersController Services.displayWorkCenters state
+                let input = Option.map(
+                                    fun wcs -> 
+                                        let choices = List.reduce(fun s s' -> s + " , " + s') wcs
+                                        printfn "[Select WorkCenter] Possible Choice: %s" choices
+
+                                        printfn "[Select WorkCenter] Enter the workcenter to selesct:"
+                                        Console.ReadLine()) workcenters
+
+                return! Program.selectWorkCenterController Services.selectWorkCenter state input 
+            }
+
+            // If EntryLevel = Shop Floor => None 
+            // Else          = display + selectWorkCenter => Some wc
+            // Return Workcenterselected data
+            //Success state
+        | Cap.UnselectWorkCenter -> Program.unselectWorkCenterController state
+
+        | Cap.Exit -> Program.exitController ()
         
         //Any other capability => logout
         | _  -> 
@@ -67,20 +112,28 @@ let useCapability state =
                 Program.logoutController ()
 let capabilityToMenu =
     function
-        | LoginCap              -> "(L)ogin"
-        | UpdatePasswordCap     -> "(U)pdate your password"
-        | SelectSiteCap         -> "(S)elect one site"
-        | CreateSiteCap         -> "(C)reate one site"
-        | UnselectSiteCap       -> "(U)nselect site"
-        | SelectShopFloorCap    -> "(S)elect one shopfloor"
-        | UnselectShopFloorCap  -> "(U)nselect site"
-        | LogoutCap             -> "(L)ogout"
-        | ExitCap               -> "(E)xit"
+        | Cap.Login              -> "(L)ogin"
+        | Cap.UpdatePassword     -> "(U)pdate your password"
+        | Cap.SelectSite         -> "(S)elect one site"
+        | Cap.CreateSite         -> "(C)reate one site"
+        | Cap.SelectEntryMethod    -> "(R)ecord time"
+        | Cap.UnselectEntryMethod  -> "(U)nselect entry mode"
+        | Cap.SelectEntryLevel   -> "(S)elect entry level"
+        | Cap.UnselectEntryLevel -> "(U)nselect entry level"
+        | Cap.UnselectSite       -> "(U)nselect site"
+        | Cap.SelectShopFloor    -> "(S)elect one shopfloor"
+        | Cap.UnselectShopFloor  -> "(U)nselect shopfloor"
+        | Cap.SelectWorkCenter   -> "(S)elect one workcenter"
+        | Cap.UnselectWorkCenter -> "(U)nselect workcenter"
+        | Cap.SelectAttribution  -> "(S)elect time attribution"
+        | Cap.Logout             -> "(L)ogout"
+        | Cap.Exit               -> "(E)xit"
+
 let processAction state capabilities =
     let input = Console.ReadLine().ToUpper()
-    let capability = failIfNotInMap capabilities input "Invalid choice"
     result {
-        let! cap = capability
+        let! capabilitiesM = failIfNotInMap capabilities input "Invalid choice"
+        let cap = capabilitiesM.Item(input)
         return! useCapability state cap   
     }
 
@@ -110,6 +163,23 @@ let printStateMessage =
             //Compose msg:
             loggedinmsg + "\n" + siteselectmsg
             |> Some
+        | ShopFloorSelected data -> 
+            let loggedinmsg = 
+                sprintf "You are logged in as: %s" 
+                <| data.UserInfo.Login.ToString()
+
+            let siteselectmsg = 
+                sprintf "You have selected the site: %s" 
+                <| data.Site.ToString()
+            
+            let shopfloormsg = 
+                sprintf "You have selected the shopfloor: %s" 
+                <| data.ShopFloor.ToString()
+            
+            //Compose msg:
+            loggedinmsg + "\n" + siteselectmsg + "\n" + shopfloormsg
+            |> Some
+
         | _                     -> None
     >> Option.map (printfn "%s")
     >> ignore

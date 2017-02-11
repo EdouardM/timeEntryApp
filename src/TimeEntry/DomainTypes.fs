@@ -124,7 +124,7 @@ module DomainTypes =
     (* DEFINE ONE USER *)
     type SiteAccess = | AllSites | SiteList of Site list
 
-    type AuthLevel = | User | KeyUser | Admin
+    type AuthLevel = | Viewer | User | KeyUser | Admin
 
     type Login = Login of String8
         with
@@ -221,47 +221,37 @@ module DomainTypes =
     //Model id of record in Database
     type TimeRecordId = uint32
 
+    type EntryMethod = 
+        | ProductionLine
+        | Individual
+
+    [<RequireQualifiedAccess>]
+    type EntryLevel = 
+        | ShopFloor
+        | WorkCenter
+
 // --------------------------------------------------
 
-/// Capabitilities available in application
+(* CAPABILITIES *)
 // https://gist.github.com/swlaschin/909c5b24bf921e5baa8c#file-capabilitybasedsecurity_consoleexample-fsx
-
-    type SelectSiteCap      = (Site -> Result<Site>)
-    type DisplaySiteCap     = (Site list -> Result<string list>)
-
-    type DesactivateSiteCap = (Site -> Result<unit>)
-    type ActivateSiteCap    = (Site -> Result<unit>)
-    
-    type CreateSiteCap      = (string -> Result<Site>)
-
-
-    type DisplayShopFloorCap = (Site -> Result<string list>) 
-
-    type SelectShopFloorCap  = (ShopFloor -> Result<ShopFloor>)
-
-    type CreateShopFloorCap = ( unit -> Result<ShopFloorInfo> )
-    
-    type UpdateShopFloorCap = ( unit -> ShopFloorInfo -> Result<ShopFloorInfo> )
-        
-    type DesactivateShopFloorCap = ( unit -> Result<unit> )
-
-    type UpdatePasswordCap =  ( Login -> Password -> Result<UserInfo> )
-    
-    type UpdateUserNameCap =  ( unit -> UserName -> Result<UserInfo> )
-    
-    type UpdateUserInfoCap = ( unit -> UserInfo -> Result<UserInfo> )
-
-    //To be put in capabilityProvider
-    type Capability = 
-        | LoginCap
-        | UpdatePasswordCap
-        | CreateSiteCap
-        | SelectSiteCap
-        | UnselectSiteCap
-        | SelectShopFloorCap
-        | UnselectShopFloorCap
-        | LogoutCap
-        | ExitCap
+    [<RequireQualifiedAccess>]
+    type Cap = 
+        | Login
+        | UpdatePassword
+        | CreateSite
+        | SelectSite
+        | UnselectSite
+        | SelectEntryMethod
+        | UnselectEntryMethod
+        | SelectEntryLevel
+        | UnselectEntryLevel
+        | SelectShopFloor
+        | UnselectShopFloor
+        | SelectWorkCenter
+        | UnselectWorkCenter
+        | SelectAttribution
+        | Logout
+        | Exit
 
 (* INPUT DATA *)
 
@@ -269,7 +259,28 @@ module DomainTypes =
     type LoggedInData           = { UserInfo : UserInfo }
     type UpdatePasswordData     = { UserInfo : UserInfo }
     type SiteSelectedData       = { UserInfo : UserInfo ; Site : Site}
-    type ShopFloorSelectedData  = { Site  : Site  ; ShopFloor : ShopFloor; UserInfo : UserInfo }
+
+    type EntryMethodSelectedData = { UserInfo : UserInfo ; Site : Site; EntryMethod : EntryMethod }
+    
+    type EntryLevelSelectedData = { UserInfo: UserInfo; Site: Site; EntryMethod : EntryMethod; EntryLevel : EntryLevel}  
+    
+    type ShopFloorSelectedData  = 
+        { 
+            Site        : Site
+            ShopFloor   : ShopFloor
+            UserInfo    : UserInfo
+            EntryMethod : EntryMethod
+            EntryLevel  : EntryLevel 
+        }
+    type WorkCenterSelectedData = 
+        {   
+            Site        : Site 
+            ShopFloor   : ShopFloor
+            WorkCenter  : WorkCenter option
+            UserInfo    : UserInfo 
+            EntryMethod : EntryMethod 
+            EntryLevel  : EntryLevel
+        }
 
 (*  SERVICES *)
     
@@ -284,9 +295,21 @@ module DomainTypes =
 
     type UnSelectSite = SiteSelectedData -> LoggedInData
 
-    type DisplayShopFloors = SiteSelectedData -> Result<string list>
+    type DisplayEntryMethod = SiteSelectedData -> Result<string list>
 
-    type SelectShopFloor = SiteSelectedData -> ShopFloor -> Result<ShopFloorSelectedData>
+    type SelectEntryMethod = EntryMethod -> SiteSelectedData -> Result<EntryMethodSelectedData>
+
+    type DisplayEntryLevel = EntryMethodSelectedData -> Result<string list option>
+
+    type SelectEntryLevel = EntryLevel -> EntryMethodSelectedData -> Result<EntryLevelSelectedData>
+
+    type DisplayShopFloors = EntryLevelSelectedData -> Result<string list>
+
+    type SelectShopFloor = ShopFloor -> EntryLevelSelectedData -> Result<ShopFloorSelectedData>
+
+    type DisplayWorkCenters = ShopFloorSelectedData -> Result<string list option>
+
+    type SelectWorkCenter = WorkCenter -> ShopFloorSelectedData -> Result<WorkCenterSelectedData>
 
     //User may not have the right to create one site or input is invalid
     type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
@@ -301,15 +324,18 @@ module DomainTypes =
         | Exit
         //Connect user and list possible actions he can do:
         | LoggedIn              of LoggedInData
+        | SiteCreated           of SiteSelectedData
         | PasswordUpdated       of UpdatePasswordData
         | SiteSelected          of SiteSelectedData
-        | SiteCreated           of SiteSelectedData
+        | EntryMethodSelected   of EntryMethodSelectedData  
+        | EntryLevelSelected    of EntryLevelSelectedData
         | ShopFloorSelected     of ShopFloorSelectedData   
+        | WorkCenterSelected    of WorkCenterSelectedData
 
 
 
     //Model the creation of one time Record
-    //type RecordTime = UserInfo -> Site -> TimeAttribution -> TimeEntryMode -> ShopFloor -> WorkCenter option -> Duration * NbPerson -> TimeRecord
+    //type RecordTime = UserInfo -> Site -> TimeEntryMode  -> ShopFloor -> WorkCenter option -> TimeAttribution -> Duration * NbPerson -> TimeRecord
 
     // Use Types
     //type EntryRequest = { User: UserInfo; Entry : TimeRecord }

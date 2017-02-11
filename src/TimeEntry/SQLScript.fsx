@@ -189,19 +189,21 @@ getShopFloorCodes()
 insertTimeRecord timeRecord
 
 getTimeRecord 5u
-let ctx = Sql.GetDataContext()
+
 let login = Login (String8 "moureed1")
 
 let user = { 
                 Login           = Login (String8 "moureed1"); 
-                Password        = Password (String50 "indaclud"); 
-                Name            = UserName (String50 "Edouard Moureaux"); 
+                Password        = Password (String50 "indaclub"); 
+                Name            = UserName (String50 "Edouard"); 
                 SiteAccess      = AllSites
-                Level           = Admin
+                Level           = Viewer
             }
-UserInfoAPI.insert user
+UserInfoAPI.update user
 
 UserInfoAPI.getUser (login)
+
+getUserInfo login
 
 UserInfoAPI.updatePassword login (Password (String50 "depzoiam12"))
 
