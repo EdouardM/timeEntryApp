@@ -161,6 +161,13 @@ module DBCommands =
                 
             queryable
         
+        let private codeFilter (shopfloor:ShopFloor) = 
+            let sfcode = shopfloor.ToString()
+            let queryable: (IQueryable<ShopFloorEntity>  -> IQueryable<ShopFloorEntity>) =
+                (fun iq -> iq.Where( fun (sf:ShopFloorEntity) -> sf.Shopfloor = sfcode))
+                
+            queryable
+        
         let private getShopFloorEntities () = 
                 let ctx = Sql.GetDataContext()
                 query {
@@ -186,19 +193,15 @@ module DBCommands =
                 |> Seq.toList
 
 
-        type GetShopFloorInfo = string -> Result<DBShopFloorInfo>
+        type GetShopFloorInfo = ActiveStatus -> ShopFloor -> Result<DBShopFloorInfo>
         let getShopFloorInfo: GetShopFloorInfo =
-            fun sf ->
-                let ctx = Sql.GetDataContext()
-                query {
-                    for shopfloor in ctx.Timeentryapp.Shopfloor do
-                        where (shopfloor.Active = 1y && shopfloor.Shopfloor = sf)
-                        select shopfloor
-                }
+            fun activeStatus shopfloor ->
+                getShopFloorEntities()
+                |> activeFilter activeStatus
+                |> codeFilter shopfloor
                 |> Seq.map(fun dbsf -> dbsf.MapTo<DBShopFloorInfo>() )
                 |> Seq.toList
-                |> onlyOne "Shopfloor" sf
-
+                |> onlyOne "Shopfloor" (shopfloor.ToString())
 
         type InsertShopfloor = ShopFloorInfo -> Result<unit>
 
@@ -259,16 +262,53 @@ module DBCommands =
     module WorkCenterAPI =
         open DBConversions.WorkCenter
 
-        type GetWorkCenterCodes = unit -> string list
-        let getWorkCenterCodes: GetWorkCenterCodes =
-            fun () -> 
+        type WorkCenterEntity = DBContext.``timeentryapp.workcenterEntity``
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<WorkCenterEntity>  -> IQueryable<WorkCenterEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (s:WorkCenterEntity) -> s.Active = 1y))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (s:WorkCenterEntity) -> s.Active = 0y))
+                    | All -> id
+            queryable
+        let private shopfloorFilter (shopfloor: ShopFloor) = 
+            let sf = shopfloor.ToString()
+            let queryable: (IQueryable<WorkCenterEntity>  -> IQueryable<WorkCenterEntity>) =
+                (fun iq -> iq.Where( fun (wc:WorkCenterEntity) -> wc.Shopfloor = sf))
+                
+            queryable
+        
+        let private codeFilter (workcenter:WorkCenter) = 
+            let wccode = workcenter.ToString()
+            let queryable: (IQueryable<WorkCenterEntity>  -> IQueryable<WorkCenterEntity>) =
+                (fun iq -> iq.Where( fun (sf:WorkCenterEntity) -> sf.WorkCenter = wccode))
+                
+            queryable
+        let private getWorkCenterEntities () = 
                 let ctx = Sql.GetDataContext()
                 query {
-                    for workcenter in ctx.Timeentryapp.Workcenter do
-                        where (workcenter.Active = 1y)
-                        select workcenter.WorkCenter
+                    for workCenter in ctx.Timeentryapp.Workcenter do
+                        select workCenter
                 }
+
+
+        type GetWorkCenterCodes = ActiveStatus -> string list
+        let getWorkCenterCodes: GetWorkCenterCodes =
+            fun activeStatus -> 
+                getWorkCenterEntities()
+                |> activeFilter activeStatus
+                |> (fun (iq:IQueryable<WorkCenterEntity>) -> iq.Select( fun (wc: WorkCenterEntity) -> wc.WorkCenter))
                 |> Seq.toList
+
+        let getWorkCenterCodesByShopfloor = 
+            fun activeStatus shopfloor ->
+                getWorkCenterEntities()
+                |> activeFilter activeStatus
+                |> shopfloorFilter shopfloor
+                |> (fun (iq:IQueryable<WorkCenterEntity>) -> iq.Select( fun (wc: WorkCenterEntity) -> wc.WorkCenter))
+                |> Seq.toList
+
 
 
         type GetWorkCenter = string -> Result<DBWorkCenterInfo>
@@ -841,7 +881,6 @@ module DBCommands =
 
 
         type GetWorkOrder = string -> Result<DBWorkOrderInfo>
-        
         let private getWorkOrderEntity = 
             fun (ctx: DBContext) wo ->
                 query {
