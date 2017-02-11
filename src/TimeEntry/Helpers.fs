@@ -41,7 +41,13 @@ module Result =
     let (>>=) f g = f >> map g
 
     let (>=>) f g = f >> bind g
-    
+
+    let failIfNullString (input:string) = 
+        if System.String.IsNullOrEmpty(input) then
+            Failure "Null string is not allowed"
+        else
+            Success input
+
     let failIfMissing msg = 
         function
             | Some x -> Success x
@@ -63,7 +69,7 @@ module Result =
 
     let failIfNotInMap (d:Map<_,_>) x msg = 
         Map.containsKey x d 
-        |> failIfFalse d.[x] msg
+        |> failIfFalse d msg
 
     let switchResOpt xResOpt =
         match xResOpt with
