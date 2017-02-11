@@ -256,7 +256,7 @@ namespace TimeEntry
                         | User      -> "user"
                         | KeyUser   -> "keyuser"
                         | Admin     -> "admin"
-                
+                        | Viewer    -> "viewer"
                 let toDB  (user : UserInfo) = 
                     let (Login (String8 login))   = user.Login
                     let (UserName (String50 name)) = user.Name

@@ -208,12 +208,12 @@ CREATE TABLE User (
     UserRealName VARCHAR(50) NOT NULL,
     Password VARCHAR(50) NOT NULL,
     AllSites TINYINT(1) NOT NULL,
-    AuthLevel ENUM('user', 'keyuser', 'admin') NOT NULL,
+    AuthLevel ENUM('viewer', 'user', 'keyuser', 'admin') NOT NULL,
     Active TINYINT(1) NOT NULL,
     PRIMARY KEY (Login)
 );
 
-INSERT User VALUES('moureed1', 'Edouard Moureaux', 0, 'admin', 1);
+INSERT User VALUES('moureed1', 'Edouard', 'indaclub', 0, 'admin', 1);
 
 /* =====================================================
 Create User Site Authorization table  
