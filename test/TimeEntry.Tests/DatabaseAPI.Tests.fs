@@ -76,7 +76,7 @@ let testShopfloor =
 
       let step1' = "We get the same shopfloor."
       
-      let dbsf = ShopFloorAPI.getShopFloorInfo(sfCode)
+      let dbsf = ShopFloorAPI.getShopFloorInfo Active sf.ShopFloor
       let expected = ShopFloor.toDB sf |> Success
       
       Expect.equal dbsf expected step1';
@@ -121,7 +121,7 @@ let testWorkCenter =
       WorkCenterAPI.insert(wc) 
       |> stopOnFailure
 
-      let cnt = WorkCenterAPI.getWorkCenterCodes() |> List.length
+      let cnt = WorkCenterAPI.getWorkCenterCodes Active |> List.length
       Expect.equal cnt 1 step1
       
       let step1' = "We get the same workcenter after insert."
@@ -136,7 +136,7 @@ let testWorkCenter =
       WorkCenterAPI.desactivate(wcCode)
       |> stopOnFailure
 
-      let cnt = WorkCenterAPI.getWorkCenterCodes() |> List.length
+      let cnt = WorkCenterAPI.getWorkCenterCodes Active |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
@@ -145,7 +145,7 @@ let testWorkCenter =
       WorkCenterAPI.activate(wcCode)
       |> stopOnFailure
 
-      let cnt = WorkCenterAPI.getWorkCenterCodes() |> List.length
+      let cnt = WorkCenterAPI.getWorkCenterCodes Active |> List.length
       Expect.equal cnt 1 step3
 
     testCase "Update" <| fun _ -> 
