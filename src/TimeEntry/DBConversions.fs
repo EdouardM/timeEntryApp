@@ -459,6 +459,7 @@ namespace TimeEntry
                                 <*> attributionRes
                                 <*> timeTypeRes
                                 <*> durationRes
+                                <*> nbPeopleRes
                                 <*> statusRes
                                 
                             | None, Some act -> 
@@ -471,6 +472,7 @@ namespace TimeEntry
                                 <*> attributionRes
                                 <*> timeTypeRes
                                 <*> durationRes
+                                <*> nbPeopleRes
                                 <*> statusRes
 
                             | Some wo, Some ev -> Failure "Both Workorder and Event entry are set."

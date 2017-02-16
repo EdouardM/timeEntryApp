@@ -57,19 +57,17 @@ let useCapability state =
         | Cap.SelectEntryLevel -> 
             result {
                 let! levels = Program.displayEntryLevelController Services.displayEntryLevel state
-                let input = Option.map(
-                                    fun levels -> 
-                                        let choices = List.reduce(fun s s' -> s + " , " + s') levels
-                                        printfn "[Select Entry Level] Possible Choice: %s" choices
+                let input = 
+                    let choices = List.reduce(fun s s' -> s + " , " + s') levels
+                    printfn "[Select Entry Level] Possible Choice: %s" choices
 
-                                        printfn "[Select Entry Level] Enter the Entry Level to select:"
-                                        Console.ReadLine()) levels
+                    printfn "[Select Entry Level] Enter the Entry Level to select:"
+                    Console.ReadLine()
 
                 return! Program.selectEntryLevelController Services.selectEntryLevel state input 
             }
 
         |Cap.UnselectEntryLevel -> Program.unselectEntryLevelController state
-
         | Cap.SelectShopFloor -> 
             result {
                 let! shopfloors = Program.displayShopfloorsController Services.displayShopFloors state
@@ -83,33 +81,42 @@ let useCapability state =
             }
 
         | Cap.UnselectShopFloor -> Program.unselectShopFloorController state
-
         | Cap.SelectWorkCenter -> 
             result {
                 let! workcenters = Program.displayWorkCentersController Services.displayWorkCenters state
-                let input = Option.map(
-                                    fun wcs -> 
-                                        let choices = List.reduce(fun s s' -> s + " , " + s') wcs
-                                        printfn "[Select WorkCenter] Possible Choice: %s" choices
+                let input =
+                    let choices = List.reduce(fun s s' -> s + " , " + s') workcenters
+                    printfn "[Select WorkCenter] Possible Choice: %s" choices
 
-                                        printfn "[Select WorkCenter] Enter the workcenter to selesct:"
-                                        Console.ReadLine()) workcenters
+                    printfn "[Select WorkCenter] Enter the workcenter to selesct:"
+                    Console.ReadLine()
 
                 return! Program.selectWorkCenterController Services.selectWorkCenter state input 
             }
+        | Cap.UnselectWorkCenter -> Program.unselectWorkCenterController state       
 
-            // If EntryLevel = Shop Floor => None 
-            // Else          = display + selectWorkCenter => Some wc
-            // Return Workcenterselected data
-            //Success state
-        | Cap.UnselectWorkCenter -> Program.unselectWorkCenterController state
+         | Cap.SelectEntryMode -> 
+            result {
+                let! entrymodes = Program.displayEntryModesController Services.displayEntryModes state
+                let choices = List.reduce(fun s s' -> s + " , " + s') entrymodes
+                printfn "[Select Entry Mode] Possible Choice: %s" choices
 
-        | Cap.Exit -> Program.exitController ()
-        
-        //Any other capability => logout
-        | _  -> 
+                printfn "[Select Entry Mode] Enter the entry mode to select:"
+                let mode = Console.ReadLine()
+            
+                return! Program.selectEntryModeController Services.selectEntryMode state mode
+            }
+
+        | Cap.UnselectEntryMode -> Program.unselectEntryModeController state
+
+        | Cap.SelectAttribution 
+        | Cap.UnselectAttrbution  
+        | Cap.CreateSite ->
                 printfn "Not implemented yet. Logging out..."
                 Program.logoutController ()
+
+        | Cap.Logout -> Program.logoutController()
+        | Cap.Exit -> Program.exitController ()        
 let capabilityToMenu =
     function
         | Cap.Login              -> "(L)ogin"
@@ -125,7 +132,10 @@ let capabilityToMenu =
         | Cap.UnselectShopFloor  -> "(U)nselect shopfloor"
         | Cap.SelectWorkCenter   -> "(S)elect one workcenter"
         | Cap.UnselectWorkCenter -> "(U)nselect workcenter"
+        | Cap.SelectEntryMode    -> "(S)elect entry mode"
+        | Cap.UnselectEntryMode  -> "(U)nselect entry mode"
         | Cap.SelectAttribution  -> "(S)elect time attribution"
+        | Cap.UnselectAttrbution -> "(U)nselect time attribution"
         | Cap.Logout             -> "(L)ogout"
         | Cap.Exit               -> "(E)xit"
 

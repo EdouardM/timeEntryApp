@@ -20,14 +20,9 @@ module Application =
             onlyForAdmin userinfo DBService.desactivateSite
 
         let createNewSiteForAdmin userinfo = onlyForAdmin userinfo DBService.newSite
-        let displayEntryModeNotForViewer userinfo = notForViewer userinfo (fun () -> ["(P)roduction"; "(I)ndividual"])
+        let displayEntryMethodNotForViewer userinfo = notForViewer userinfo (fun () -> ["(P)roduction"; "(I)ndividual"])
         let selectEntryModeNotForViewer userinfo = notForViewer userinfo retn
-        let displayEntryLevelNotForViewer userinfo = 
-            (fun entrymethod -> 
-                if entrymethod = Individual then 
-                    Some ["(S)hopfloor"; "(W)orkcenter"]
-                else None )
-            |> notForViewer userinfo
+        let displayEntryLevelNotForViewer userinfo = notForViewer userinfo (fun () -> ["(S)hopfloor"; "(W)orkcenter"])
         let selectEntryLevelNotForViewer userinfo = notForViewer userinfo retn
         let displayWorkCenterNotForViewer userinfo = 
             (fun entryLevel shopfloor -> 
@@ -36,6 +31,9 @@ module Application =
                     |> Some
                 else None )
             |> notForViewer userinfo
+
+        let displayEntryModeNotForViewer userinfo = notForViewer userinfo (fun () -> ["(M)achineOnly"; "(L)abourOnly"])
+
 
 
     (* SERVICES IMPLEMENTATION *)
@@ -109,7 +107,7 @@ module Application =
 
         let displayEntryMethod: DisplayEntryMethod = 
             fun siteSelectedData -> 
-                let displayEntryModecap = displayEntryModeNotForViewer siteSelectedData.UserInfo
+                let displayEntryModecap = displayEntryMethodNotForViewer siteSelectedData.UserInfo
                 match displayEntryModecap with
                     | Some cap -> 
                         cap() |> Success
@@ -135,7 +133,7 @@ module Application =
                 let displayEntryLevelCap = displayEntryLevelNotForViewer entryMethodData.UserInfo
                 match displayEntryLevelCap with
                     | Some cap -> 
-                        cap entryMethodData.EntryMethod
+                        cap ()
                         |> Success
                     | None      -> Failure "You are not authorized to record time."
 
@@ -177,12 +175,12 @@ module Application =
                 let displayWorkCenterCap = displayWorkCenterNotForViewer shopFloorData.UserInfo
                 match displayWorkCenterCap with
                     | Some cap -> 
-                        maybe {
-                            let! wcList = cap shopFloorData.EntryLevel shopFloorData.ShopFloor
-                            let msg = sprintf "No active WorkCenter defined for the shopfloor: %s" <| shopFloorData.ShopFloor.ToString()
-                            return failIfEmpty msg wcList
-                        }
-                        |> Result.switchResOpt
+                        let msg = 
+                            sprintf "No active WorkCenter defined for the shopfloor: %s" 
+                            <| shopFloorData.ShopFloor.ToString()
+                        
+                        cap shopFloorData.EntryLevel shopFloorData.ShopFloor
+                        |> Result.failIfMissing msg 
 
                     | None -> Failure "You are not authorized to record time."
         let selectWorkCenter: SelectWorkCenter = 
@@ -197,7 +195,25 @@ module Application =
                 }
                 |> Success
                 
+        let displayEntryModes: DisplayEntryModes = 
+            fun workcenterData -> 
+                let displayEntryModeCap = displayEntryModeNotForViewer workcenterData.UserInfo
+                match displayEntryModeCap with
+                    | Some cap -> cap () |> Success
+                    | None -> Failure "You are not authorized to record time."
 
+        let selectEntryMode: SelectEntryMode = 
+            fun entrymode workcenterData -> 
+                { 
+                    EntryModeSelectedData.Site = workcenterData.Site 
+                    UserInfo            = workcenterData.UserInfo 
+                    ShopFloor           = workcenterData.ShopFloor 
+                    EntryMethod         = workcenterData.EntryMethod
+                    EntryLevel          = workcenterData.EntryLevel
+                    WorkCenter          = workcenterData.WorkCenter
+                    EntryMode           = entrymode
+                }
+                |> Success                
 
     (* IMPLEMENT PROGRAM *)
     module Program = 
@@ -213,10 +229,31 @@ module Application =
                 | LoggedIn  _               -> Map.ofList ["U", Cap.UpdatePassword; "S", Cap.SelectSite; "C", Cap.CreateSite; "L", Cap.Logout]
                 | PasswordUpdated _         -> Map.ofList ["U", Cap.UpdatePassword; "S", Cap.SelectSite; "C", Cap.CreateSite; "L", Cap.Logout] 
                 | SiteSelected  _           -> Map.ofList ["U", Cap.UnselectSite; "R", Cap.SelectEntryMethod; "L", Cap.Logout] 
-                | EntryMethodSelected _     -> Map.ofList ["U", Cap.UnselectEntryMethod ; "S", Cap.SelectEntryLevel; "L", Cap.Logout] 
+                | EntryMethodSelected data  -> 
+                        match data.EntryMethod with
+                            | Individual        -> Map.ofList ["U", Cap.UnselectEntryMethod ; "S", Cap.SelectEntryLevel; "L", Cap.Logout] 
+                            
+                            //Skip EntryLevel selection, directly ShopFloor Selection
+                            | ProductionLine    -> Map.ofList ["U", Cap.UnselectEntryMethod ; "S", Cap.SelectShopFloor; "L", Cap.Logout] 
+                
+                //Only in EntryMthod individual
                 | EntryLevelSelected _      -> Map.ofList ["U", Cap.UnselectEntryLevel ; "S", Cap.SelectShopFloor; "L", Cap.Logout] 
-                | ShopFloorSelected _       -> Map.ofList ["U", Cap.UnselectShopFloor; "S", Cap.SelectWorkCenter; "L", Cap.Logout] 
-                | WorkCenterSelected _      -> Map.ofList ["U", Cap.UnselectWorkCenter; "S", Cap.SelectAttribution; "L", Cap.Logout]
+                | ShopFloorSelected data    -> 
+                        match data.EntryLevel with
+                            | EntryLevel.WorkCenter -> 
+                                    Map.ofList ["U", Cap.UnselectShopFloor; "S", Cap.SelectWorkCenter; "L", Cap.Logout] 
+
+                            //Skip WorkCenter selection! 
+                            | EntryLevel.ShopFloor  -> Map.ofList ["U", Cap.UnselectShopFloor; "S", Cap.SelectEntryMode ; "L", Cap.Logout] 
+
+                | WorkCenterSelected data      -> 
+                    match data.EntryMethod with
+                        | Individual        -> Map.ofList ["U", Cap.UnselectWorkCenter; "S", Cap.SelectEntryMode ; "L", Cap.Logout]
+                        //Skip EntryMode selection
+                        | ProductionLine    -> Map.ofList ["U", Cap.UnselectWorkCenter; "S", Cap.SelectAttribution ; "L", Cap.Logout]
+
+                | EntryModeSelected _       -> Map.ofList ["U", Cap.UnselectEntryMode ; "S", Cap.SelectAttribution ; "L", Cap.Logout]
+                | AttributionSelected _     -> Map.ofList ["U", Cap.UnselectAttrbution; "L", Cap.Logout]
                 | SiteCreated _             -> Map.ofList ["U", Cap.UnselectSite; "L", Cap.Logout] 
                 | Exit                      -> Map.ofList []  
                 
@@ -238,15 +275,35 @@ module Application =
             function 
                 | EntryLevelSelected data   -> Success data
                 | _                         -> Failure "Not in Entry Level selected state, cannot access to inner data."
-        let getSelectShopFloorData = 
+        let getOrCreateEntryLevelSelectedData = 
+            function
+                | EntryLevelSelected data -> Success data
+                | EntryMethodSelected data ->  
+                    EntryLevelSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter 
+                    |> Success
+                | _ -> Failure "Unexpected application state should be Entry Level Selected or Entry Method Selected."
+
+        let getShopFlooorSelectedData = 
             function
                 | ShopFloorSelected data -> Success data
                 | _                      -> Failure "Not in Shopfloor Selected state, cannot access to inner data."
 
-        let getWorkCenterSelectedData =
-            function
+        let getWorkCenterSelectedData = 
+            function 
                 | WorkCenterSelected data -> Success data
                 | _                       -> Failure "Not in Workcenter Selected state, cannot access to inner data."
+        let getOrCreateWorkCenterSelectedData =
+            function
+                | WorkCenterSelected data -> Success data
+                | ShopFloorSelected data ->  
+                    WorkCenterSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter data.ShopFloor None
+                    |> Success
+                | _ -> Failure "Unexpected application state should be WorkCenter Selected or ShopFloor Selected."
+        let getEntryModeSelectedData = 
+            function 
+                | EntryModeSelected data    -> Success data
+                | _                         -> Failure "Not in Entry Mode Selected state, cannot access to inner data."
+
         let loginController (userLogin: UserLogin) state usercredential =
             match state with
                 | LoggedOut ->
@@ -267,7 +324,6 @@ module Application =
 
         let logoutController () = Success LoggedOut
         let exitController () = Success Exit
-
         let displaySitesController (displaySite: DisplaySites) state =
             result {
                 let! loggedInData       = getLoggedInData state
@@ -312,23 +368,10 @@ module Application =
             }
         let selectEntryLevelController (selectEntryLevel: SelectEntryLevel) state input = 
             result {
-                match input with 
-                    | Some str -> 
-                        let! level              = EntryLevel.validate str
-                        let! entryMethodData    = getEntryMethodSelectedData state
-                        let! entryLevelData     = selectEntryLevel  level entryMethodData 
-                        return (EntryLevelSelected entryLevelData)
-                    | None -> 
-                        ///TO DOs
-                        let! entryMethodData    = getEntryMethodSelectedData state
-                        let entrylevelData =
-                            {   
-                                EntryLevelSelectedData.UserInfo    = entryMethodData.UserInfo 
-                                Site        = entryMethodData.Site
-                                EntryMethod = entryMethodData.EntryMethod
-                                EntryLevel  = EntryLevel.WorkCenter
-                            }
-                        return (EntryLevelSelected entrylevelData)
+                let! level              = EntryLevel.validate input
+                let! entryMethodData    = getEntryMethodSelectedData state
+                let! entryLevelData     = selectEntryLevel  level entryMethodData 
+                return (EntryLevelSelected entryLevelData)
             }
         
         let unselectEntryLevelController state = 
@@ -342,19 +385,19 @@ module Application =
             |> Result.map(EntryMethodSelected)
         let displayShopfloorsController (displayShopfloors: DisplayShopFloors) state = 
             result {
-                let! entryLevelData = getEntryLevelSelectedData state
+                let! entryLevelData = getOrCreateEntryLevelSelectedData state
                 return! displayShopfloors entryLevelData
             }
 
-        let selectShopfloorController (selectShopFloor: SelectShopFloor) state input = 
-            result {
-                let! entryLevelData = getEntryLevelSelectedData state
-                let! shopfloor       = DBService.validateShopFloor entryLevelData.Site input
-                let! shopfloordata = selectShopFloor shopfloor entryLevelData
-                return (ShopFloorSelected shopfloordata ) 
-            } 
+        let selectShopfloorController (selectShopFloor: SelectShopFloor) state input =  
+                result {
+                        let! entryleveldata   = getOrCreateEntryLevelSelectedData state
+                        let! shopfloor       = DBService.validateShopFloor entryleveldata.Site input
+                        let! shopfloordata = selectShopFloor shopfloor entryleveldata
+                        return (ShopFloorSelected shopfloordata ) 
+                }
         let unselectShopFloorController state =
-            getEntryLevelSelectedData state
+            getShopFlooorSelectedData state
             |> Result.map(fun data -> 
                 {
                     EntryLevelSelectedData.UserInfo = data.UserInfo
@@ -366,29 +409,14 @@ module Application =
 
         let displayWorkCentersController (displayWorkcenters: DisplayWorkCenters) state = 
             result {
-                let! shopfloorData = getSelectShopFloorData state
+                let! shopfloorData = getShopFlooorSelectedData state
                 return! displayWorkcenters shopfloorData
             }
         let selectWorkCenterController (selectWorkCenter: SelectWorkCenter) state input = 
             result {
-                match input with
-                    | Some str -> 
-                        let! shopfloordata  = getSelectShopFloorData state
-                        let! workcenter     = DBService.validateWorkCenter shopfloordata.ShopFloor str
+                        let! shopfloordata  = getShopFlooorSelectedData state
+                        let! workcenter     = DBService.validateWorkCenter shopfloordata.ShopFloor input
                         let! workcenterdata = selectWorkCenter workcenter shopfloordata
-                        return (WorkCenterSelected workcenterdata)
-                    | None -> 
-                        let! shopfloordata  = getSelectShopFloorData state
-                        let workcenterdata = 
-                            {
-                                Site        = shopfloordata.Site
-                                UserInfo    = shopfloordata.UserInfo 
-                                EntryMethod = shopfloordata.EntryMethod
-                                EntryLevel  = shopfloordata.EntryLevel
-                                ShopFloor   = shopfloordata.ShopFloor
-                                WorkCenter  = None
-
-                            }
                         return (WorkCenterSelected workcenterdata)
             }
 
@@ -405,6 +433,30 @@ module Application =
                 }) 
             |> Result.map(ShopFloorSelected)
         
+        let displayEntryModesController (displayEntryModes: DisplayEntryModes) state =
+            result {
+                let! workcenterdata = getOrCreateWorkCenterSelectedData state
+                return! displayEntryModes workcenterdata
+            }
+        let selectEntryModeController (selectEntryMode: SelectEntryMode) state input = 
+            result {
+                    let! workcenterdata = getOrCreateWorkCenterSelectedData state
+                    let! entryMode      = EntryMode.validate input
+                    let! entrymodedata  = selectEntryMode entryMode workcenterdata
+                    return (EntryModeSelected entrymodedata)
+            }
+        let unselectEntryModeController state =
+            getEntryModeSelectedData state
+            |> Result.map(fun data ->
+                {
+                    WorkCenterSelectedData.Site        = data.Site
+                    UserInfo    = data.UserInfo 
+                    EntryMethod = data.EntryMethod
+                    EntryLevel  = data.EntryLevel
+                    ShopFloor   = data.ShopFloor
+                    WorkCenter  = data.WorkCenter
+                }) 
+            |> Result.map(WorkCenterSelected)
         let siteCreationController state input (createSite: CreateSite) =            
             result {
                 let! loggedInData  = getLoggedInData state

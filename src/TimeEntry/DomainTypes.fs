@@ -193,13 +193,12 @@ module DomainTypes =
     
     type NbPeople = NbPeople of float32
     
-    type TimeEntryMode = 
-        | MachineOnly of Duration
-        | MachineAndLabour of Duration * NbPeople
-        | LabourOnly of Duration * NbPeople
+    type EntryMode = 
+        | MachineOnly     
+        | MachineAndLabour 
+        | LabourOnly      
 
-
-    type TimeAttribution = 
+    type Attribution = 
         | WorkOrderEntry of WorkOrderInfo
         | ActivityEntry of ActivityInfo
 
@@ -214,7 +213,8 @@ module DomainTypes =
             WorkCenter      : WorkCenter option
             Duration        : Duration
             TimeType        : TimeType
-            Attribution     : TimeAttribution
+            NbPeople        : NbPeople
+            Attribution     : Attribution
             Status          : RecordStatus
         }
     
@@ -249,9 +249,16 @@ module DomainTypes =
         | UnselectShopFloor
         | SelectWorkCenter
         | UnselectWorkCenter
+        | SelectEntryMode
+        | UnselectEntryMode
         | SelectAttribution
+        | UnselectAttrbution
         | Logout
         | Exit
+
+    type RecordTimeActions = 
+        | SelectAttribution
+        | EnterTime
 
 (* INPUT DATA *)
 
@@ -260,9 +267,20 @@ module DomainTypes =
     type UpdatePasswordData     = { UserInfo : UserInfo }
     type SiteSelectedData       = { UserInfo : UserInfo ; Site : Site}
 
-    type EntryMethodSelectedData = { UserInfo : UserInfo ; Site : Site; EntryMethod : EntryMethod }
+    type EntryMethodSelectedData = 
+        { 
+            UserInfo : UserInfo ; 
+            Site : Site; 
+            EntryMethod : EntryMethod 
+        }
     
-    type EntryLevelSelectedData = { UserInfo: UserInfo; Site: Site; EntryMethod : EntryMethod; EntryLevel : EntryLevel}  
+    type EntryLevelSelectedData = 
+        { 
+            UserInfo: UserInfo; 
+            Site: Site; 
+            EntryMethod : EntryMethod; 
+            EntryLevel : EntryLevel
+        }  
     
     type ShopFloorSelectedData  = 
         { 
@@ -282,6 +300,29 @@ module DomainTypes =
             EntryLevel  : EntryLevel
         }
 
+    type EntryModeSelectedData = 
+        { 
+            Site        : Site 
+            ShopFloor   : ShopFloor
+            WorkCenter  : WorkCenter option
+            UserInfo    : UserInfo 
+            EntryMethod : EntryMethod 
+            EntryLevel  : EntryLevel
+            EntryMode   : EntryMode
+        }
+
+    type AttributionSelectedData = 
+        { 
+            Site        : Site 
+            ShopFloor   : ShopFloor
+            WorkCenter  : WorkCenter option
+            UserInfo    : UserInfo 
+            EntryMethod : EntryMethod 
+            EntryLevel  : EntryLevel
+            EntryMode   : EntryMode
+            Attribution : Attribution
+        }
+
 (*  SERVICES *)
     
     //Use case or services: 
@@ -299,7 +340,7 @@ module DomainTypes =
 
     type SelectEntryMethod = EntryMethod -> SiteSelectedData -> Result<EntryMethodSelectedData>
 
-    type DisplayEntryLevel = EntryMethodSelectedData -> Result<string list option>
+    type DisplayEntryLevel = EntryMethodSelectedData -> Result<string list>
 
     type SelectEntryLevel = EntryLevel -> EntryMethodSelectedData -> Result<EntryLevelSelectedData>
 
@@ -307,9 +348,17 @@ module DomainTypes =
 
     type SelectShopFloor = ShopFloor -> EntryLevelSelectedData -> Result<ShopFloorSelectedData>
 
-    type DisplayWorkCenters = ShopFloorSelectedData -> Result<string list option>
+    type DisplayWorkCenters = ShopFloorSelectedData -> Result<string list>
 
     type SelectWorkCenter = WorkCenter -> ShopFloorSelectedData -> Result<WorkCenterSelectedData>
+
+    type DisplayEntryModes = WorkCenterSelectedData -> Result<string list>
+
+    type SelectEntryMode  = EntryMode -> WorkCenterSelectedData -> Result<EntryModeSelectedData>
+
+    type DisplayAttributions = WorkCenterSelectedData -> Result<string list>
+
+    type SelectAttribution = Attribution -> WorkCenterSelectedData -> Result<AttributionSelectedData>
 
     //User may not have the right to create one site or input is invalid
     type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
@@ -331,11 +380,14 @@ module DomainTypes =
         | EntryLevelSelected    of EntryLevelSelectedData
         | ShopFloorSelected     of ShopFloorSelectedData   
         | WorkCenterSelected    of WorkCenterSelectedData
-
+        | EntryModeSelected     of EntryModeSelectedData
+        | AttributionSelected   of AttributionSelectedData
 
 
     //Model the creation of one time Record
-    //type RecordTime = UserInfo -> Site -> TimeEntryMode  -> ShopFloor -> WorkCenter option -> TimeAttribution -> Duration * NbPerson -> TimeRecord
+    //type RecordTime = UserInfo -> Site -> EntryMethod  -> ShopFloor -> WorkCenter option -> TimeEntryMode -> 
+            //2 cases   Production Line - Multiple records:  -> TimeAttribution -> Duration * NbPerson -> TimeRecord list
+            //          Individual - one record: -> TimeAttribution -> Duration * NbPerson -> TimeRecord list
 
     // Use Types
     //type EntryRequest = { User: UserInfo; Entry : TimeRecord }

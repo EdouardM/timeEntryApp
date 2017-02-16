@@ -220,8 +220,9 @@ module Constructors =
                 | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
 
     module TimeRecord = 
-        let validate site shopfloor workcenter attribution timetype duration status =
-            { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; Status = status}
+        let validate site shopfloor workcenter attribution timetype duration nbpeople status =
+            { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; NbPeople = nbpeople;
+             Status = status}
 
     module EntryMethod = 
         let validate = 
@@ -236,3 +237,31 @@ module Constructors =
                 | "S"   -> Success EntryLevel.ShopFloor
                 | "W"   -> Success EntryLevel.WorkCenter
                 | input -> Failure <| sprintf "Invalid input: %s. Valid choices are : 'S' or 'W'" input
+
+    module EntryMode = 
+        let validate =
+            function
+                | "M"   -> Success MachineOnly
+                | "L"   -> Success LabourOnly
+                | input -> Failure <| sprintf "Invalid input: %s. Valid choices are: 'M' or 'L'" input
+
+    module EntryLevelSelectedData =
+        let create userinfo site entrymethod entrylevel = 
+            {
+                EntryLevelSelectedData.UserInfo    = userinfo
+                Site        = site
+                EntryMethod = entrymethod
+                EntryLevel  = entrylevel
+            }
+
+    module WorkCenterSelectedData = 
+        
+        let create userinfo site entrymethod entrylevel shopfloor workcenter = 
+            {
+                WorkCenterSelectedData.UserInfo    = userinfo
+                Site        = site
+                EntryMethod = entrymethod
+                EntryLevel  = entrylevel
+                ShopFloor   = shopfloor
+                WorkCenter  = workcenter
+            }
