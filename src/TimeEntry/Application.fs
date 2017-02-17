@@ -15,15 +15,15 @@ module Application =
                 onlyForSameLogin login userinfo DBService.updatePassword
 
         let displayAuthSite userinfo = hasAuthSites userinfo DBService.getAuthSiteCodes 
-        let selectAuthSite site userinfo = onlyForAuthSites site userinfo retn
+        let selectAuthSite site userinfo = onlyForAuthSites site userinfo succeed
         let desactivateForAdmin (userinfo:UserInfo) = 
             onlyForAdmin userinfo DBService.desactivateSite
 
         let createNewSiteForAdmin userinfo = onlyForAdmin userinfo DBService.newSite
         let displayEntryMethodNotForViewer userinfo = notForViewer userinfo (fun () -> ["(P)roduction"; "(I)ndividual"])
-        let selectEntryModeNotForViewer userinfo = notForViewer userinfo retn
+        let selectEntryModeNotForViewer userinfo = notForViewer userinfo succeed
         let displayEntryLevelNotForViewer userinfo = notForViewer userinfo (fun () -> ["(S)hopfloor"; "(W)orkcenter"])
-        let selectEntryLevelNotForViewer userinfo = notForViewer userinfo retn
+        let selectEntryLevelNotForViewer userinfo = notForViewer userinfo succeed
         let displayWorkCenterNotForViewer userinfo = 
             (fun entryLevel shopfloor -> 
                 if entryLevel = EntryLevel.WorkCenter then 

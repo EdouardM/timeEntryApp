@@ -9,15 +9,14 @@ module Option =
 module Result =
 
     type FailureMessage = string
-    type Result<'T> = | Success of 'T | Failure of FailureMessage
+    
+    type Result<'T> = 
+        | Success of 'T 
+        | Failure of FailureMessage
 
-    let retn x = Success x  
+    let succeed x = Success x  
 
-    let flatten  = 
-        function 
-            | Success (Success x) -> (Success x)
-            | Success (Failure msg) -> Failure msg 
-            | Failure msg -> Failure msg
+    let fail = Failure
     let map f res = 
         match res with
             | Success x -> Success (f x)
@@ -42,6 +41,45 @@ module Result =
 
     let (>=>) f g = f >> bind g
 
+    //https://fsharpforfunandprofit.com/posts/recipe-part2/
+    ///apply either a success function or a failure function
+    let either successFunc failureFunc = 
+        function
+            | Success x   -> successFunc x
+            | Failure msg -> failureFunc msg 
+
+    /// convert two one-track functions into a two-track function
+    let bimap successFunc failureFunc =
+        either (successFunc >> succeed) (failureFunc >> fail)
+
+    let tee f x = 
+        f x |> ignore
+        x
+
+    let tryCatch f exnHandler x = 
+        try 
+            f x |> succeed
+        with
+            | ex -> exnHandler ex |> fail
+
+    let plus addSuccess addFailure switch1 switch2 x =
+        match  (switch1 x, switch2 x) with
+            | Success s1, Success s2    -> addSuccess s1 s2 |> Success
+            | Failure f1, Success _     -> Failure f1
+            | Success _ , Failure f2    -> Failure f2
+            | Failure f1, Failure f2    -> addFailure f1 f2 |> Failure
+
+    ///combinator of 2 validation functions
+    let (&&&) v1 v2 = 
+        let addSuccess r1 r2 = r1 // return first 
+        let addFailure f1 f2 = f1 + "; " + f2 //concat failure msg
+        plus addSuccess addFailure v1 v2
+        
+    let flatten  = 
+        function 
+            | Success (Success x) -> (Success x)
+            | Success (Failure msg) -> Failure msg 
+            | Failure msg -> Failure msg
     let failIfNullString (input:string) = 
         if System.String.IsNullOrEmpty(input) then
             Failure "Null string is not allowed"
@@ -89,15 +127,15 @@ module Result =
     let rec traverse f list = 
         let cons head tail = head::tail
         match list with
-            | [] -> retn []
-            | head::tail -> retn cons <*> (f head) <*> (traverse f tail)
+            | [] -> succeed []
+            | head::tail -> succeed cons <*> (f head) <*> (traverse f tail)
     
     //https://fsharpforfunandprofit.com/posts/elevated-world-4/#sequence
     let sequence x = traverse id x
 
     type ResultBuilder() =
         member this.Bind(m, f) = bind f m
-        member this.Return(x) = retn x
+        member this.Return(x) = succeed x
 
         member this.ReturnFrom(x) = x
 
