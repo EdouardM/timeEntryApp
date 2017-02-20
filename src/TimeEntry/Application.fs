@@ -5,6 +5,7 @@ module Application =
     open TimeEntry.Result
     open TimeEntry.Option
     open TimeEntry.DomainTypes
+    open TimeEntry.Constructors
 
     (* DEFINITION OF CAPABILITIES *)
     module Capabilities = 
@@ -25,15 +26,27 @@ module Application =
         let displayEntryLevelNotForViewer userinfo = notForViewer userinfo (fun () -> ["(S)hopfloor"; "(W)orkcenter"])
         let selectEntryLevelNotForViewer userinfo = notForViewer userinfo succeed
         let displayWorkCenterNotForViewer userinfo = 
-            (fun entryLevel shopfloor -> 
-                if entryLevel = EntryLevel.WorkCenter then 
-                    DBService.getActiveWorkCentersByShopfloor shopfloor
-                    |> Some
-                else None )
+            DBService.getActiveWorkCentersByShopfloor
+            |> notForViewer userinfo
+        let displayEntryModeNotForViewer userinfo = notForViewer userinfo (fun () -> ["(M)achineOnly"; "(L)abourOnly"])
+        let displayAttributionNotForViewer userinfo = notForViewer userinfo (fun () -> ["(W)orkorder"; "(A)ctivity"])
+        let displayActivityCodesNotForViewer userinfo = 
+            (fun entryLevel entrymode shopfloor workcenter -> 
+                let timetype = EntryMode.toTimeType entrymode
+                match entryLevel, shopfloor, workcenter with
+                    | EntryLevel.ShopFloor, shopfloor, _ -> 
+                        DBService.getActivityCodeByTimeTypeAndShopFloor timetype shopfloor
+                        |> Some
+                    | EntryLevel.WorkCenter,_   , Some wc -> 
+                        DBService.getActivityCodeByTimeTypeAndWorkCenter timetype wc
+                        |> Some
+                    | EntryLevel.WorkCenter, _  , None -> None
+            )
             |> notForViewer userinfo
 
-        let displayEntryModeNotForViewer userinfo = notForViewer userinfo (fun () -> ["(M)achineOnly"; "(L)abourOnly"])
-
+        let displayWorkOrdersNotForViewer userinfo = 
+            (DBService.getWorkOrderByWorkCenter )
+            |> notForViewer userinfo
 
 
     (* SERVICES IMPLEMENTATION *)
@@ -179,8 +192,8 @@ module Application =
                             sprintf "No active WorkCenter defined for the shopfloor: %s" 
                             <| shopFloorData.ShopFloor.ToString()
                         
-                        cap shopFloorData.EntryLevel shopFloorData.ShopFloor
-                        |> Result.failIfMissing msg 
+                        cap shopFloorData.ShopFloor
+                        |> Result.failIfEmpty msg 
 
                     | None -> Failure "You are not authorized to record time."
         let selectWorkCenter: SelectWorkCenter = 
@@ -213,13 +226,104 @@ module Application =
                     WorkCenter          = workcenterData.WorkCenter
                     EntryMode           = entrymode
                 }
-                |> Success                
+                |> Success   
+        let displayAttributionTypes : DisplayAttributionTypes = 
+            fun entrymodedata -> 
+                let displayAttributionCap = displayAttributionNotForViewer entrymodedata.UserInfo
+                match displayAttributionCap with
+                    | Some cap -> cap () |> Success
+                    | None -> Failure "You are not authorized to record time."
+
+        let selectAttributionType: SelectAttributionType = 
+            fun attr entrymodedata -> 
+                { 
+                    AttributionTypeSelectedData.Site = entrymodedata.Site 
+                    UserInfo            = entrymodedata.UserInfo 
+                    ShopFloor           = entrymodedata.ShopFloor 
+                    EntryMethod         = entrymodedata.EntryMethod
+                    EntryLevel          = entrymodedata.EntryLevel
+                    WorkCenter          = entrymodedata.WorkCenter
+                    EntryMode           = entrymodedata.EntryMode
+                    AttributionType     = attr
+                }
+                |> Success   
+
+        let displayActivityCodes : DisplayActivityCodes = 
+            fun data -> 
+                let displayActivityCodeCap = displayActivityCodesNotForViewer data.UserInfo
+                match displayActivityCodeCap with
+                    | Some cap -> 
+                        cap data.EntryLevel data.EntryMode data.ShopFloor data.WorkCenter
+                        |> Result.failIfMissing "No activity code available." 
+
+                    | None -> Failure "You are not authorized to record time."
+        let displayWorkOrders : DisplayWorkOrders = 
+            fun data -> 
+                let displayWorkOrderCap = displayWorkOrdersNotForViewer data.UserInfo
+                match displayWorkOrderCap with
+                    | Some cap -> 
+                        match data.WorkCenter with
+                            | Some wc -> 
+                                let msg = sprintf "No workorder available for workcenter: %s." <| wc.ToString()
+                                cap wc
+                                |> Result.failIfEmpty msg
+                            | None    -> Failure "WorkCenter is not selected."
+
+                    | None -> Failure "You are not authorized to record time."
+        let selectAttribution: SelectAttribution = 
+            fun attr data -> 
+                { 
+                    AttributionSelectedData.Site = data.Site 
+                    UserInfo            = data.UserInfo 
+                    ShopFloor           = data.ShopFloor 
+                    EntryMethod         = data.EntryMethod
+                    EntryLevel          = data.EntryLevel
+                    WorkCenter          = data.WorkCenter
+                    EntryMode           = data.EntryMode
+                    AttributionType     = data.AttributionType
+                    Attribution         = attr
+                }
+                |> Success   
+
+        let enterDuration: EnterDuration = 
+            fun duration data -> 
+                { 
+                    DurationEnteredData.Site = data.Site 
+                    UserInfo            = data.UserInfo 
+                    ShopFloor           = data.ShopFloor 
+                    EntryMethod         = data.EntryMethod
+                    EntryLevel          = data.EntryLevel
+                    WorkCenter          = data.WorkCenter
+                    EntryMode           = data.EntryMode
+                    AttributionType     = data.AttributionType
+                    Attribution         = data.Attribution
+                    Duration            = duration
+                }
+                |> Success   
+                
+        let enterNbPeople: EnterNbPeople =
+            fun nb data -> 
+                { 
+                    NbPeopleEnteredData.Site = data.Site 
+                    UserInfo            = data.UserInfo 
+                    ShopFloor           = data.ShopFloor 
+                    EntryMethod         = data.EntryMethod
+                    EntryLevel          = data.EntryLevel
+                    WorkCenter          = data.WorkCenter
+                    EntryMode           = data.EntryMode
+                    AttributionType     = data.AttributionType
+                    Attribution         = data.Attribution
+                    Duration            = data.Duration
+                    NbPeople            = nb
+                }
+                |> Success   
+            
 
     (* IMPLEMENT PROGRAM *)
     module Program = 
         open Services
         open Capabilities
-        open Constructors
+        open DTO
 
         //Application returns here one key and the capability to communicate to the client
         //URL in case of web app
@@ -236,7 +340,7 @@ module Application =
                             //Skip EntryLevel selection, directly ShopFloor Selection
                             | ProductionLine    -> Map.ofList ["U", Cap.UnselectEntryMethod ; "S", Cap.SelectShopFloor; "L", Cap.Logout] 
                 
-                //Only in EntryMthod individual
+                //Only in EntryMethod individual
                 | EntryLevelSelected _      -> Map.ofList ["U", Cap.UnselectEntryLevel ; "S", Cap.SelectShopFloor; "L", Cap.Logout] 
                 | ShopFloorSelected data    -> 
                         match data.EntryLevel with
@@ -250,59 +354,22 @@ module Application =
                     match data.EntryMethod with
                         | Individual        -> Map.ofList ["U", Cap.UnselectWorkCenter; "S", Cap.SelectEntryMode ; "L", Cap.Logout]
                         //Skip EntryMode selection
-                        | ProductionLine    -> Map.ofList ["U", Cap.UnselectWorkCenter; "S", Cap.SelectAttribution ; "L", Cap.Logout]
+                        | ProductionLine    -> Map.ofList ["U", Cap.UnselectWorkCenter; "S", Cap.SelectAttributionType ; "L", Cap.Logout]
 
-                | EntryModeSelected _       -> Map.ofList ["U", Cap.UnselectEntryMode ; "S", Cap.SelectAttribution ; "L", Cap.Logout]
-                | AttributionSelected _     -> Map.ofList ["U", Cap.UnselectAttrbution; "L", Cap.Logout]
+                | EntryModeSelected _       -> Map.ofList ["U", Cap.UnselectEntryMode ; "S", Cap.SelectAttributionType ; "L", Cap.Logout]
+                | AttributionTypeSelected data  -> 
+                
+                        match data.AttributionType with
+                            | AttributionType.Activity  -> Map.ofList ["U", Cap.UnselectAttrbutionType; "S", Cap.SelectActivity; "L", Cap.Logout]
+                            | AttributionType.WorkOrder -> Map.ofList ["U", Cap.UnselectAttrbutionType; "S", Cap.SelectWorkOrder; "L", Cap.Logout]
+                
+                | AttributionSelected _     ->  Map.ofList ["U", Cap.UnselectAttribution ; "E", Cap.EnterDuration  ; "L", Cap.Logout]
+                
+                | DurationEntered _         -> Map.ofList ["C", Cap.CancelDuration ; "E", Cap.EnterNbPeople  ; "L", Cap.Logout]
+                | NbPeopleEntered _         -> Map.ofList ["C", Cap.CancelNbPeople ; "R", Cap.RecordTime     ; "L", Cap.Logout]
                 | SiteCreated _             -> Map.ofList ["U", Cap.UnselectSite; "L", Cap.Logout] 
                 | Exit                      -> Map.ofList []  
-                
-        let getLoggedInData =
-            function
-                | LoggedIn data -> Success data
-                | _             -> Failure "Not in LoggedIn state, cannot access to inner data."
-        let getSelecteSiteData = 
-            function
-                | SiteSelected data -> Success data
-                | _                 -> Failure "Not in Selected Site state, cannot access to inner data."
         
-        let getEntryMethodSelectedData = 
-            function
-                | EntryMethodSelected data  -> Success data
-                | _                         -> Failure "Not in Entry Method selected state, cannot access to inner data."
-
-        let getEntryLevelSelectedData = 
-            function 
-                | EntryLevelSelected data   -> Success data
-                | _                         -> Failure "Not in Entry Level selected state, cannot access to inner data."
-        let getOrCreateEntryLevelSelectedData = 
-            function
-                | EntryLevelSelected data -> Success data
-                | EntryMethodSelected data ->  
-                    EntryLevelSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter 
-                    |> Success
-                | _ -> Failure "Unexpected application state should be Entry Level Selected or Entry Method Selected."
-
-        let getShopFlooorSelectedData = 
-            function
-                | ShopFloorSelected data -> Success data
-                | _                      -> Failure "Not in Shopfloor Selected state, cannot access to inner data."
-
-        let getWorkCenterSelectedData = 
-            function 
-                | WorkCenterSelected data -> Success data
-                | _                       -> Failure "Not in Workcenter Selected state, cannot access to inner data."
-        let getOrCreateWorkCenterSelectedData =
-            function
-                | WorkCenterSelected data -> Success data
-                | ShopFloorSelected data ->  
-                    WorkCenterSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter data.ShopFloor None
-                    |> Success
-                | _ -> Failure "Unexpected application state should be WorkCenter Selected or ShopFloor Selected."
-        let getEntryModeSelectedData = 
-            function 
-                | EntryModeSelected data    -> Success data
-                | _                         -> Failure "Not in Entry Mode Selected state, cannot access to inner data."
 
         let loginController (userLogin: UserLogin) state usercredential =
             match state with
@@ -316,8 +383,8 @@ module Application =
         let updatePasswordController  (updatePassword: UpdatePassword) state login password = 
             result {
                 let! login = DBService.validateLogin login
-                let! password = Constructors.Password.create password  
-                let! loggedInData       = getLoggedInData state
+                let! password = Password.create password  
+                let! loggedInData       = LoggedIn.getData state
                 let! updatePasswordData = updatePassword login password loggedInData
                 return (PasswordUpdated updatePasswordData)
             }
@@ -326,56 +393,56 @@ module Application =
         let exitController () = Success Exit
         let displaySitesController (displaySite: DisplaySites) state =
             result {
-                let! loggedInData       = getLoggedInData state
+                let! loggedInData       = LoggedIn.getData state
                 return! displaySite loggedInData
             }
 
         let selectSiteController (selectSite: SelectSite) state input =
             result {
                 let! site           = DBService.validateSite input
-                let! loggedInData   = getLoggedInData state
+                let! loggedInData   = LoggedIn.getData state
                 let! selectSiteData = selectSite site loggedInData
                 
                 return (SiteSelected selectSiteData )
             }
         
         let unselectSiteController state =
-            getSelecteSiteData state
+            SiteSelected.getData state
             |> Result.map(fun data -> {LoggedInData.UserInfo = data.UserInfo})
             |> Result.map(LoggedIn)
         
         let displayEntryMethodController (displayEntryMethod: DisplayEntryMethod) state = 
             result {
-                let! siteselectedData = getSelecteSiteData state
+                let! siteselectedData = SiteSelected.getData state
                 return! displayEntryMethod siteselectedData
             }
 
         let selectEntryMethodController (selectEntryMethod: SelectEntryMethod) state input = 
             result {
                 let! method             = EntryMethod.validate input
-                let! siteselectedData   = getSelecteSiteData state
+                let! siteselectedData   = SiteSelected.getData state
                 let! timemethodData     = selectEntryMethod  method siteselectedData 
                 return (EntryMethodSelected timemethodData)
             }
         let unselectEntryMethodController state = 
-            getEntryMethodSelectedData state
+            EntryMethodSelected.getData state
             |> Result.map(fun data -> {SiteSelectedData.UserInfo = data.UserInfo; Site = data.Site })
             |> Result.map(SiteSelected)
         let displayEntryLevelController (displayEntryLevel: DisplayEntryLevel) state = 
             result {
-                let! entryMethodData = getEntryMethodSelectedData state
+                let! entryMethodData = EntryMethodSelected.getData state
                 return! displayEntryLevel entryMethodData
             }
         let selectEntryLevelController (selectEntryLevel: SelectEntryLevel) state input = 
             result {
                 let! level              = EntryLevel.validate input
-                let! entryMethodData    = getEntryMethodSelectedData state
+                let! entryMethodData    = EntryMethodSelected.getData state
                 let! entryLevelData     = selectEntryLevel  level entryMethodData 
                 return (EntryLevelSelected entryLevelData)
             }
         
         let unselectEntryLevelController state = 
-            getEntryLevelSelectedData state
+            EntryLevelSelected.getData state
             |> Result.map(fun data -> 
                 {
                     EntryMethodSelectedData.UserInfo = data.UserInfo
@@ -385,19 +452,19 @@ module Application =
             |> Result.map(EntryMethodSelected)
         let displayShopfloorsController (displayShopfloors: DisplayShopFloors) state = 
             result {
-                let! entryLevelData = getOrCreateEntryLevelSelectedData state
+                let! entryLevelData = EntryLevelSelected.getOrCreateData state
                 return! displayShopfloors entryLevelData
             }
 
         let selectShopfloorController (selectShopFloor: SelectShopFloor) state input =  
                 result {
-                        let! entryleveldata   = getOrCreateEntryLevelSelectedData state
+                        let! entryleveldata   = EntryLevelSelected.getOrCreateData state
                         let! shopfloor       = DBService.validateShopFloor entryleveldata.Site input
                         let! shopfloordata = selectShopFloor shopfloor entryleveldata
                         return (ShopFloorSelected shopfloordata ) 
                 }
         let unselectShopFloorController state =
-            getShopFlooorSelectedData state
+            ShopFloorSelected.getData state
             |> Result.map(fun data -> 
                 {
                     EntryLevelSelectedData.UserInfo = data.UserInfo
@@ -409,19 +476,19 @@ module Application =
 
         let displayWorkCentersController (displayWorkcenters: DisplayWorkCenters) state = 
             result {
-                let! shopfloorData = getShopFlooorSelectedData state
+                let! shopfloorData = ShopFloorSelected.getData state
                 return! displayWorkcenters shopfloorData
             }
         let selectWorkCenterController (selectWorkCenter: SelectWorkCenter) state input = 
             result {
-                        let! shopfloordata  = getShopFlooorSelectedData state
+                        let! shopfloordata  = ShopFloorSelected.getData state
                         let! workcenter     = DBService.validateWorkCenter shopfloordata.ShopFloor input
                         let! workcenterdata = selectWorkCenter workcenter shopfloordata
                         return (WorkCenterSelected workcenterdata)
             }
 
         let unselectWorkCenterController state =
-            getWorkCenterSelectedData state
+            WorkCenterSelected.getData state
             |> Result.map(fun data ->
                 {
                     ShopFloorSelectedData.Site        = data.Site
@@ -435,18 +502,18 @@ module Application =
         
         let displayEntryModesController (displayEntryModes: DisplayEntryModes) state =
             result {
-                let! workcenterdata = getOrCreateWorkCenterSelectedData state
+                let! workcenterdata = WorkCenterSelected.getOrCreateData state
                 return! displayEntryModes workcenterdata
             }
         let selectEntryModeController (selectEntryMode: SelectEntryMode) state input = 
             result {
-                    let! workcenterdata = getOrCreateWorkCenterSelectedData state
+                    let! workcenterdata = WorkCenterSelected.getOrCreateData state
                     let! entryMode      = EntryMode.validate input
                     let! entrymodedata  = selectEntryMode entryMode workcenterdata
                     return (EntryModeSelected entrymodedata)
             }
         let unselectEntryModeController state =
-            getEntryModeSelectedData state
+            EntryModeSelected.getData state
             |> Result.map(fun data ->
                 {
                     WorkCenterSelectedData.Site        = data.Site
@@ -457,9 +524,130 @@ module Application =
                     WorkCenter  = data.WorkCenter
                 }) 
             |> Result.map(WorkCenterSelected)
+
+        let displayAttributionsController (displayAttributionTypes : DisplayAttributionTypes) state =
+            result {
+                let! entrymodedata = EntryModeSelected.getOrCreateData state
+                return! displayAttributionTypes entrymodedata 
+            }
+
+        let selectAttributionTypeController (selectAttributionType: SelectAttributionType) state input = 
+            result {
+                    let! entrymodedata  = EntryModeSelected.getOrCreateData state
+                    let! attrType       = AttributionType.validate input
+                    let! attrdata       = selectAttributionType attrType entrymodedata
+                    return (AttributionTypeSelected attrdata)
+            }
+
+        let unselectAttributionTypeController state =
+            AttributionTypeSelected.getData state
+            |> Result.map(fun data ->
+                {
+                    EntryModeSelectedData.Site        = data.Site
+                    UserInfo    = data.UserInfo 
+                    EntryMethod = data.EntryMethod
+                    EntryLevel  = data.EntryLevel
+                    ShopFloor   = data.ShopFloor
+                    WorkCenter  = data.WorkCenter
+                    EntryMode   = data.EntryMode
+                }) 
+            |> Result.map(EntryModeSelected)
+
+        let displayActivityCodesController (displayActivityCodes : DisplayActivityCodes) state =
+            result {
+                let! data = AttributionTypeSelected.getData state
+                return! displayActivityCodes data 
+            }
+
+        let displayWorkOrdersController (displayWorkOrders : DisplayWorkOrders) state =
+            result {
+                let! data = AttributionTypeSelected.getData state
+                return! displayWorkOrders data 
+            }
+
+        let selectActivityCodeController (selectAttribution: SelectAttribution) state input = 
+            result {
+                    let! data           = AttributionTypeSelected.getData state
+
+                    let timetype        = EntryMode.toTimeType data.EntryMode
+
+                    let! attribution   = 
+                        DBService.validateActivityCode data.EntryLevel timetype data.ShopFloor data.WorkCenter input
+                        |> Result.map(Attribution.Activity)
+
+                    let! attrdata       = selectAttribution attribution data
+                    return (AttributionSelected attrdata)
+            }
+
+        let selectWorkOrderController (selectAttribution: SelectAttribution) state input = 
+            result {
+                    let! data = AttributionTypeSelected.getData state
+                                        
+                    let! attribution      = 
+                            data.WorkCenter
+                            |> Option.map( fun wc -> DBService.validateWorkOrder wc input)
+                            |> Result.failIfMissing "Workcenter is not selected."
+                            |> flatten
+                            |> Result.map (Attribution.WorkOrder)
+
+                    let! attrdata = selectAttribution attribution data
+                    return (AttributionSelected attrdata)
+            }
+
+        let unselectAttributionController state = 
+            AttributionSelected.getData state
+            |> Result.map(fun data ->
+                {
+                    AttributionTypeSelectedData.Site = data.Site
+                    UserInfo    = data.UserInfo 
+                    EntryMethod = data.EntryMethod
+                    EntryLevel  = data.EntryLevel
+                    ShopFloor   = data.ShopFloor
+                    WorkCenter  = data.WorkCenter
+                    EntryMode   = data.EntryMode
+                    AttributionType = data.AttributionType
+                }) 
+            |> Result.map(AttributionTypeSelected)
+
+        let enterDurationController (enterDuration: EnterDuration) state input =
+            result {
+                    let! data = AttributionSelected.getData state
+
+                    let! duration = Duration.fromDTO input
+
+                    let! durData = enterDuration duration data
+                    return (DurationEntered durData)
+            }
+
+        let cancelDurationController state = 
+            DurationEntered.getData state
+            |> Result.map(fun data ->
+                {
+                    AttributionSelectedData.Site = data.Site
+                    UserInfo    = data.UserInfo 
+                    EntryMethod = data.EntryMethod
+                    EntryLevel  = data.EntryLevel
+                    ShopFloor   = data.ShopFloor
+                    WorkCenter  = data.WorkCenter
+                    EntryMode   = data.EntryMode
+                    AttributionType = data.AttributionType
+                    Attribution = data.Attribution
+                }) 
+            |> Result.map(AttributionSelected)
+
+        let enterNbPeopleController (enterNbPeople: EnterNbPeople) state input =
+            result {
+                    let! data = DurationEntered.getData state
+
+                    let! nbpeople = NbPeople.fromDTO input
+
+                    let! nbpdata = enterNbPeople nbpeople data
+                    return (NbPeopleEntered nbpdata)
+            }
+
         let siteCreationController state input (createSite: CreateSite) =            
             result {
-                let! loggedInData  = getLoggedInData state
+                let! loggedInData  = LoggedIn.getData state
                 let! createSiteData = createSite input loggedInData
                 
                 return (SiteCreated createSiteData)

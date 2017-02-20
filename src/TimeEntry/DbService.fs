@@ -36,34 +36,34 @@ module DBService =
         let formatF21 = { 
                 Site            = s1; 
                 Code            = ActivityCode (String4 "FOR"); 
-                RecordLevel     = WorkCenterLevel AllWorkCenters; 
+                RecordLevel     = RecordLevel.WorkCenter WorkCenterAccess.All; 
                 TimeType        = MachineTime; 
                 ActivityLink    = Linked <| ActivityCode (String4 "MFOR"); 
                 ExtraInfo       = ExtraInfo.WithoutInfo
                 }
-        let mformatF21 = {formatF21 with Code = ActivityCode (String4 "MFOR"); ActivityLink = Linked <| ActivityCode (String4 "FOR")}
+        let mformatF21 = {formatF21 with Code = ActivityCode (String4 "MFOR"); ActivityLink = Linked <| ActivityCode (String4 "FOR"); TimeType = LabourTime}
 
         let divF21 = { 
                 Site            = s1; 
                 Code            = ActivityCode (String4 "DIV"); 
-                RecordLevel     = WorkCenterLevel AllWorkCenters; 
+                RecordLevel     = RecordLevel.WorkCenter WorkCenterAccess.All; 
                 TimeType        = MachineTime; 
                 ActivityLink    = Linked <| ActivityCode (String4 "MDIV"); 
                 ExtraInfo       = ExtraInfo.WithoutInfo
                 }
 
-        let mdivF21 = {formatF21 with Code = ActivityCode (String4 "MDIV"); ActivityLink = Linked <| ActivityCode (String4 "DIV")}
+        let mdivF21 = {formatF21 with Code = ActivityCode (String4 "MDIV"); ActivityLink = Linked <| ActivityCode (String4 "DIV"); TimeType = LabourTime}
 
         let arrF21 = { 
                 Site            = s1; 
                 Code            = ActivityCode (String4 "ARR"); 
-                RecordLevel     = WorkCenterLevel AllWorkCenters; 
+                RecordLevel     = RecordLevel.WorkCenter WorkCenterAccess.All; 
                 TimeType        = MachineTime; 
                 ActivityLink    = Linked <| ActivityCode (String4 "MARR"); 
                 ExtraInfo       = ExtraInfo.WithInfo
                 }
 
-        let marrF21 = {arrF21 with Code = ActivityCode (String4 "MARR"); ActivityLink = Linked <| ActivityCode (String4 "ARR")}
+        let marrF21 = {arrF21 with Code = ActivityCode (String4 "MARR"); ActivityLink = Linked <| ActivityCode (String4 "ARR"); TimeType = LabourTime}
 
         let extrainfo = {
                                 Machine  = Machine (String10 "ZX"); 
@@ -171,3 +171,38 @@ module DBService =
     let validateWorkCenter shopfloor input =
         let workcenters = WorkCenterAPI.getWorkCenterCodesByShopfloor Active shopfloor
         WorkCenter.validate workcenters input
+
+    let getWorkOrderByWorkCenter workcenter = 
+        WorkOrderInfoAPI.getWorkOrderByWorkCenter Active workcenter
+
+    let getActivityCodeByTimeTypeAndWorkCenter timetype workcenter = 
+        //Retrieves activities linked to one workcenter
+        let wcList = ActivityWorkCenterAccessAPI.getActivityCodeByTimeTypAndWorkCenter Active timetype workcenter
+        //Add activities of level = WorkCenter + Access ALL = True
+        let level = RecordLevel.WorkCenter WorkCenterAccess.All
+        let accessallList = ActivityAPI.getActivityCodesWithAllAccessByLevelAndTimeType Active level timetype
+        List.append wcList accessallList
+        
+    let getActivityCodeByTimeTypeAndShopFloor timetype shopfloor = 
+        let sfList = ActivityShopFloorAccessAPI.getActivityCodeByTimeTypeAndShopFloor Active timetype shopfloor
+        
+        let level = RecordLevel.ShopFloor ShopFloorAccess.All
+        let accessallList = ActivityAPI.getActivityCodesWithAllAccessByLevelAndTimeType Active level timetype
+        List.append sfList accessallList
+
+    let validateActivityCode entrylevel timetype shopfloor workcenter input = 
+        let activities = 
+                match entrylevel, workcenter with
+                | EntryLevel.WorkCenter, Some wc -> 
+                    getActivityCodeByTimeTypeAndWorkCenter timetype wc
+                
+                | EntryLevel.ShopFloor, _ -> 
+                    getActivityCodeByTimeTypeAndShopFloor timetype shopfloor
+                
+                | EntryLevel.WorkCenter, None -> []
+        
+        ActivityCode.validate activities input
+
+    let validateWorkOrder workcenter input = 
+        let workorders = getWorkOrderByWorkCenter workcenter
+        WorkOrder.validate workorders input

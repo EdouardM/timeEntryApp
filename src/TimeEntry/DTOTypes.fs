@@ -27,6 +27,39 @@ namespace TimeEntry
                 let passwordRes = Password.create usercredDTO.Password
                 UserCredentialData.create <!> loginRes <*> passwordRes
 
+        module Duration = 
+
+            type DurationDTO = 
+                {
+                    Date         : string
+                    StartTime   : string  
+                    EndTime     : string
+                }
+            let createDTO date starttime endtime = 
+                { Date = date; StartTime = starttime; EndTime = endtime }
+
+            let fromDTO (input: DurationDTO) =
+                result { 
+                    let! startDT = DateTime.validate input.Date input.StartTime 
+                    let! endDT   = DateTime.validate input.Date input.EndTime 
+                    return! Duration.validate startDT endDT
+                }
+
+        module NbPeople = 
+
+            type NbPeopleDTO = 
+                { NbPeople : string }
+            
+            let createDTO nb = {NbPeople = nb}
+            let fromDTO (input: NbPeopleDTO) =
+                result { 
+                    let! nb = Float.validate input.NbPeople
+                            
+                    return! NbPeople.validate nb
+                }
+
+
+
     (*      module WorkCenterInfo =
             ///Domain to store data deserialized from JSON format
             type WorkCenterInfoDTO =

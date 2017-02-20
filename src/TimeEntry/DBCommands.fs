@@ -495,19 +495,62 @@ module DBCommands =
     
     
     (* ACTIVITY WORKCENTER ACCESS FUNCTIONS *)
-    module ActivityAccessAPI = 
-        type GetActivityWorkCenters = string -> string list
+    module ActivityWorkCenterAccessAPI = 
+        type ActivityWCEntity = DBContext.``timeentryapp.activityworkcenteraccessEntity``
+        type ActivityEntity   = DBContext.``timeentryapp.activityEntity``
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<ActivityWCEntity * ActivityEntity>  -> IQueryable<ActivityWCEntity * ActivityEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (acWC, ac) -> acWC.Active = 1y && ac.Active = 1y ))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (acWC, ac) -> acWC.Active = 0y || ac.Active = 0y ))
+                    | All -> id
+            queryable
+        let private workCenterFilter (workcenter: WorkCenter) = 
+            let wc = workcenter.ToString()
+            let queryable: (IQueryable<ActivityWCEntity * ActivityEntity>  -> IQueryable<ActivityWCEntity * ActivityEntity>) =
+                (fun iq -> iq.Where( fun (acWC, ac) -> acWC.WorkCenter = wc))
+                
+            queryable
+        
+        let private timeTypeFilter (timetype : TimeType) = 
+            let tt = timetype.ToString()
+            let queryable: (IQueryable<ActivityWCEntity * ActivityEntity>  -> IQueryable<ActivityWCEntity * ActivityEntity>) =
+                (fun iq -> iq.Where( fun (acWC, ac) -> ac.TimeType = tt))
+                
+            queryable
 
-        let getActivityWorkCenters: GetActivityWorkCenters =
-            fun code -> 
-                    let ctx = Sql.GetDataContext()         
-                    query {
-                        for activity in ctx.Timeentryapp.Activity do
-                            join authActivity in ctx.Timeentryapp.Activityworkcenteraccess on (activity.Code = authActivity.Activity)
-                            where (activity.Code = code && activity.Active = 1y && authActivity.Active = 1y)
-                            select (authActivity.WorkCenter)
-                    }
-                    |> Seq.toList
+        let private activityFilter (activity: ActivityCode) = 
+            let code = activity.ToString()
+            let queryable: (IQueryable<ActivityWCEntity * ActivityEntity>  -> IQueryable<ActivityWCEntity * ActivityEntity>) =
+                (fun iq -> iq.Where( fun (acWC, ac) -> ac.Code = code))
+                
+            queryable
+
+        let private getActivityWCAndActivityEntities() = 
+            let ctx = Sql.GetDataContext()         
+            query {
+                for activity in ctx.Timeentryapp.Activity do
+                    join authActivity in ctx.Timeentryapp.Activityworkcenteraccess on (activity.Code = authActivity.Activity)
+                    select (authActivity, activity)
+            }
+        let getActivityCodeByTimeTypAndWorkCenter =
+            fun activeStatus timetype workcenter -> 
+                getActivityWCAndActivityEntities()
+                |> activeFilter activeStatus
+                |> timeTypeFilter timetype
+                |> workCenterFilter workcenter
+                |> (fun (iq:IQueryable<ActivityWCEntity * ActivityEntity>) -> iq.Select( fun (acWc, ac) -> ac.Code))
+                |> Seq.toList
+        let getWorkCentersByActivityCode = 
+            fun activeStatus activity -> 
+                getActivityWCAndActivityEntities()
+                |> activeFilter activeStatus
+                |> activityFilter activity
+                |> (fun (iq:IQueryable<ActivityWCEntity * ActivityEntity>) -> iq.Select( fun (acWc, ac)  -> acWc.WorkCenter))
+                |> Seq.toList
+
 
         type InsertActivityWorkCenters = ActivityCode -> WorkCenter -> Result<unit>
         let insert: InsertActivityWorkCenters =
@@ -549,7 +592,6 @@ module DBCommands =
 
         type ActivateActivityWorkCenters = string -> string -> Result<unit>
         let activate: ActivateActivityWorkCenters = toggleActivityWorkCenters Activate
-
         let deleteAll () = 
             let ctx = Sql.GetDataContext()
             query {
@@ -558,21 +600,64 @@ module DBCommands =
             }
             |> Seq.toList
             |> List.iter(fun authwc -> authwc.Delete() )
-            trySubmit "Delete all Workcenters" ctx
+            trySubmit "Delete Activity Workcenter links" ctx
 
     (* ACTIVITY SHOPFLOOR ACCESS FUNCTIONS *)
-        type GetActivityShopFloors = string -> string list
+    module ActivityShopFloorAccessAPI = 
+        type ActivitySFEntity = DBContext.``timeentryapp.activityshopflooraccessEntity``
+        type ActivityEntity   = DBContext.``timeentryapp.activityEntity``
+
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<ActivitySFEntity * ActivityEntity>  -> IQueryable<ActivitySFEntity * ActivityEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (acWC, ac) -> acWC.Active = 1y && ac.Active = 1y ))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (acWC, ac) -> acWC.Active = 0y || ac.Active = 0y ))
+                    | All -> id
+            queryable
+        let private shopfoorFilter (shopfloor : ShopFloor) = 
+            let sf = shopfloor.ToString()
+            let queryable: (IQueryable<ActivitySFEntity * ActivityEntity>  -> IQueryable<ActivitySFEntity * ActivityEntity>) =
+                (fun iq -> iq.Where( fun (acSF, ac) -> acSF.ShopFloor = sf))
+            queryable
         
-        let getActivityShopFloors: GetActivityShopFloors =
-            fun code -> 
-                    let ctx = Sql.GetDataContext()         
-                    query {
-                        for activity in ctx.Timeentryapp.Activity do
-                            join authActivity in ctx.Timeentryapp.Activityshopflooraccess on (activity.Code = authActivity.Activity)
-                            where (activity.Code = code && activity.Active = 1y && authActivity.Active = 1y)
-                            select (authActivity.ShopFloor)
-                    }
-                    |> Seq.toList
+        let private activityFilter (activity : ActivityCode) = 
+            let act = activity.ToString()
+            let queryable: (IQueryable<ActivitySFEntity * ActivityEntity>  -> IQueryable<ActivitySFEntity * ActivityEntity>) =
+                (fun iq -> iq.Where( fun (acSF, ac) -> ac.Code = act))
+            queryable
+
+        let private timeTypeFilter (timetype : TimeType) = 
+            let tt = timetype.ToString()
+            let queryable: (IQueryable<ActivitySFEntity * ActivityEntity>  -> IQueryable<ActivitySFEntity * ActivityEntity>) =
+                (fun iq -> iq.Where( fun (acSF, ac) -> ac.TimeType = tt))
+            queryable
+
+        let private getActivitySFEntities() = 
+            let ctx = Sql.GetDataContext()
+            query {
+                for activity in ctx.Timeentryapp.Activity do
+                    join authActivity in ctx.Timeentryapp.Activityshopflooraccess on (activity.Code = authActivity.Activity)
+                    select (authActivity, activity)
+            }
+
+        let getActivityCodeByTimeTypeAndShopFloor =
+            fun activeStatus timetype shopfloor -> 
+                getActivitySFEntities()
+                |> activeFilter activeStatus
+                |> timeTypeFilter timetype
+                |> shopfoorFilter shopfloor
+                |> (fun (iq:IQueryable<ActivitySFEntity * ActivityEntity>) -> iq.Select( fun (acSF, ac) -> ac.Code))
+                |> Seq.toList
+
+        let getShopFloorsByActivityCode = 
+            fun activeStatus activity -> 
+                getActivitySFEntities()
+                |> activeFilter activeStatus
+                |> activityFilter activity
+                |> (fun (iq:IQueryable<ActivitySFEntity * ActivityEntity>) -> iq.Select( fun (acSF, ac) -> ac.Code))
+                |> Seq.toList
 
         type InsertActivityShopFloors = ActivityCode -> ShopFloor -> Result<unit>
         let insertActivityShopFloors: InsertActivityShopFloors =
@@ -629,18 +714,73 @@ module DBCommands =
     (* ACTIVITY FUNCTIONS  *)
     module ActivityAPI =
         open DBConversions.Activity
-        open ActivityAccessAPI
+        open ActivityWorkCenterAccessAPI
+        open ActivityShopFloorAccessAPI
 
-        type GetActivityCodes = unit -> string list
-        let getActivityCodes: GetActivityCodes =
-            fun () -> 
+        type ActivityEntity = DBContext.``timeentryapp.activityEntity``
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<ActivityEntity>  -> IQueryable<ActivityEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (s:ActivityEntity) -> s.Active = 1y))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (s:ActivityEntity) -> s.Active = 0y))
+                    | All -> id
+            queryable
+        let private levelFilter (level: RecordLevel) = 
+            let lv = level.ToString()
+            let queryable: (IQueryable<ActivityEntity>  -> IQueryable<ActivityEntity>) =
+                        (fun iq -> iq.Where( fun (ac:ActivityEntity) -> ac.RecordLevel = lv))
+            queryable
+            
+        let private timeTypeFilter (timetype : TimeType) = 
+            let tt = timetype.ToString()
+            let queryable: (IQueryable<ActivityEntity>  -> IQueryable<ActivityEntity>) =
+                (fun iq -> iq.Where( fun (ac:ActivityEntity) -> ac.TimeType = tt))
+                
+            queryable
+
+        let private accessAllFilter (level: RecordLevel) = 
+            match level with
+                | RecordLevel.ShopFloor (ShopFloorAccess.All)  
+                | RecordLevel.WorkCenter (WorkCenterAccess.All) -> 
+                    let queryable: (IQueryable<ActivityEntity>  -> IQueryable<ActivityEntity>) =
+                        (fun iq -> iq.Where( fun (ac:ActivityEntity) -> ac.AccessAll = 1y))
+                    queryable
+                | _ -> id
+                
+        let private codeFilter (activity:ActivityCode) = 
+            let acCode = activity.ToString()
+            let queryable: (IQueryable<ActivityEntity>  -> IQueryable<ActivityEntity>) =
+                (fun iq -> iq.Where( fun (ac:ActivityEntity) -> ac.Code = acCode))
+                
+            queryable
+        let private getActivityEntities () = 
                 let ctx = Sql.GetDataContext()
                 query {
                     for activity in ctx.Timeentryapp.Activity do
-                        where (activity.Active = 1y)
-                        select activity.Code
+                        select activity
                 }
+
+
+        type GetActivityCodes = ActiveStatus -> string list
+        let getActivityCodes: GetActivityCodes =
+            fun activeStatus -> 
+                getActivityEntities()
+                |> activeFilter activeStatus
+                |> (fun (iq:IQueryable<ActivityEntity>) -> iq.Select( fun (ac: ActivityEntity) -> ac.Code))
                 |> Seq.toList
+
+        let getActivityCodesWithAllAccessByLevelAndTimeType = 
+            fun activeStatus level timetype ->
+                getActivityEntities()
+                |> activeFilter activeStatus
+                |> levelFilter level
+                |> accessAllFilter level
+                |> timeTypeFilter timetype
+                |> (fun (iq:IQueryable<ActivityEntity>) -> iq.Select( fun (ac: ActivityEntity) -> ac.Code))
+                |> Seq.toList
+
 
         ///Insert new activity in DB
         type InsertActivity = Activity -> Result<unit>
@@ -665,9 +805,10 @@ module DBCommands =
                 with
                 | ex -> Failure <| sprintf "%s" ex.Message
 
-        type GetActivity = string -> Result<DBActivity>
+        type GetActivity = ActivityCode -> Result<DBActivity>
 
-        let private getActivityEntity (ctx: DBContext) code = 
+        let private getActivityEntity (ctx: DBContext) activitycode = 
+                let code = activitycode.ToString()
                 query {
                     for activity in ctx.Timeentryapp.Activity do
                         where (activity.Code = code && activity.Active = 1y)
@@ -683,8 +824,8 @@ module DBCommands =
                         let! record = getActivityEntity ctx code
                         let accessList = 
                             match record.RecordLevel with
-                                | "workcenter"  -> getActivityWorkCenters record.Code
-                                | "shopfloor"   -> getActivityShopFloors record.Code
+                                | "workcenter"  -> getWorkCentersByActivityCode All code
+                                | "shopfloor"   -> getShopFloorsByActivityCode  All code
                                 | _             -> []
 
                         return {
@@ -846,16 +987,73 @@ module DBCommands =
         open WorkOrderInfo
         open WorkCenterAPI
 
-        type GetWorkOrderCodes = unit -> string list
-        let getWorkOrderCodes: GetWorkOrderCodes =
-            fun () -> 
-                let ctx = Sql.GetDataContext()
+        type WorkOrderEntity = DBContext.``timeentryapp.workorderinfoEntity``
+        let private activeFilter activeStatus =
+            let queryable: (IQueryable<WorkOrderEntity>  -> IQueryable<WorkOrderEntity>) =
+                match activeStatus with
+                    | Active -> 
+                        (fun iq -> iq.Where( fun (s:WorkOrderEntity) -> s.Active = 1y))
+                    | Inactive -> 
+                        (fun iq -> iq.Where( fun (s:WorkOrderEntity) -> s.Active = 0y))
+                    | All -> id
+            queryable
+        let private workcenterFilter (workcenter: WorkCenter) = 
+            let wc = workcenter.ToString()
+            let queryable: (IQueryable<WorkOrderEntity>  -> IQueryable<WorkOrderEntity>) =
+                (fun iq -> iq.Where( fun (wo:WorkOrderEntity) -> wo.WorkCenter = wc ))
+                
+            queryable
+        
+        let private getWorkOrderEntities (ctx: DBContext) =
                 query {
                     for workorder in ctx.Timeentryapp.Workorderinfo do
-                        where (workorder.Active = 1y)
-                        select workorder.WorkOrder
+                        select workorder
                 }
+
+        let getWorkOrderByWorkCenter = 
+            fun activeStatus workcenter -> 
+                let ctx = Sql.GetDataContext()
+                getWorkOrderEntities ctx
+                |> activeFilter activeStatus
+                |> workcenterFilter workcenter
+                |> (fun (iq:IQueryable<WorkOrderEntity>) -> iq.Select( fun wo -> wo.WorkOrder))
                 |> Seq.toList
+
+
+        type GetWorkOrderCodes = ActiveStatus -> string list
+        let getWorkOrderCodes: GetWorkOrderCodes =
+            fun activeStatus -> 
+                let ctx = Sql.GetDataContext()
+                getWorkOrderEntities ctx
+                |> activeFilter activeStatus
+                |> (fun (iq:IQueryable<WorkOrderEntity>) -> iq.Select( fun wo -> wo.WorkOrder))
+                |> Seq.toList
+        
+        let private workorderFilter (workorder: WorkOrder) = 
+            let wo = workorder.ToString()
+            let queryable: (IQueryable<WorkOrderEntity>  -> IQueryable<WorkOrderEntity>) =
+                (fun iq -> iq.Where( fun (sf:WorkOrderEntity) -> sf.WorkOrder = wo))
+                
+            queryable
+
+        let private getWorkOrderEntity = 
+            fun (ctx: DBContext) activeStatus workorder ->
+                let wo = workorder.ToString() 
+                
+                getWorkOrderEntities ctx
+                |> activeFilter activeStatus
+                |> workorderFilter workorder
+                |> Seq.toList
+                |> onlyOne "WorkOrder"  wo
+        
+        type GetWorkOrder = ActiveStatus -> WorkOrder -> Result<DBWorkOrderInfo>
+        let getWorkOrder: GetWorkOrder =
+                fun activeStatus wo -> 
+                    let ctx = Sql.GetDataContext()
+                    result {
+                        let! workorder = getWorkOrderEntity ctx activeStatus wo
+                        return workorder.MapTo<DBWorkOrderInfo>() 
+                    }
 
         //Insert new workcenter in DB
         type InsertWorkOrder = WorkOrderInfo -> Result<unit>
@@ -878,33 +1076,13 @@ module DBCommands =
                     trySubmit "Insert Workorder info" ctx
 
                 | Failure msg -> Failure msg
-
-
-        type GetWorkOrder = string -> Result<DBWorkOrderInfo>
-        let private getWorkOrderEntity = 
-            fun (ctx: DBContext) wo ->
-                query {
-                    for workorder in ctx.Timeentryapp.Workorderinfo do
-                        where (workorder.WorkOrder = wo && workorder.Active = 1y)
-                        select workorder
-                }
-                |> Seq.toList
-                |> onlyOne "WorkOrder" wo
-        
-        let getWorkOrder: GetWorkOrder =
-                fun wo -> 
-                    let ctx = Sql.GetDataContext()
-                    result {
-                        let! workorder = getWorkOrderEntity ctx wo
-                        return workorder.MapTo<DBWorkOrderInfo>() 
-                    }
-                
+              
         type UpdateworkOrderInfo = WorkOrderInfo -> Result<unit>
         let update: UpdateworkOrderInfo =
             fun workOrderInfo -> 
-                let (WorkOrder (String10 wo)) =  workOrderInfo.WorkOrder
+                let wo =  workOrderInfo.WorkOrder
                 let ctx = Sql.GetDataContext()
-                let workOrderInfoRes =  getWorkOrderEntity ctx wo
+                let workOrderInfoRes =  getWorkOrderEntity ctx Active wo
 
                 let dbwo = WorkOrderInfo.toDB workOrderInfo
                 match workOrderInfoRes with
@@ -947,14 +1125,14 @@ module DBCommands =
                             select timerecord
                     }
                 |> Seq.map(fun record ->
-                        let dbWorkOrderRes = 
-                            record.WorkOrder  
-                            |> Option.map getWorkOrder
-                            |> unwrapResOpt
-                        let dbActivityRes = 
+                        let dbWo = 
+                            record.WorkOrder
+
+                        let dbAct = 
                             record.ActivityInfoId  
                             |> Option.map getActivityInfo
                             |> unwrapResOpt
+                            |> Option.map(fun act -> act.Activity)
 
                         {
                             DBTimeRecord.Site   = record.Site
@@ -966,8 +1144,8 @@ module DBCommands =
                             TimeHr              = record.TimeHr
                             NbPeople            = record.NbPeople
                             Attribution         = record.Attribution
-                            WorkOrderEntry      = dbWorkOrderRes
-                            ActivityEntry       = dbActivityRes
+                            WorkOrderEntry      = dbWo
+                            ActivityEntry       = dbAct
                             Status              = record.RecordStatus
                         })
                 |> Seq.toList
@@ -976,7 +1154,6 @@ module DBCommands =
         let private insertDBTimeRecord : ActivityInfoId option -> DBTimeRecord -> Result<uint32> = 
             fun actInfoId record ->
                 let ctx = Sql.GetDataContext()
-                let wo = record.WorkOrderEntry |> Option.map(fun dbwo -> dbwo.WorkOrder)
                 let tr = ctx.Timeentryapp.Timerecord.Create()
                 tr.Site             <- record.Site
                 tr.Shopfloor        <- record.ShopFloor
@@ -987,7 +1164,7 @@ module DBCommands =
                 tr.TimeHr           <- record.TimeHr
                 tr.Attribution      <- record.Attribution
                 tr.NbPeople         <- record.NbPeople
-                tr.WorkOrder        <- wo
+                tr.WorkOrder        <- record.WorkOrderEntry
                 tr.ActivityInfoId   <- actInfoId
                 tr.RecordStatus     <- record.Status
                 tr.LastUpdate       <- System.DateTime.Now
@@ -1005,17 +1182,17 @@ module DBCommands =
             fun timeRecord ->
                 let ctx = Sql.GetDataContext()
                 match timeRecord.Attribution with
-                    | WorkOrderEntry workOrderInfo ->
+                    | Attribution.WorkOrder wo ->
                         
                         let dbrecords = TimeRecord.toDB timeRecord
                         dbrecords
                         |> insertDBTimeRecord None
 
-                    | ActivityEntry activityInfo -> 
+                    | Attribution.Activity act -> 
                         let dbrecords = TimeRecord.toDB timeRecord
                         dbrecords
                         |> fun record -> 
-                                ActivityInfoAPI.insert activityInfo 
+                                ActivityInfoAPI.insert (Normal act)
                                 //Add User in EventEntry to be sure to get the correct ID!
                                 //|> map lastEventEntryId
                                 |> bind (fun id -> insertDBTimeRecord (Some id) record)

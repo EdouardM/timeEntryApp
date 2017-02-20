@@ -22,6 +22,54 @@ module Constructors =
                 | true  -> Failure <| sprintf "The value exists. Can't create %s: %s" name id)
         >=> ctor
 
+    (* HOUR *)
+    module Hour = 
+        let validate = 
+            function
+                | h when h > 23u -> Failure "Hour can't be bigger than 23."
+                | h -> Success (Hour h)
+
+    (* MINUTE *)
+    module Minute = 
+        let validate = 
+            function 
+                | mn when mn > 59u -> Failure "Minutes can't be bigger than 59."
+                | mn -> Success (Minute mn)
+        
+    (* SECONDS *)
+    module Second = 
+        let validate = 
+            function
+                | s when s > 59u -> Failure "Seconds can't be bigger than 59."
+                | s -> Success (Second s)
+
+    (* TIME *)
+    module Time = 
+        let validate input = 
+            result {
+                let! time = stringTime input
+                let! h = time.Hour       |> System.UInt32.Parse |> Hour.validate
+                let! m = time.Minutes    |> System.UInt32.Parse |> Minute.validate
+                let! s = time.Seconds    |> System.UInt32.Parse |> Second.validate
+                return { Time.Hour = h ; Time.Minutes = m; Time.Seconds = s }
+            }
+
+    (* DATETIME WITH DATE AND TIME ENTRY*)
+    module DateTime = 
+        let validate dateinput timeinput = 
+            result { 
+                let! date       = stringDate dateinput
+                let! time       = Time.validate timeinput
+                let day         = int date.Day
+                let month       = int date.Month
+                let year        = int date.Year
+                let (Hour h)    = time.Hour
+                let (Minute m)  = time.Minutes 
+                let (Second s)  = time.Seconds
+                let dt = new System.DateTime(year, month, day, int h, int m, int s)
+                return dt
+            }
+
     (* SITE CONSTRUCTORS / VALIDATION *)
     module Site = 
         let create = create ( stringExact3 >>= DomainTypes.Site)  "site"
@@ -35,12 +83,7 @@ module Constructors =
     module ShopFloorInfo =
         let create site shopfloor = 
             { ShopFloorInfo.Site = site; ShopFloorInfo.ShopFloor = shopfloor}
-    (* HOUR *)
-    module Hour = 
-        let validate = 
-            function
-                | h when h > 23u -> Failure "Hour can't be bigger than 23."
-                | h -> Success (Hour h)
+
         
     (* WORKCENTER CONSTRUCTORS *)
     module WorkCenter =
@@ -63,16 +106,16 @@ module Constructors =
     module ShopFloorAccess = 
         let validate accessAll authorizedShopFloor =
             match accessAll, authorizedShopFloor with
-                | true, []      -> Success (AllShopFloors)
+                | true, []      -> Success (ShopFloorAccess.All)
                 | false, []     -> Failure "Must have at least one authorized shopfloor when access is set to shopfloor list."
-                | false, sf     -> Success (ShopFloorList sf)
+                | false, sf     -> Success (ShopFloorAccess.List sf)
                 | true, sf      -> Failure "Should have empty list of shopfloors when access is set to all."
     module WorkCenterAccess = 
         let validate accessAll authorizedWorkCenter =
             match accessAll, authorizedWorkCenter with
-                | true, []      -> Success (AllWorkCenters)
+                | true, []      -> Success (WorkCenterAccess.All)
                 | false, []     -> Failure "Must have at least one authorized workcenter when access is set to workcenter list."
-                | false, wc     -> Success (WorkCenterList wc)
+                | false, wc     -> Success (WorkCenterAccess.List wc)
                 | true, wc      -> Failure "Should have empty list of workcenter when access is set to all."
     module TimeType =     
         let validate = 
@@ -200,6 +243,11 @@ module Constructors =
             else
                 Failure <| sprintf "Date year must be within the range from 2010 to 2100.\nStart Year: %d\End Year: %d" startTime.Year endTime.Year
 
+    module Float = 
+        let validate input =
+            match System.Single.TryParse(input) with
+            | true, f -> Success f
+            | false, _ -> Failure <| sprintf "Your input '%s' is not a valid float number" input
 
     ///Validate a number of people:
     ///Number of people can only be integer or half of integer and positive
@@ -211,7 +259,7 @@ module Constructors =
                 if d >= 0.5f then Success (NbPeople (r + 0.5f))
                 else Success(NbPeople r)
             else Failure <| sprintf "Number of people can't be negative.\nNb people: %.2f" nb
-
+    
     module RecordStatus =
         let validate = 
             function
@@ -245,6 +293,38 @@ module Constructors =
                 | "L"   -> Success LabourOnly
                 | input -> Failure <| sprintf "Invalid input: %s. Valid choices are: 'M' or 'L'" input
 
+        let toTimeType = 
+            function 
+                | MachineOnly       -> MachineTime
+                | LabourOnly        -> LabourTime
+                | MachineAndLabour  -> MachineTime
+
+    module AttributionType = 
+        let validate = 
+            function
+                | "A" -> Success AttributionType.Activity
+                | "W" -> Success AttributionType.WorkOrder
+                | input -> Failure <| sprintf "Invalid input: %s. Valid choices are: 'A' or 'W'" input
+
+    module LoggedIn = 
+        let getData =
+            function
+                | LoggedIn data -> Success data
+                | _             -> Failure "Not in LoggedIn state, cannot access to inner data."
+
+    module SiteSelected = 
+        let getData = 
+            function
+                | SiteSelected data -> Success data
+                | _                 -> Failure "Not in Selected Site state, cannot access to inner data."
+        
+    module EntryMethodSelected = 
+        let getData = 
+            function
+                | EntryMethodSelected data  -> Success data
+                | _                         -> Failure "Not in Entry Method selected state, cannot access to inner data."
+    
+
     module EntryLevelSelectedData =
         let create userinfo site entrymethod entrylevel = 
             {
@@ -253,6 +333,25 @@ module Constructors =
                 EntryMethod = entrymethod
                 EntryLevel  = entrylevel
             }
+
+    module EntryLevelSelected = 
+        let getData = 
+            function 
+                | EntryLevelSelected data   -> Success data
+                | _                         -> Failure "Not in Entry Level selected state, cannot access to inner data."
+        let getOrCreateData = 
+            function
+                | EntryLevelSelected data -> Success data
+                | EntryMethodSelected data ->  
+                    EntryLevelSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter 
+                    |> Success
+                | _ -> Failure "Unexpected application state should be Entry Level Selected or Entry Method Selected."
+
+    module ShopFloorSelected = 
+        let getData =
+            function
+                | ShopFloorSelected data -> Success data
+                | _                      -> Failure "Not in Shopfloor Selected state, cannot access to inner data."
 
     module WorkCenterSelectedData = 
         
@@ -265,3 +364,63 @@ module Constructors =
                 ShopFloor   = shopfloor
                 WorkCenter  = workcenter
             }
+
+    module WorkCenterSelected = 
+        
+        let getData = 
+            function 
+                | WorkCenterSelected data -> Success data
+                | _                       -> Failure "Not in Workcenter Selected state, cannot access to inner data."
+
+        let getOrCreateData = 
+            function
+                | WorkCenterSelected data -> Success data
+                | ShopFloorSelected data ->  
+                    WorkCenterSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter data.ShopFloor None
+                    |> Success
+                | _ -> Failure "Unexpected application state. It should be WorkCenter Selected or ShopFloor Selected."
+
+    module EntryModeSelectedData = 
+        
+        let create userinfo site entrymethod entrylevel shopfloor workcenter entrymode = 
+            {
+                EntryModeSelectedData.UserInfo    = userinfo
+                Site        = site
+                EntryMethod = entrymethod
+                EntryLevel  = entrylevel
+                ShopFloor   = shopfloor
+                WorkCenter = workcenter
+                EntryMode  = entrymode
+            }
+
+    module EntryModeSelected = 
+        let getData = 
+            function 
+                | EntryModeSelected data    -> Success data
+                | _ -> Failure "Not in Entry Mode Selected state, cannot access to inner data."
+
+        let getOrCreateData = 
+            function 
+                | EntryModeSelected data    -> Success data
+                | WorkCenterSelected data   -> 
+                    EntryModeSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter data.ShopFloor data.WorkCenter MachineAndLabour
+                    |> Success
+                | _ -> Failure "Unexpected application state. It should be WorkCenter Selected or ShopFloor Selected."
+
+    module AttributionTypeSelected = 
+        let getData = 
+            function
+                | AttributionTypeSelected data  -> Success data
+                | _ -> Failure "Unexpected application state. It should be Attribution Type Selected."
+
+    module AttributionSelected =
+        let getData = 
+            function
+                | AttributionSelected data  -> Success data
+                | _ -> Failure "Unexpected application state. It should be Attribution Selected."
+
+    module DurationEntered = 
+        let getData = 
+            function
+                | DurationEntered data  -> Success data
+                | _ -> Failure "Unexpected application state. It should be Duration Entered."

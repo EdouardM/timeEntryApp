@@ -115,12 +115,12 @@ namespace TimeEntry
                     let timetype = activity.TimeType.ToString()
                     let level, accessall, accessList = 
                         match activity.RecordLevel with
-                            | ShopFloorLevel (AllShopFloors)    -> ("shopfloor", true, [])
-                            | ShopFloorLevel (ShopFloorList sf) -> 
+                            | RecordLevel.ShopFloor (ShopFloorAccess.All)    -> ("shopfloor", true, [])
+                            | RecordLevel.ShopFloor (ShopFloorAccess.List sf) -> 
                                 let sfcodes = sf |> List.map(fun (ShopFloor (String5 s)) -> s) 
                                 ("shopfloor", false, sfcodes)
-                            | WorkCenterLevel (AllWorkCenters)  -> ("workcenter", true, [])
-                            | WorkCenterLevel (WorkCenterList wc) -> 
+                            | RecordLevel.WorkCenter (WorkCenterAccess.All)  -> ("workcenter", true, [])
+                            | RecordLevel.WorkCenter (WorkCenterAccess.List wc) -> 
                                 let wccodes = wc |> List.map(fun (WorkCenter (String5 w)) -> w) 
                                 ("shopfloor", false, wccodes)
                     let islinked, linkedact = 
@@ -161,14 +161,14 @@ namespace TimeEntry
                                 <!> (Success dbActivity.AccessAll) 
                                 <*> sfRes
                                 |> flatten
-                                |> ( Result.map ShopFloorLevel )
+                                |> ( Result.map RecordLevel.ShopFloor )
                             | "workcenter" -> 
                                 let wcRes  = dbActivity.AccessList |> List.map (WorkCenter.validate workcenters) |> sequence
                                 WorkCenterAccess.validate
                                 <!> (Success dbActivity.AccessAll) 
                                 <*> wcRes
                                 |> flatten
-                                |> ( Result.map WorkCenterLevel )
+                                |> ( Result.map RecordLevel.WorkCenter )
                             | lvl -> Failure <| sprintf "Unexpected level : %s" lvl
 
                     let activityLinkRes = ActivityLink.validate (ActivityCode.validate activities) dbActivity.isLinked dbActivity.LinkedActivity
@@ -372,22 +372,22 @@ namespace TimeEntry
                         TimeHr          : float32
                         NbPeople        : float32
                         Attribution     : string
-                        WorkOrderEntry  : DBWorkOrderInfo option
-                        ActivityEntry   : DBActivityInfo option
+                        WorkOrderEntry  : string option
+                        ActivityEntry   : string option
                         Status          : string
                     }
                 
                 let private attributionToString =
                     function
-                        | WorkOrderEntry wo     -> "workorder"
-                        | ActivityEntry act     -> "activity"
+                        | Attribution.WorkOrder _     -> "workorder"
+                        | Attribution.Activity  _     -> "activity"
 
                 let private updateAttribution attribution timeRecord = 
                     match attribution with
-                        | WorkOrderEntry wo ->
-                            { timeRecord with WorkOrderEntry = WorkOrderInfo.toDB wo |> Some}
-                        | ActivityEntry act ->
-                            { timeRecord with ActivityEntry = ActivityInfo.toDB act |> Some}
+                        | Attribution.WorkOrder wo ->
+                            { timeRecord with WorkOrderEntry = wo.ToString() |> Some }
+                        | Attribution.Activity act ->
+                            { timeRecord with ActivityEntry = act.ToString() |> Some }
 
                 let private recordStatusToString = 
                     function
@@ -431,8 +431,6 @@ namespace TimeEntry
                     workcenters
                     workorders
                     activities
-                    machines
-                    itemcodes
                     (time: DBTimeRecord) =
                         let siteRes = Site.validate sites time.Site
                         let shopFloorRes = ShopFloor.validate shopfloors time.ShopFloor
@@ -450,8 +448,8 @@ namespace TimeEntry
 
                         match time.WorkOrderEntry, time.ActivityEntry with
                             | Some wo, None -> 
-                                let workOrderEntryRes = (WorkOrderInfo.fromDB workorders workcenters itemcodes) wo
-                                let attributionRes = Result.map WorkOrderEntry workOrderEntryRes
+                                let workOrderEntryRes = WorkOrder.validate workorders wo
+                                let attributionRes = Result.map (Attribution.WorkOrder) workOrderEntryRes
                                 TimeRecord.validate
                                 <!> siteRes
                                 <*> shopFloorRes
@@ -463,8 +461,8 @@ namespace TimeEntry
                                 <*> statusRes
                                 
                             | None, Some act -> 
-                                let activityEntryRes = (ActivityInfo.fromDB activities machines) act
-                                let attributionRes   = Result.map ActivityEntry activityEntryRes
+                                let activityEntryRes = ActivityCode.validate activities act
+                                let attributionRes   = Result.map (Attribution.Activity) activityEntryRes
                                 TimeRecord.validate
                                 <!> siteRes
                                 <*> shopFloorRes

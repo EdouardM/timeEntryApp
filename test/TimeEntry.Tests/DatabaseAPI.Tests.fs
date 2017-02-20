@@ -207,7 +207,7 @@ let testActivity =
   let pan = { 
                 Site            = Site (String3 "F21"); 
                 Code            = ActivityCode (String4 "PAN"); 
-                RecordLevel     = WorkCenterLevel AllWorkCenters; 
+                RecordLevel     = RecordLevel.WorkCenter WorkCenterAccess.All; 
                 TimeType        = MachineTime; 
                 ActivityLink    = Linked <| ActivityCode (String4 "MPAN"); 
                 ExtraInfo       = ExtraInfo.WithoutInfo
@@ -223,7 +223,7 @@ let testActivity =
       ActivityAPI.insert(pan)
       |> stopOnFailure
 
-      let cnt = ActivityAPI.getActivityCodes() |> List.length
+      let cnt = ActivityAPI.getActivityCodes Active |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Desactivate" <| fun _ ->
@@ -232,7 +232,7 @@ let testActivity =
       ActivityAPI.desactivate("PAN")
       |> stopOnFailure
 
-      let cnt = ActivityAPI.getActivityCodes() |> List.length
+      let cnt = ActivityAPI.getActivityCodes Active |> List.length
       Expect.equal cnt 0 step2;
 
     testCase "Activate" <| fun _ ->
@@ -241,7 +241,7 @@ let testActivity =
       ActivityAPI.activate("PAN")
       |> stopOnFailure
 
-      let cnt = ActivityAPI.getActivityCodes() |> List.length
+      let cnt = ActivityAPI.getActivityCodes Active |> List.length
       Expect.equal cnt 1 step3
       
     testCase "Update" <| fun _ -> 
@@ -253,7 +253,7 @@ let testActivity =
       |> stopOnFailure
 
       let expected = Success <| Activity.toDB pan'
-      let dbwc = ActivityAPI.getActivity("PAN")
+      let dbwc = ActivityAPI.getActivity pan.Code
 
       Expect.equal dbwc expected step4]
 
@@ -268,7 +268,7 @@ let testWorkOrder =
           TotalLabourTimeHr = TimeHr 0.f; 
           Status      =  Open }
 
-  let (WorkOrder (String10 woCode)) = wo.WorkOrder
+  let woCode = wo.WorkOrder.ToString()
   testList "WorkOrder Database API" [    
     testCase "Insert & Get" <| fun () -> 
       removeExistingData()
@@ -282,7 +282,7 @@ let testWorkOrder =
       WorkOrderInfoAPI.insert wo 
       |> stopOnFailure
 
-      let cnt = WorkOrderInfoAPI.getWorkOrderCodes() |> List.length
+      let cnt = WorkOrderInfoAPI.getWorkOrderCodes Active |> List.length
       Expect.equal cnt 1 step1;
 
     testCase "Update" <| fun _ -> 
@@ -301,7 +301,7 @@ let testWorkOrder =
       |> stopOnFailure
 
       let expected = Success <| WorkOrderInfo.toDB wo'
-      let dbwo = WorkOrderInfoAPI.getWorkOrder(woCode)
+      let dbwo = WorkOrderInfoAPI.getWorkOrder Active wo.WorkOrder
 
       Expect.equal dbwo expected step4]
 

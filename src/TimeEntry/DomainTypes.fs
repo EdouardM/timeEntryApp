@@ -1,5 +1,7 @@
 namespace TimeEntry
 
+//Use this attribute to make domain types visibles in all other modules in the project
+[<AutoOpen>]
 module DomainTypes =
     open System
     open TimeEntry.Result
@@ -7,6 +9,23 @@ module DomainTypes =
     
     //Domain Model:
     // http://fsharpforfunandprofit.com/ddd/
+
+    (* TYPES FOR TIME *)
+    ///Type modeling hours of a day
+    type Hour = Hour of uint32
+
+    ///Type modeling Minutes 
+    type Minute = Minute of uint32
+
+    ///Type modeling Seconds
+    type Second = Second of uint32
+
+    type Time = 
+        {
+            Hour    : Hour
+            Minutes : Minute
+            Seconds : Second
+        }
 
     (* RECORD ACTIVE STATUS IN DB *)
     type ActiveStatus = 
@@ -36,10 +55,14 @@ module DomainTypes =
 
     (* DEFINE ONE WORKCENTER *)
     
-    ///Type modeling hours of a day
-    type Hour = Hour of uint32
+
 
     type WorkCenter  = WorkCenter of String5
+        with
+            override this.ToString() = 
+                let (WorkCenter (String5 wc)) = this
+                wc 
+
     type WorkCenterInfo = 
         {
             WorkCenter      : WorkCenter
@@ -59,17 +82,25 @@ module DomainTypes =
 
 
     (* DEFINE ONE ACTIVITY *)
-    type ShopfloorAccess  = 
-        | AllShopFloors  
-        | ShopFloorList of ShopFloor list
-
+    [<RequireQualifiedAccess>]
+    type ShopFloorAccess  = 
+        | All  
+        | List of ShopFloor list
+    
+    [<RequireQualifiedAccess>]
     type WorkCenterAccess = 
-        | AllWorkCenters 
-        | WorkCenterList of WorkCenter list
+        | All 
+        | List of WorkCenter list
 
+    [<RequireQualifiedAccess>]
     type RecordLevel = 
-        | ShopFloorLevel  of ShopfloorAccess
-        | WorkCenterLevel of WorkCenterAccess
+        | ShopFloor  of ShopFloorAccess
+        | WorkCenter of WorkCenterAccess
+        with
+            override this.ToString() =
+                match this with
+                    | ShopFloor  _   -> "shopfloor"
+                    | WorkCenter _   -> "workcenter" 
 
     type TimeType = 
             | MachineTime
@@ -81,7 +112,10 @@ module DomainTypes =
                             | LabourTime  -> "labour"  
   
     type ActivityCode = ActivityCode of String4
-    
+            with
+                override this.ToString() = 
+                        let (ActivityCode (String4 act)) = this
+                        act
 
     type ExtraInfo = 
             | WithInfo 
@@ -150,13 +184,12 @@ module DomainTypes =
             Level       : AuthLevel
         }
 
-    type User = 
-        | LoggedUser of UserInfo
-        | UnLoggedUser of Login * Password
-
-
     (* DEFINE ONE WORKORER *)
     type WorkOrder = WorkOrder of String10
+            with
+            override this.ToString() = 
+                let (WorkOrder (String10 wo)) = this
+                wo
 
     type ItemCode  = ItemCode of String6
 
@@ -198,9 +231,10 @@ module DomainTypes =
         | MachineAndLabour 
         | LabourOnly      
 
+    [<RequireQualifiedAccess>]
     type Attribution = 
-        | WorkOrderEntry of WorkOrderInfo
-        | ActivityEntry of ActivityInfo
+        | WorkOrder of WorkOrder
+        | Activity  of ActivityCode
 
     type RecordStatus = 
         | Entered
@@ -229,6 +263,11 @@ module DomainTypes =
     type EntryLevel = 
         | ShopFloor
         | WorkCenter
+    
+    [<RequireQualifiedAccess>]
+    type AttributionType = 
+        | WorkOrder
+        | Activity
 
 // --------------------------------------------------
 
@@ -251,14 +290,18 @@ module DomainTypes =
         | UnselectWorkCenter
         | SelectEntryMode
         | UnselectEntryMode
-        | SelectAttribution
-        | UnselectAttrbution
+        | SelectAttributionType
+        | UnselectAttrbutionType
+        | SelectActivity
+        | SelectWorkOrder
+        | UnselectAttribution
+        | EnterDuration
+        | CancelDuration
+        | EnterNbPeople
+        | CancelNbPeople
+        | RecordTime
         | Logout
         | Exit
-
-    type RecordTimeActions = 
-        | SelectAttribution
-        | EnterTime
 
 (* INPUT DATA *)
 
@@ -311,18 +354,76 @@ module DomainTypes =
             EntryMode   : EntryMode
         }
 
+    type AttributionTypeSelectedData = 
+        { 
+            Site            : Site 
+            ShopFloor       : ShopFloor
+            WorkCenter      : WorkCenter option
+            UserInfo        : UserInfo 
+            EntryMethod     : EntryMethod 
+            EntryLevel      : EntryLevel
+            EntryMode       : EntryMode
+            AttributionType : AttributionType
+        }
+    
     type AttributionSelectedData = 
         { 
-            Site        : Site 
-            ShopFloor   : ShopFloor
-            WorkCenter  : WorkCenter option
-            UserInfo    : UserInfo 
-            EntryMethod : EntryMethod 
-            EntryLevel  : EntryLevel
-            EntryMode   : EntryMode
-            Attribution : Attribution
+            Site            : Site 
+            ShopFloor       : ShopFloor
+            WorkCenter      : WorkCenter option
+            UserInfo        : UserInfo 
+            EntryMethod     : EntryMethod 
+            EntryLevel      : EntryLevel
+            EntryMode       : EntryMode
+            AttributionType : AttributionType
+            Attribution     : Attribution
         }
 
+    type DurationEnteredData = 
+        {
+            Site            : Site 
+            ShopFloor       : ShopFloor
+            WorkCenter      : WorkCenter option
+            UserInfo        : UserInfo 
+            EntryMethod     : EntryMethod 
+            EntryLevel      : EntryLevel
+            EntryMode       : EntryMode
+            AttributionType : AttributionType
+            Attribution     : Attribution
+            Duration        : Duration
+        }    
+
+    type NbPeopleEnteredData =
+        {
+            Site            : Site 
+            ShopFloor       : ShopFloor
+            WorkCenter      : WorkCenter option
+            UserInfo        : UserInfo 
+            EntryMethod     : EntryMethod 
+            EntryLevel      : EntryLevel
+            EntryMode       : EntryMode
+            AttributionType : AttributionType
+            Attribution     : Attribution
+            Duration        : Duration
+            NbPeople        : NbPeople
+        }
+(*
+
+    type Attribution = 
+        | Activity
+        | WorkOrder 
+
+    if activity     ==> Record Activity : Normal Activity Code 
+    if workorder    ==> Record WorkOrder: WorkOrder Code 
+
+    type TimeRecordData = 
+        { 
+            Context     : EntryModeSelectedData
+            Attribution : Attribution
+            Duration    : Duration
+            NbPeople    : NbPeople
+        }
+*)
 (*  SERVICES *)
     
     //Use case or services: 
@@ -356,9 +457,19 @@ module DomainTypes =
 
     type SelectEntryMode  = EntryMode -> WorkCenterSelectedData -> Result<EntryModeSelectedData>
 
-    type DisplayAttributions = WorkCenterSelectedData -> Result<string list>
+    type DisplayAttributionTypes = EntryModeSelectedData -> Result<string list>
 
-    type SelectAttribution = Attribution -> WorkCenterSelectedData -> Result<AttributionSelectedData>
+    type SelectAttributionType = AttributionType -> EntryModeSelectedData -> Result<AttributionTypeSelectedData>
+    
+    type DisplayActivityCodes = AttributionTypeSelectedData -> Result<string list>
+
+    type DisplayWorkOrders    = AttributionTypeSelectedData -> Result<string list>
+    
+    type SelectAttribution = Attribution -> AttributionTypeSelectedData -> Result<AttributionSelectedData> 
+
+    type EnterDuration = Duration -> AttributionSelectedData -> Result<DurationEnteredData>
+
+    type EnterNbPeople = NbPeople -> DurationEnteredData -> Result<NbPeopleEnteredData>
 
     //User may not have the right to create one site or input is invalid
     type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
@@ -372,28 +483,27 @@ module DomainTypes =
         | LoggedOut
         | Exit
         //Connect user and list possible actions he can do:
-        | LoggedIn              of LoggedInData
-        | SiteCreated           of SiteSelectedData
-        | PasswordUpdated       of UpdatePasswordData
-        | SiteSelected          of SiteSelectedData
-        | EntryMethodSelected   of EntryMethodSelectedData  
-        | EntryLevelSelected    of EntryLevelSelectedData
-        | ShopFloorSelected     of ShopFloorSelectedData   
-        | WorkCenterSelected    of WorkCenterSelectedData
-        | EntryModeSelected     of EntryModeSelectedData
-        | AttributionSelected   of AttributionSelectedData
+        | LoggedIn                  of LoggedInData
+        | SiteCreated               of SiteSelectedData
+        | PasswordUpdated           of UpdatePasswordData
+        | SiteSelected              of SiteSelectedData
+        | EntryMethodSelected       of EntryMethodSelectedData  
+        | EntryLevelSelected        of EntryLevelSelectedData
+        | ShopFloorSelected         of ShopFloorSelectedData   
+        | WorkCenterSelected        of WorkCenterSelectedData
+        | EntryModeSelected         of EntryModeSelectedData
+        | AttributionTypeSelected   of AttributionTypeSelectedData
+        | AttributionSelected       of AttributionSelectedData
+        | DurationEntered           of DurationEnteredData
+        | NbPeopleEntered           of NbPeopleEnteredData
 
-
+(* 
     //Model the creation of one time Record
     //type RecordTime = UserInfo -> Site -> EntryMethod  -> ShopFloor -> WorkCenter option -> TimeEntryMode -> 
             //2 cases   Production Line - Multiple records:  -> TimeAttribution -> Duration * NbPerson -> TimeRecord list
-            //          Individual - one record: -> TimeAttribution -> Duration * NbPerson -> TimeRecord list
+            //          Individual - one record: -> TimeAttribution -> Duration * NbPerson -> TimeRecord list with only one item
 
-    // Use Types
-    //type EntryRequest = { User: UserInfo; Entry : TimeRecord }
-
-    //type EntryResponse = { Id: int; Request: EntryRequest}
-
-    //Use Case 1: Entry of time
-    // Db failure or JSon failure
-    //type AddEntryData = EntryRequest -> Result<EntryResponse>
+    Attribution type -> Attribution display (cache) Selected -> Duration Entered -> NbPerson Entered 
+        -> Time record validated
+        -> Go back to Attribution selection  
+*)

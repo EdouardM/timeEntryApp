@@ -67,7 +67,7 @@ let useCapability state =
                 return! Program.selectEntryLevelController Services.selectEntryLevel state input 
             }
 
-        |Cap.UnselectEntryLevel -> Program.unselectEntryLevelController state
+        | Cap.UnselectEntryLevel -> Program.unselectEntryLevelController state
         | Cap.SelectShopFloor -> 
             result {
                 let! shopfloors = Program.displayShopfloorsController Services.displayShopFloors state
@@ -108,9 +108,66 @@ let useCapability state =
             }
 
         | Cap.UnselectEntryMode -> Program.unselectEntryModeController state
+        | Cap.SelectAttributionType  -> 
+            result {
+                let! attributions = Program.displayAttributionsController Services.displayAttributionTypes state
+                let choices = List.reduce(fun s s' -> s + " , " + s') attributions
+                printfn "[Select Attribution Type] Possible Choice: %s" choices
 
-        | Cap.SelectAttribution 
-        | Cap.UnselectAttrbution  
+                printfn "[Select Attribution Type] Enter the attribution type:"
+                let attribution = Console.ReadLine()
+            
+                return! Program.selectAttributionTypeController Services.selectAttributionType state attribution
+            }
+
+        | Cap.UnselectAttrbutionType -> Program.unselectAttributionTypeController state
+
+        | Cap.SelectActivity -> 
+            result {
+                let! activityCodes = Program.displayActivityCodesController Services.displayActivityCodes state
+                let choices = List.reduce(fun s s' -> s + " , " + s') activityCodes
+                printfn "[Select Activity] Possible Choice: %s" choices
+
+                printfn "[Select Activity] Enter the activity code:"
+                let activityCode = Console.ReadLine()
+            
+                return! Program.selectActivityCodeController Services.selectAttribution state activityCode
+            }
+
+        | Cap.SelectWorkOrder -> 
+            result {
+                let! workOrders = Program.displayWorkOrdersController Services.displayWorkOrders state
+                let choices = List.reduce(fun s s' -> s + " , " + s') workOrders
+                printfn "[Select WorkOrder] Possible Choice: %s" choices
+
+                printfn "[Select WorkOrder] Enter the workorder:"
+                let workorder = Console.ReadLine()
+            
+                //To be changed
+                return! Program.selectWorkOrderController Services.selectAttribution state workorder
+            }
+        | Cap.UnselectAttribution -> Program.unselectAttributionController state
+
+        | Cap.EnterDuration -> 
+            printfn "[Enter Duration] Enter date (format: dd/mm/yyyy):"
+            let date = Console.ReadLine()
+            printfn "[Enter Duration] Enter start time (format: hh:mm:ss):"
+            let starttime = Console.ReadLine()
+            printfn "[Enter Duration] Enter end time (format: hh:mm:ss):"
+            let endtime = Console.ReadLine()
+            
+            Duration.createDTO date starttime endtime
+            |> Program.enterDurationController Services.enterDuration state
+        
+        | Cap.CancelDuration -> Program.cancelDurationController state
+
+        | Cap.EnterNbPeople  -> 
+            printfn "[Enter Duration] Enter date (format: dd/mm/yyyy):"
+            let nb = Console.ReadLine()
+
+            NbPeople.createDTO nb 
+            |> Program.enterNbPeopleController Services.enterNbPeople state
+
         | Cap.CreateSite ->
                 printfn "Not implemented yet. Logging out..."
                 Program.logoutController ()
@@ -119,25 +176,31 @@ let useCapability state =
         | Cap.Exit -> Program.exitController ()        
 let capabilityToMenu =
     function
-        | Cap.Login              -> "(L)ogin"
-        | Cap.UpdatePassword     -> "(U)pdate your password"
-        | Cap.SelectSite         -> "(S)elect one site"
-        | Cap.CreateSite         -> "(C)reate one site"
-        | Cap.SelectEntryMethod    -> "(R)ecord time"
-        | Cap.UnselectEntryMethod  -> "(U)nselect entry mode"
-        | Cap.SelectEntryLevel   -> "(S)elect entry level"
-        | Cap.UnselectEntryLevel -> "(U)nselect entry level"
-        | Cap.UnselectSite       -> "(U)nselect site"
-        | Cap.SelectShopFloor    -> "(S)elect one shopfloor"
-        | Cap.UnselectShopFloor  -> "(U)nselect shopfloor"
-        | Cap.SelectWorkCenter   -> "(S)elect one workcenter"
-        | Cap.UnselectWorkCenter -> "(U)nselect workcenter"
-        | Cap.SelectEntryMode    -> "(S)elect entry mode"
-        | Cap.UnselectEntryMode  -> "(U)nselect entry mode"
-        | Cap.SelectAttribution  -> "(S)elect time attribution"
-        | Cap.UnselectAttrbution -> "(U)nselect time attribution"
-        | Cap.Logout             -> "(L)ogout"
-        | Cap.Exit               -> "(E)xit"
+        | Cap.Login                     -> "(L)ogin"
+        | Cap.UpdatePassword            -> "(U)pdate your password"
+        | Cap.SelectSite                -> "(S)elect one site"
+        | Cap.CreateSite                -> "(C)reate one site"
+        | Cap.SelectEntryMethod         -> "(R)ecord time"
+        | Cap.UnselectEntryMethod       -> "(U)nselect entry mode"
+        | Cap.SelectEntryLevel          -> "(S)elect entry level"
+        | Cap.UnselectEntryLevel        -> "(U)nselect entry level"
+        | Cap.UnselectSite              -> "(U)nselect site"
+        | Cap.SelectShopFloor           -> "(S)elect one shopfloor"
+        | Cap.UnselectShopFloor         -> "(U)nselect shopfloor"
+        | Cap.SelectWorkCenter          -> "(S)elect one workcenter"
+        | Cap.UnselectWorkCenter        -> "(U)nselect workcenter"
+        | Cap.SelectEntryMode           -> "(S)elect entry mode"
+        | Cap.UnselectEntryMode         -> "(U)nselect entry mode"
+        | Cap.SelectAttributionType     -> "(S)elect attribution type"
+        | Cap.UnselectAttrbutionType    -> "(U)nselect attribution type"
+        | Cap.SelectActivity            -> "(S)elect one activity code"
+        | Cap.SelectWorkOrder           -> "(S)elect one work order" 
+        | Cap.UnselectAttribution       -> "(U)nselect activity or work oder"
+        | Cap.EnterDuration             -> "(E)nter duration"
+        | Cap.CancelDuration            -> "(C)ancel duration"
+        | Cap.EnterNbPeople             -> "(E)nter nb of people"
+        | Cap.Logout                    -> "(L)ogout"
+        | Cap.Exit                      -> "(E)xit"
 
 let processAction state capabilities =
     let input = Console.ReadLine().ToUpper()

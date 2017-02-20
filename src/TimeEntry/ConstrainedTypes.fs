@@ -55,7 +55,7 @@ module ConstrainedTypes =
         else Failure <| sprintf "Your input: %s does not have the expected length (Length : %d)"  s len
 
     /// A validation function allowing only alphnumerical characters
-    let regexMatchValidator pattern msg (s: string)  = 
+    let regexFailIfMatch pattern msg (s: string)  = 
         let nb = 
             Regex.Matches(s, pattern )
             |> Seq.cast<Match>
@@ -63,15 +63,23 @@ module ConstrainedTypes =
         if nb = 0 then Success s
         else Failure msg
 
+    let regexFailIfNotMatch pattern msg (s: string) =
+        let nb = 
+            Regex.Matches(s, pattern )
+            |> Seq.cast<Match>
+            |> Seq.length
+        if nb <> 0 then Success s
+        else Failure msg
+
     let alphanumCharacterValidator = 
         let pattern =  "[^0-9a-zA-Z]+" 
-        regexMatchValidator pattern "Only alphanumerical characters are allowed."
+        regexFailIfMatch pattern "Only alphanumerical characters are allowed."
 
     let onlyNumCharacterValidator = 
         let pattern =  "[^0-9]+" 
-        regexMatchValidator pattern "Only numerical characters are allowed."
+        regexFailIfMatch pattern "Only numerical characters are allowed."
 
-
+ 
     /// A string of length 3
     type String3 = String3 of string with
         interface IWrappedString with
@@ -127,3 +135,43 @@ module ConstrainedTypes =
         interface IWrappedString with
             member this.Value = value this
     let stringMax200 = create singleLineTrimmed (maxLengthValidator 200) String200
+    let (|Regex|_|) pattern input =
+        let m = Regex.Match(input, pattern)
+        if m.Success then Some(List.tail [ for g in m.Groups -> g.Value ])
+        else None
+
+    type DateString = { Day : string; Month: string; Year: string} 
+    
+    let dateFormatValidator =
+        function 
+        | Regex @"^(0[1-9]|[12][0-9]|3[01])[/.](0[1-9]|1[012])[/.](20\d\d)$" 
+            [day; month; year] -> Success { Day = day; Month = month; Year = year }
+        | input -> 
+            Failure <| (sprintf "Your input: '%s' does not have the expected format. Expected formats is 'dd/mm/yyyy'\n
+                                    'dd' valid values are between: '01' and '31'\n
+                                    'mm' valid values are between: '01' and '12'\n
+                                    'yyyy' valid values are between: '2000' and '2099'." input)
+    let dateTimeValidator d = 
+        match System.DateTime.TryParse d with
+        | true, date    -> Success date
+        | false, _      -> Failure <| (sprintf "Your input '%s' is not recognized as a valid date." d)
+
+    let stringDate = singleLineTrimmed >> ( dateFormatValidator &&& dateTimeValidator)
+
+    type TimeString = { Hour: string; Minutes: string; Seconds: string }
+
+    let timeValidator =
+        function
+        | Regex @"^(?:(?:(?<hh>[01]\d|2[0-3])))$" [ hour] ->
+            Success { Hour = hour; Minutes = "00" ; Seconds = "00" }
+        | Regex @"^(?:(?:(?<hh>[01]\d|2[0-3])[:.](?<mm>[0-5]\d)))$" [ hour; minutes  ] ->
+            Success { Hour = hour; Minutes = minutes; Seconds = "00" }
+        | Regex @"^(?:(?:(?<hh>[01]\d|2[0-3])[:.](?<mm>[0-5]\d))[:.](?<ss>[0-5]\d))$" [ hour; minutes ;seconds  ] ->   
+            Success { Hour = hour; Minutes = minutes; Seconds = seconds }
+        | input -> 
+            Failure <| (sprintf "Your input: '%s' is not recognized as a time. Expected formats are: 'hh', 'hh:mm', 'hh:mm:ss'\n
+                                    'hh' valid values are between: '00' and '24'\n
+                                    'mm' valid values are between: '00' and '59'\n
+                                    'ss' valid values are between: '00' and '59'." input)
+
+    let stringTime = singleLineTrimmed >> timeValidator

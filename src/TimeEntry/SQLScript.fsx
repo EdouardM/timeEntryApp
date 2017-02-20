@@ -24,7 +24,6 @@ open TimeEntry.DBCommands
 open TimeEntry.DTO
 open TimeEntry.DBService
 
-
 open System.Configuration
 open FSharp.Configuration
 let exePath = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "./bin/Debug/TimeEntry.exe.config")
@@ -60,7 +59,7 @@ removeExistingData()
 let s1 = Site (String3 "F21")
 
 SiteAPI.insert s1
-SiteAPI.getSiteCodes()
+SiteAPI.getSiteCodes Active
 
 SiteAPI.insert (Site (String3 "F22"))
 
@@ -70,17 +69,17 @@ let sf2 = {ShopFloorInfo.ShopFloor = ShopFloor (String5 "F221A") ; Site = Site (
 ShopFloorAPI.insert(sf1)
 ShopFloorAPI.insert(sf2)
 
-ShopFloorAPI.getShopFloorCodes()
+ShopFloorAPI.getShopFloorCodes Active
 
-ShopFloorAPI.getShopFloorInfo("F211A")
+ShopFloorAPI.getShopFloorInfo Active sf1.ShopFloor
 
 let sf3 = {ShopFloorInfo.Site = Site (String3 "F23"); ShopFloor = ShopFloor (String5 "F231A") }
 ShopFloorAPI.insert (sf3)
 
-ShopFloorAPI.getShopFloorCodes()
+ShopFloorAPI.getShopFloorCodes Active
 
 ShopFloorAPI.desactivate("F231A")
-ShopFloorAPI.getShopFloorCodes()
+ShopFloorAPI.getShopFloorCodes Active
 ShopFloorAPI.activate("F231A")
 
 let wc1 = {WorkCenterInfo.WorkCenter = WorkCenter (String5 "F1"); ShopFloorInfo = sf1; StartHour = Hour 4u; EndHour = Hour 4u}
@@ -93,11 +92,11 @@ let wc2 = {WorkCenterInfo.WorkCenter = WorkCenter (String5 "F2"); ShopFloorInfo 
 WorkCenterAPI.insert(wc2)
 
 
-WorkCenterAPI.getWorkCenterCodes()
+WorkCenterAPI.getWorkCenterCodes Active
 WorkCenterAPI.getWorkCenter ("F1")
 
 //Test to write
-WorkCenterAPI.getWorkCenterCodes()
+WorkCenterAPI.getWorkCenterCodes Active
 WorkCenterAPI.desactivate ("F1")
 WorkCenterAPI.activate ("F1")
 
@@ -211,6 +210,55 @@ let user2 = { user with Password = Password (String50 "hello3")}
 
 UserInfoAPI.update user2
 
+
+let d = "29/02/2017"
+stringDate d
+let t = "23:10"
+stringTime t
+
+open System.Text.RegularExpressions
+
+let (|Regex|_|) pattern input =
+    let m = Regex.Match(input, pattern)
+    if m.Success then Some(List.tail [ for g in m.Groups -> g.Value ])
+    else None
+
+let phone = "(555) 555-5555"
+match phone with
+| Regex @"\(([0-9]{3})\)[-. ]?([0-9]{3})[-. ]?([0-9]{4})"  [ area; prefix; suffix ] ->
+    printfn "Area: %s, Prefix: %s, Suffix: %s" area prefix suffix
+| _ -> printfn "Not a phone number"
+
+
+let stringTime =
+    function
+    | Regex @"^(?:(?:(?<hh>[01]\d|2[0-3])))$" [ hour] ->
+        printfn "hour %s" hour
+    | Regex @"^(?:(?:(?<hh>[01]\d|2[0-3])[:.](?<mm>[0-5]\d)))$" [ hour; minutes  ] ->
+        printfn "hour %s / minutes: %s " hour minutes
+    | Regex @"^(?:(?:(?<hh>[01]\d|2[0-3])[:.](?<mm>[0-5]\d))[:.](?<ss>[0-5]\d))$" [ hour; minutes ;seconds  ] -> 
+        printfn "hour %s / minutes: %s / seconds: %s" hour minutes seconds
+    | input -> 
+        printfn "Your input: '%s' is not recognized as a time. Expected formats are: 'hh', 'hh:mm', 'hh:mm:ss'." input
+let t = "23:23"
+stringTime t 
+
+
+let stringDate = 
+    function 
+    | Regex @"^(0[1-9]|[12][0-9]|3[01])[/.](0[1-9]|1[012])[/.](19|20\d\d)$" 
+        [day; month; year] -> printfn "year: %s; month: %s; day: %s" year month day
+    | input -> 
+        printfn "Your input: '%s' is not recognized as a date. Expected formats is 'dd/mm/yyyy'" input       
+
+let d = " 19/02/2017"
+let t = "23:23:2322"
+
+TimeEntry.Constructors.Time.validate t
+
+TimeEntry.Constructors.DateTime.validate d t 
+
+TimeEntry.DBService.getActivityCodeByTimeTypeAndShopFloor MachineTime (ShopFloor (String5 "F211A"))
 
 // Add a logic to add total time on workorder
 // => Only when time record status is validated.
