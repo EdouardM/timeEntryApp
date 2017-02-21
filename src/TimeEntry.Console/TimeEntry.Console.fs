@@ -1,5 +1,6 @@
 module TimeEntry.Console
 open System
+open TimeEntry.Option
 open TimeEntry.DomainTypes
 open TimeEntry.Application
 //open TimeEntry.Constructors
@@ -108,9 +109,10 @@ let useCapability state =
             }
 
         | Cap.UnselectEntryMode -> Program.unselectEntryModeController state
+
         | Cap.SelectAttributionType  -> 
             result {
-                let! attributions = Program.displayAttributionsController Services.displayAttributionTypes state
+                let! attributions = Program.displayAttributionTypesController Services.displayAttributionTypes state
                 let choices = List.reduce(fun s s' -> s + " , " + s') attributions
                 printfn "[Select Attribution Type] Possible Choice: %s" choices
 
@@ -162,11 +164,17 @@ let useCapability state =
         | Cap.CancelDuration -> Program.cancelDurationController state
 
         | Cap.EnterNbPeople  -> 
-            printfn "[Enter Duration] Enter date (format: dd/mm/yyyy):"
+            printfn "[Enter Nb of People] Enter Nb of People:"
             let nb = Console.ReadLine()
 
             NbPeople.createDTO nb 
             |> Program.enterNbPeopleController Services.enterNbPeople state
+
+        | Cap.CancelNbPeople -> Program.cancelNbPeopleController state
+
+        | Cap.AddRecord      -> Program.addRecordController state
+
+        | Cap.SaveRecord     -> Success state
 
         | Cap.CreateSite ->
                 printfn "Not implemented yet. Logging out..."
@@ -198,14 +206,17 @@ let capabilityToMenu =
         | Cap.UnselectAttribution       -> "(U)nselect activity or work oder"
         | Cap.EnterDuration             -> "(E)nter duration"
         | Cap.CancelDuration            -> "(C)ancel duration"
-        | Cap.EnterNbPeople             -> "(E)nter nb of people"
+        | Cap.EnterNbPeople             -> "(E)nter Nb of people"
+        | Cap.CancelNbPeople            -> "(C)ancel Nb of people"
+        | Cap.AddRecord                 -> "(A)dd time record to list"
+        | Cap.SaveRecord                -> "(S)ave your entry"
         | Cap.Logout                    -> "(L)ogout"
         | Cap.Exit                      -> "(E)xit"
 
 let processAction state capabilities =
     let input = Console.ReadLine().ToUpper()
     result {
-        let! capabilitiesM = failIfNotInMap capabilities input "Invalid choice"
+        let! capabilitiesM = failIfNotInMap capabilities input "[Wrong Input] Invalid choice. Try again."
         let cap = capabilitiesM.Item(input)
         return! useCapability state cap   
     }
@@ -215,51 +226,239 @@ let printStateMessage =
         | Exit                  -> 
             Some "Goodbye."
         | LoggedIn data         -> 
+            printfn " 
+                ***************************
+                          LOGGED IN 
+                ***************************
+            \n"
             sprintf "You are logged in as: %s" 
             <| data.UserInfo.Login.ToString()
             |> Some
         | PasswordUpdated data  -> 
-            sprintf "Your password has been successfully updated. Logged in as: %s"
+            printfn " 
+                ***************************
+                      PASSWORD UPDATED 
+                ***************************
+            \n"
+            sprintf "Your password has been successfully updated.\nLogged in as: %s"
             <| data.UserInfo.Login.ToString()
             |> Some
         | LoggedOut             -> 
+            printfn " 
+                ***************************
+                      LOGGED OUT 
+                ***************************
+            \n"
             Some "Your are logged out."
         | SiteSelected data     -> 
-            let loggedinmsg = 
-                sprintf "You are logged in as: %s" 
-                <| data.UserInfo.Login.ToString()
-
-            let siteselectmsg = 
-                sprintf "You have selected the site: %s" 
-                <| data.Site.ToString()
+            printfn " 
+                ***************************
+                      SITE SELECTED 
+                ***************************
+            \n"
+            let loggedinmsg = data.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Site.SelectMsg()
             
             //Compose msg:
-            loggedinmsg + "\n" + siteselectmsg
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg
             |> Some
+        | EntryMethodSelected data -> 
+            printfn " 
+                ***************************
+                   ENTRY METHOD SELECTED 
+                ***************************
+            \n"
+            let loggedinmsg = data.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Site.SelectMsg()
+            let entrymethodmsg = data.EntryMethod.SelectMsg()
+            //Compose msg:
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg 
+            + "\n" + entrymethodmsg
+            |> Some
+        | EntryLevelSelected data -> 
+            printfn " 
+                ***************************
+                   ENTRY LEVEL SELECTED 
+                ***************************
+            \n"
+            let loggedinmsg = data.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Site.SelectMsg()
+            let entrymethodmsg = data.EntryMethod.SelectMsg()
+            let entrylevelmsg  = data.EntryLevel.SelectMsg()
+            //Compose msg:
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg 
+            + "\n" + entrymethodmsg 
+            + "\n" + entrylevelmsg
+            |> Some
+
         | ShopFloorSelected data -> 
-            let loggedinmsg = 
-                sprintf "You are logged in as: %s" 
-                <| data.UserInfo.Login.ToString()
+            printfn " 
+                ***************************
+                   SHOPFLOOR SELECTED 
+                ***************************
+            \n"
+            let loggedinmsg = data.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Site.SelectMsg()
+            let entrymethodmsg = data.EntryMethod.SelectMsg()
+            let entrylevelmsg  = data.EntryLevel.SelectMsg()
 
-            let siteselectmsg = 
-                sprintf "You have selected the site: %s" 
-                <| data.Site.ToString()
-            
-            let shopfloormsg = 
-                sprintf "You have selected the shopfloor: %s" 
-                <| data.ShopFloor.ToString()
-            
+            let shopfloormsg = data.ShopFloor.SelectMsg()
+
             //Compose msg:
-            loggedinmsg + "\n" + siteselectmsg + "\n" + shopfloormsg
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg 
+            + "\n" + entrymethodmsg 
+            + "\n" + entrylevelmsg
+            + "\n" + shopfloormsg
             |> Some
 
-        | _                     -> None
-    >> Option.map (printfn "%s")
+        | WorkCenterSelected data ->
+            printfn " 
+                ***************************
+                   WORKCENTER SELECTED 
+                ***************************
+            \n"
+            maybe { 
+                let loggedinmsg = data.UserInfo.Login.LoginMsg()
+                let siteselectmsg = data.Site.SelectMsg()
+                let entrymethodmsg = data.EntryMethod.SelectMsg()
+                let entrylevelmsg  = data.EntryLevel.SelectMsg()
+
+                let shopfloormsg = data.ShopFloor.SelectMsg()
+            
+                let! workcentermsg = 
+                    data.WorkCenter
+                    |> Option.map(fun wc -> wc.SelectMsg()) 
+                
+                //Compose msg:
+                return loggedinmsg 
+                        + "\n" + "Entry Context: "
+                        + "\n" + siteselectmsg 
+                        + "\n" + entrymethodmsg 
+                        + "\n" + entrylevelmsg
+                        + "\n" + shopfloormsg
+                        + "\n" + workcentermsg }
+        | EntryModeSelected data ->
+            printfn " 
+                ***************************
+                   ENTRY MODE SELECTED 
+                ***************************
+            \n" 
+            let loggedinmsg = data.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Site.SelectMsg()
+            let entrymethodmsg = data.EntryMethod.SelectMsg()
+            let entrylevelmsg  = data.EntryLevel.SelectMsg()
+
+            let shopfloormsg = data.ShopFloor.SelectMsg()
+        
+            let workcentermsg = 
+                data.WorkCenter
+                |> Option.map(fun wc -> "\n" + wc.SelectMsg()) 
+                |> optionToString
+            let entrymodemsg = data.EntryMode.SelectMsg()
+
+            //Compose msg:
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg 
+            + "\n" + entrymethodmsg 
+            + "\n" + entrylevelmsg
+            + "\n" + shopfloormsg
+            + workcentermsg
+            + "\n" + entrymodemsg
+            |> Some
+
+        | AttributionTypeSelected data ->
+            printfn " 
+                ***************************
+                   ATTR. TYPE SELECTED 
+                ***************************
+            \n" 
+            let loggedinmsg = data.Context.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Context.Site.SelectMsg()
+            let entrymethodmsg = data.Context.EntryMethod.SelectMsg()
+            let entrylevelmsg  = data.Context.EntryLevel.SelectMsg()
+
+            let shopfloormsg = data.Context.ShopFloor.SelectMsg()
+        
+            let workcentermsg = 
+                data.Context.WorkCenter
+                |> Option.map(fun wc -> "\n" + wc.SelectMsg()) 
+                |> optionToString
+            let entrymodemsg = data.Context.EntryMode.SelectMsg()
+            let attrTypemsg  = data.AttributionType.SelectMsg()
+
+            printfn "Records in memory:"
+            data.TimeRecords 
+            |> List.iter (printfn "%A")
+            
+            printfn "\n"
+            //Compose msg:
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg 
+            + "\n" + entrymethodmsg 
+            + "\n" + entrylevelmsg
+            + "\n" + shopfloormsg
+            + workcentermsg
+            + "\n" + entrymodemsg
+            + "\n" + attrTypemsg
+            |> Some
+
+        | AttributionSelected data ->
+            printfn " 
+                ***************************
+                   ATTRIBUTION SELECTED 
+                ***************************
+            \n" 
+            let loggedinmsg = data.Context.UserInfo.Login.LoginMsg()
+            let siteselectmsg = data.Context.Site.SelectMsg()
+            let entrymethodmsg = data.Context.EntryMethod.SelectMsg()
+            let entrylevelmsg  = data.Context.EntryLevel.SelectMsg()
+
+            let shopfloormsg = data.Context.ShopFloor.SelectMsg()
+        
+            let workcentermsg = 
+                data.Context.WorkCenter
+                |> Option.map(fun wc -> "\n" + wc.SelectMsg()) 
+                |> optionToString
+            let entrymodemsg = data.Context.EntryMode.SelectMsg()
+            let attrTypemsg  = data.AttributionType.SelectMsg()
+            let attrmsg = data.Attribution.SelectMsg() 
+            
+            printfn "Records in memory:"
+            data.TimeRecords 
+            |> List.iter (printfn "%A")
+            
+            printfn "\n"
+            //Compose msg:
+            loggedinmsg 
+            + "\n" + "Entry Context: "
+            + "\n" + siteselectmsg 
+            + "\n" + entrymethodmsg 
+            + "\n" + entrylevelmsg
+            + "\n" + shopfloormsg
+            + workcentermsg
+            + "\n" + entrymodemsg
+            + "\n" + attrTypemsg
+            + "\n" + attrmsg
+            |> Some
+
+        | _ -> None
+    >> Option.map (printfn "%s\n\n")
     >> ignore
 
 let renderView state =
     let capabilities = Program.getCapabilities state
     
+    printfn "Available Actions:"
     //Print options available
     capabilities
     |> Map.toList
@@ -293,6 +492,10 @@ let main argv =
     DBService.removeExistingData()  |> ignore
     DBService.insertReferenceData() |> ignore
 
-    printfn "Welcome to Time Entry App."
+    printfn "
+    ----------------------------------
+        Welcome to Time Entry App
+    ----------------------------------
+    \n"
     mainUILoop LoggedOut
     0 
