@@ -268,7 +268,7 @@ module Constructors =
                 | status      -> Failure <| sprintf "Invalid Record Status: %s" status 
 
     module TimeRecord = 
-        let validate site shopfloor workcenter attribution timetype duration nbpeople status =
+        let create site shopfloor workcenter attribution timetype duration nbpeople status =
             { Site = site; ShopFloor = shopfloor; WorkCenter = workcenter; TimeType = timetype;Duration = duration; Attribution = attribution; NbPeople = nbpeople;
              Status = status}
 
@@ -405,7 +405,7 @@ module Constructors =
                 | WorkCenterSelected data   -> 
                     EntryModeSelectedData.create data.UserInfo data.Site data.EntryMethod EntryLevel.WorkCenter data.ShopFloor data.WorkCenter MachineAndLabour
                     |> Success
-                | _ -> Failure "Unexpected application state. It should be WorkCenter Selected or ShopFloor Selected."
+                | _ -> Failure "Unexpected application state. It should be Entry Mode Selected."
 
     module AttributionTypeSelected = 
         let getData = 
@@ -424,3 +424,21 @@ module Constructors =
             function
                 | DurationEntered data  -> Success data
                 | _ -> Failure "Unexpected application state. It should be Duration Entered."
+
+    module NbPeopleEntered = 
+        
+        let getData = 
+            function
+                | NbPeopleEntered data  -> Success data
+                | _ -> Failure "Unexpected application state. It should be NBPeople Entered."
+
+    module RecordAddedData =        
+        let create context timerecords = 
+            { Context = context; TimeRecords = timerecords }
+
+    module RecordAdded =
+        let getData =
+            function
+                | RecordAdded data  -> Success data
+                | _ -> Failure "Unexpected application state. It should be Time Recorded."
+    

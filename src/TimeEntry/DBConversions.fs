@@ -450,7 +450,7 @@ namespace TimeEntry
                             | Some wo, None -> 
                                 let workOrderEntryRes = WorkOrder.validate workorders wo
                                 let attributionRes = Result.map (Attribution.WorkOrder) workOrderEntryRes
-                                TimeRecord.validate
+                                TimeRecord.create
                                 <!> siteRes
                                 <*> shopFloorRes
                                 <*> workCenterRes
@@ -463,7 +463,7 @@ namespace TimeEntry
                             | None, Some act -> 
                                 let activityEntryRes = ActivityCode.validate activities act
                                 let attributionRes   = Result.map (Attribution.Activity) activityEntryRes
-                                TimeRecord.validate
+                                TimeRecord.create
                                 <!> siteRes
                                 <*> shopFloorRes
                                 <*> workCenterRes
