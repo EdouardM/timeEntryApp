@@ -14,6 +14,7 @@ module DBService =
         >=> UserAuthAPI.deleteAll
         >=> UserInfoAPI.deleteAll
         >=> ActivityAPI.deleteAll
+        >=> ActivityInfoAPI.deleteAll
         >=> WorkOrderInfoAPI.deleteAll
         >=> MachineAPI.deleteAll
         >=> WorkCenterAPI.deleteAll
@@ -64,7 +65,7 @@ module DBService =
                 }
 
         let marrF21 = {arrF21 with Code = ActivityCode (String4 "MARR"); ActivityLink = Linked <| ActivityCode (String4 "ARR"); TimeType = LabourTime}
-
+(*
         let extrainfo = {
                                 Machine  = Machine (String10 "ZX"); 
                                 Cause    = String50 "Arrêt imprévu";
@@ -72,6 +73,7 @@ module DBService =
                                 Comments = String200 "A retenir" 
                         }
         let actInfo2 = Detailed (ActivityCode (String4 "ARR"), extrainfo )
+*)
 
         let wo1 = { 
                 WorkOrder = WorkOrder (String10 "12243");
@@ -99,8 +101,8 @@ module DBService =
         [formatF21; mformatF21; divF21; mdivF21; arrF21; marrF21]
         |> List.map ActivityAPI.insert
         |> ignore
-        ActivityInfoAPI.insert actInfo1 |> ignore
-        ActivityInfoAPI.insert actInfo2 |> ignore
+//       ActivityInfoAPI.insert actInfo1 |> ignore
+//        ActivityInfoAPI.insert actInfo2 |> ignore
 
         let user = { 
                 Login           = Login (String8 "moureed1"); 
@@ -206,3 +208,8 @@ module DBService =
     let validateWorkOrder workcenter input = 
         let workorders = getWorkOrderByWorkCenter workcenter
         WorkOrder.validate workorders input
+
+    
+    let saveTimeRecords userinfo (timerecords: TimeRecord list) = 
+        timerecords
+        |> Result.traverse (TimeRecordAPI.insert userinfo)

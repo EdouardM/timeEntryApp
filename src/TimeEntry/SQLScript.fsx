@@ -26,6 +26,7 @@ open TimeEntry.DBService
 
 open System.Configuration
 open FSharp.Configuration
+
 let exePath = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "./bin/Debug/TimeEntry.exe.config")
 let config = ConfigurationManager.OpenExeConfiguration(exePath)
 
@@ -113,7 +114,7 @@ MachineAPI.desactivate("Rooslvo")
 let formatF21 = { 
             Site            = s1; 
             Code            = ActivityCode (String4 "FOR"); 
-            RecordLevel     = WorkCenterLevel AllWorkCenters; 
+            RecordLevel     = RecordLevel.WorkCenter WorkCenterAccess.All; 
             TimeType        = MachineTime; 
             ActivityLink    = Linked <| ActivityCode (String4 "MFOR"); 
             ExtraInfo       = ExtraInfo.WithoutInfo
@@ -123,7 +124,7 @@ let mformatF21 = {formatF21 with Code = ActivityCode (String4 "MFOR"); ActivityL
 let divF21 = { 
             Site            = s1; 
             Code            = ActivityCode (String4 "DIV"); 
-            RecordLevel     = WorkCenterLevel AllWorkCenters; 
+            RecordLevel     = RecordLevel.WorkCenter WorkCenterAccess.All; 
             TimeType        = MachineTime; 
             ActivityLink    = Linked <| ActivityCode (String4 "MDIV"); 
             ExtraInfo       = ExtraInfo.WithoutInfo
@@ -136,58 +137,38 @@ ActivityAPI.insert mformatF21
 ActivityAPI.insert divF21
 ActivityAPI.insert mdivF21
 
-ActivityAPI.getActivityCodes()
+ActivityAPI.getActivityCodes Active
 
 //TESTS
-let formatF21'= {formatF21 with ExtraInfo = WithInfo}
+let formatF21'= {formatF21 with ExtraInfo = WithoutInfo}
 ActivityAPI.update formatF21'
-ActivityAPI.getActivity "FOR"
+ActivityAPI.getActivity (ActivityCode (String4 "FOR"))
 
 ActivityAPI.desactivate "FOR"
 ActivityAPI.activate    "FOR"
 
-updateEvent (WithoutInfo "NET")
-getEvent ("NET")
+let wo1 = { WorkOrder = WorkOrder (String10 "12243"); 
+            ItemCode = ItemCode (String6 "099148");
+            WorkCenter = wc1.WorkCenter; 
+            TotalMachineTimeHr = TimeHr 0.f; 
+            TotalLabourTimeHr = TimeHr 0.f; 
+            Status =  Open }
 
-let wo1 = { WorkOrder = WorkOrder "12243"; ItemCode = ItemCode "099148"; WorkCenter = WorkCenter "F1"; TotalMachineTimeHr = TimeHr 0.f; TotalLabourTimeHr = TimeHr 0.f; Status =  Open }
-getWorkOrderCodes()
 
-insertWorkOrderEntry wo1
-getWorkOrderCodes()
+WorkOrderInfoAPI.insert wo1
 
-getWorkOrder ("12243")
+WorkOrderInfoAPI.getWorkOrderCodes Active
 
-getWorkOrder ("12242")
+WorkOrderInfoAPI.getWorkOrder Active wo1.WorkOrder
 let wo1' = {wo1 with TotalMachineTimeHr = TimeHr 1000.f}
 
-updateWorkOrderEntry wo1'
+WorkOrderInfoAPI.update wo1'
 
-getWorkOrder ("12243")
+WorkOrderInfoAPI.getWorkOrder Active wo1.WorkOrder
 
-let eventEntry = EventWithoutInfo (WithoutInfo "NET")
-insertEventEntry eventEntry
+let duration =  { StartTime = System.DateTime(2016, 12, 15, 12, 01, 12); EndTime = System.DateTime(2016, 12, 15, 15, 01, 12) }
+let nbpeople =  NbPeople 2.f
 
-let eventEntry2 = EventWithInfo (WithInfo "ARR", {Machine =Machine "ZX"; Cause="Arrêt imprévu";Solution="Brancher la prise";Comments="A retenir" })
-insertEventEntry eventEntry2
-
-getEventEntry (5u)
-
-let timeEntry = MachineAndLabour ( { StartTime = System.DateTime(2016, 12, 15, 12, 01, 12); EndTime = System.DateTime(2016, 12, 15, 15, 01, 12) },  NbPeople 2.f)
-
-let timeRecord = 
-    {
-        TimeRecord.Site = Site "F21"
-        ShopFloor = ShopFloor "F211A"
-        WorkCenter = WorkCenter "F1"
-        TimeEntry =  timeEntry
-        Allocation =  WorkOrderEntry wo1 
-        Status = Entered
-    }
- 
-getShopFloorCodes()
-insertTimeRecord timeRecord
-
-getTimeRecord 5u
 
 let login = Login (String8 "moureed1")
 
@@ -202,14 +183,14 @@ UserInfoAPI.update user
 
 UserInfoAPI.getUser (login)
 
-getUserInfo login
+let timeRecord = TimeRecord.create s1 sf1.ShopFloor (Some wc1.WorkCenter) (Attribution.WorkOrder wo1.WorkOrder) MachineTime duration nbpeople  Entered
+let timeRecord' = { timeRecord with Attribution = Attribution.Activity formatF21.Code }
 
-UserInfoAPI.updatePassword login (Password (String50 "depzoiam12"))
+saveTimeRecords user [timeRecord; timeRecord']
 
-let user2 = { user with Password = Password (String50 "hello3")}
 
-UserInfoAPI.update user2
 
+TimeRecordAPI.getTimeRecord 1u
 
 let d = "29/02/2017"
 stringDate d

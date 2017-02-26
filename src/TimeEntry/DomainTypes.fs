@@ -39,6 +39,9 @@ module DomainTypes =
             override this.ToString() = 
                 let (Site (String3 s)) = this
                 s
+            member this.SelectMsg() = 
+                sprintf "Site:\t\t %s" 
+                <| this.ToString()
     
      (* DEFINE ONE SHOPFLOOR *)
     type ShopFloor  = ShopFloor of String5
@@ -46,6 +49,9 @@ module DomainTypes =
             override this.ToString() = 
                 let (ShopFloor (String5 sf)) = this
                 sf
+            member this.SelectMsg() = 
+                sprintf "ShopFloor:\t %s" 
+                <| this.ToString()
 
     type ShopFloorInfo = 
         {
@@ -55,13 +61,14 @@ module DomainTypes =
 
     (* DEFINE ONE WORKCENTER *)
     
-
-
     type WorkCenter  = WorkCenter of String5
         with
             override this.ToString() = 
                 let (WorkCenter (String5 wc)) = this
                 wc 
+            member this.SelectMsg() = 
+                sprintf "WorkCenter:\t %s" 
+                <| this.ToString()
 
     type WorkCenterInfo = 
         {
@@ -73,6 +80,10 @@ module DomainTypes =
     
     (* DEFINE ONE MACHINE *)
     type Machine = Machine of String10
+         with
+            override this.ToString() = 
+                let (Machine (String10 ma)) = this
+                ma
 
     type MachineInfo =
         {
@@ -159,12 +170,22 @@ module DomainTypes =
     type SiteAccess = | AllSites | SiteList of Site list
 
     type AuthLevel = | Viewer | User | KeyUser | Admin
+        with
+            override this.ToString() =
+                match this with
+                    | Viewer    -> "viewer"
+                    | User      -> "user"
+                    | KeyUser   -> "keyuser"
+                    | Admin     -> "admin"
 
     type Login = Login of String8
         with
             override x.ToString() = 
                 let (Login (String8 l)) = x
                 l
+            member this.LoginMsg() = 
+                sprintf "Login:\t\t %s" 
+                <| this.ToString()
 
     type UserName = UserName of String50
         with
@@ -229,12 +250,27 @@ module DomainTypes =
     type EntryMode = 
         | MachineOnly     
         | MachineAndLabour 
-        | LabourOnly      
-
+        | LabourOnly
+        with
+                override this.ToString() = 
+                    match this with 
+                        | MachineOnly       -> "Machine time only"
+                        | MachineAndLabour  -> "Machine and Labour time"
+                        | LabourOnly        -> "Labour time only" 
+                member this.SelectMsg() = 
+                    sprintf "Entry Mode:\t %s"
+                    <| this.ToString()
+                    
     [<RequireQualifiedAccess>]
     type Attribution = 
         | WorkOrder of WorkOrder
         | Activity  of ActivityCode
+        with 
+            member this.SelectMsg() = 
+                match this with
+                    | WorkOrder wo -> sprintf "WorkOrder: %s" <| wo.ToString()
+                    | Activity  ac -> sprintf "Activity: %s" <| ac.ToString()
+            
 
     type RecordStatus = 
         | Entered
@@ -258,16 +294,40 @@ module DomainTypes =
     type EntryMethod = 
         | ProductionLine
         | Individual
+        with
+            override this.ToString() = 
+                match this with 
+                    | ProductionLine    -> "Production Line"
+                    | Individual        -> "Individual time"
+            member this.SelectMsg() = 
+                sprintf "Entry Method:\t %s"
+                <| this.ToString()
 
     [<RequireQualifiedAccess>]
     type EntryLevel = 
         | ShopFloor
         | WorkCenter
+        with
+            override this.ToString() = 
+                match this with 
+                    | ShopFloor    -> "ShopFloor"
+                    | WorkCenter   -> "WorkCenter"
+            member this.SelectMsg() = 
+                sprintf "Entry Level:\t %s"
+                <| this.ToString()
     
     [<RequireQualifiedAccess>]
     type AttributionType = 
         | WorkOrder
         | Activity
+        with
+            override this.ToString() = 
+                match this with 
+                    | WorkOrder     -> "WorkOrder"
+                    | Activity      -> "Activity"
+            member this.SelectMsg() = 
+                sprintf "Attribution Type:\t %s"
+                <| this.ToString()
 
 // --------------------------------------------------
 
@@ -299,7 +359,8 @@ module DomainTypes =
         | CancelDuration
         | EnterNbPeople
         | CancelNbPeople
-        | RecordTime
+        | AddRecord
+        | SaveRecord
         | Logout
         | Exit
 
@@ -356,38 +417,23 @@ module DomainTypes =
 
     type AttributionTypeSelectedData = 
         { 
-            Site            : Site 
-            ShopFloor       : ShopFloor
-            WorkCenter      : WorkCenter option
-            UserInfo        : UserInfo 
-            EntryMethod     : EntryMethod 
-            EntryLevel      : EntryLevel
-            EntryMode       : EntryMode
+            Context         : EntryModeSelectedData
+            TimeRecords     : TimeRecord list
             AttributionType : AttributionType
         }
     
     type AttributionSelectedData = 
         { 
-            Site            : Site 
-            ShopFloor       : ShopFloor
-            WorkCenter      : WorkCenter option
-            UserInfo        : UserInfo 
-            EntryMethod     : EntryMethod 
-            EntryLevel      : EntryLevel
-            EntryMode       : EntryMode
+            Context         : EntryModeSelectedData
+            TimeRecords     : TimeRecord list
             AttributionType : AttributionType
             Attribution     : Attribution
         }
 
     type DurationEnteredData = 
         {
-            Site            : Site 
-            ShopFloor       : ShopFloor
-            WorkCenter      : WorkCenter option
-            UserInfo        : UserInfo 
-            EntryMethod     : EntryMethod 
-            EntryLevel      : EntryLevel
-            EntryMode       : EntryMode
+            Context         : EntryModeSelectedData
+            TimeRecords     : TimeRecord list
             AttributionType : AttributionType
             Attribution     : Attribution
             Duration        : Duration
@@ -395,35 +441,21 @@ module DomainTypes =
 
     type NbPeopleEnteredData =
         {
-            Site            : Site 
-            ShopFloor       : ShopFloor
-            WorkCenter      : WorkCenter option
-            UserInfo        : UserInfo 
-            EntryMethod     : EntryMethod 
-            EntryLevel      : EntryLevel
-            EntryMode       : EntryMode
+            Context         : EntryModeSelectedData
+            TimeRecords     : TimeRecord list
             AttributionType : AttributionType
             Attribution     : Attribution
             Duration        : Duration
             NbPeople        : NbPeople
         }
-(*
 
-    type Attribution = 
-        | Activity
-        | WorkOrder 
-
-    if activity     ==> Record Activity : Normal Activity Code 
-    if workorder    ==> Record WorkOrder: WorkOrder Code 
-
-    type TimeRecordData = 
-        { 
-            Context     : EntryModeSelectedData
-            Attribution : Attribution
-            Duration    : Duration
-            NbPeople    : NbPeople
+    type RecordedAddedData =
+        {
+            Context      : EntryModeSelectedData
+            TimeRecords  : TimeRecord list
         }
-*)
+
+    
 (*  SERVICES *)
     
     //Use case or services: 
@@ -459,7 +491,7 @@ module DomainTypes =
 
     type DisplayAttributionTypes = EntryModeSelectedData -> Result<string list>
 
-    type SelectAttributionType = AttributionType -> EntryModeSelectedData -> Result<AttributionTypeSelectedData>
+    type SelectAttributionType = AttributionType -> EntryModeSelectedData -> TimeRecord list -> Result<AttributionTypeSelectedData>
     
     type DisplayActivityCodes = AttributionTypeSelectedData -> Result<string list>
 
@@ -470,6 +502,10 @@ module DomainTypes =
     type EnterDuration = Duration -> AttributionSelectedData -> Result<DurationEnteredData>
 
     type EnterNbPeople = NbPeople -> DurationEnteredData -> Result<NbPeopleEnteredData>
+
+    type AddRecord  = NbPeopleEnteredData -> Result<RecordedAddedData>
+    
+    type SaveRecord = RecordedAddedData -> Result<SiteSelectedData>
 
     //User may not have the right to create one site or input is invalid
     type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
@@ -482,7 +518,6 @@ module DomainTypes =
     type TimeEntryState = 
         | LoggedOut
         | Exit
-        //Connect user and list possible actions he can do:
         | LoggedIn                  of LoggedInData
         | SiteCreated               of SiteSelectedData
         | PasswordUpdated           of UpdatePasswordData
@@ -496,14 +531,5 @@ module DomainTypes =
         | AttributionSelected       of AttributionSelectedData
         | DurationEntered           of DurationEnteredData
         | NbPeopleEntered           of NbPeopleEnteredData
-
-(* 
-    //Model the creation of one time Record
-    //type RecordTime = UserInfo -> Site -> EntryMethod  -> ShopFloor -> WorkCenter option -> TimeEntryMode -> 
-            //2 cases   Production Line - Multiple records:  -> TimeAttribution -> Duration * NbPerson -> TimeRecord list
-            //          Individual - one record: -> TimeAttribution -> Duration * NbPerson -> TimeRecord list with only one item
-
-    Attribution type -> Attribution display (cache) Selected -> Duration Entered -> NbPerson Entered 
-        -> Time record validated
-        -> Go back to Attribution selection  
-*)
+        | RecordAdded               of RecordedAddedData
+        | RecordSaved               of SiteSelectedData

@@ -408,16 +408,17 @@ namespace TimeEntry
 
                     let timetype = time.TimeType.ToString()
                     let (TimeHr t)  = time.Duration.ToTimeHr()
-                    
+                    let (NbPeople nb) = time.NbPeople
+
                     {   
                                     Site            = site
                                     ShopFloor       = shopfloor 
                                     WorkCenter      = workcenter 
-                                    TimeType        = "machine"
+                                    TimeType        = timetype
                                     StartTime       = time.Duration.StartTime
                                     EndTime         = time.Duration.EndTime
                                     TimeHr          = t
-                                    NbPeople        = 0.f
+                                    NbPeople        = nb
                                     Attribution     = attributionToString time.Attribution
                                     WorkOrderEntry  = None
                                     ActivityEntry   = None
@@ -450,7 +451,7 @@ namespace TimeEntry
                             | Some wo, None -> 
                                 let workOrderEntryRes = WorkOrder.validate workorders wo
                                 let attributionRes = Result.map (Attribution.WorkOrder) workOrderEntryRes
-                                TimeRecord.validate
+                                TimeRecord.create
                                 <!> siteRes
                                 <*> shopFloorRes
                                 <*> workCenterRes
@@ -463,7 +464,7 @@ namespace TimeEntry
                             | None, Some act -> 
                                 let activityEntryRes = ActivityCode.validate activities act
                                 let attributionRes   = Result.map (Attribution.Activity) activityEntryRes
-                                TimeRecord.validate
+                                TimeRecord.create
                                 <!> siteRes
                                 <*> shopFloorRes
                                 <*> workCenterRes

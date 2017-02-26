@@ -6,6 +6,11 @@ module Option =
         member this.Bind(x,f) = Option.bind f x 
     let maybe = new MaybeBuilder()
 
+    let optionToString = 
+        function 
+            | Some x    -> x.ToString()
+            | None      -> ""
+
 module Result =
 
     type FailureMessage = string

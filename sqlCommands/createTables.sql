@@ -21,6 +21,8 @@ INSERT Site VALUES('F22', 1);
 /* =====================================================
 Create Shopfloor table  
 ===================================================== */
+DROP TABLE  IF EXISTS Shopfloor;
+
 
 CREATE TABLE Shopfloor (
     Shopfloor VARCHAR(5) NOT NULL,
@@ -106,17 +108,17 @@ CREATE TABLE Activity (
     isLinked TINYINT(1) NOT NULL, 
     LinkedActivity VARCHAR(4), 
     Active TINYINT(1) NOT NULL,
-    PRIMARY KEY (Activity)
+    PRIMARY KEY (Code)
 );
 
-INSERT Activity VALUES('FOR', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MFOR', 1)
-INSERT Activity VALUES('MFOR','F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'FOR', 1)
-INSERT Activity VALUES('DIV', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MDIV', 1)
-INSERT Activity VALUES('MDIV', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'DIV', 1)
-INSERT Activity VALUES('PAN', 'F21', 'workcenter', 1, 'withinfo', 'machine', 1, 'MPAN', 1)
-INSERT Activity VALUES('MPAN', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'PAN', 1)
-INSERT Activity VALUES('ARR', 'F21', 'workcenter', 1, 'withinfo', 'machine', 1, 'MARR', 1)
-INSERT Activity VALUES('MARR', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'ARR', 1)
+INSERT Activity VALUES('FOR', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MFOR', 1);
+INSERT Activity VALUES('MFOR','F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'FOR', 1);
+INSERT Activity VALUES('DIV', 'F21', 'workcenter', 1, 'withoutinfo', 'machine', 1, 'MDIV', 1);
+INSERT Activity VALUES('MDIV', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'DIV', 1);
+INSERT Activity VALUES('PAN', 'F21', 'workcenter', 1, 'withinfo', 'machine', 1, 'MPAN', 1);
+INSERT Activity VALUES('MPAN', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'PAN', 1);
+INSERT Activity VALUES('ARR', 'F21', 'workcenter', 1, 'withinfo', 'machine', 1, 'MARR', 1);
+INSERT Activity VALUES('MARR', 'F21', 'workcenter', 1, 'withinfo', 'labour', 1, 'ARR', 1);
 
 
 /* =====================================================
@@ -180,7 +182,7 @@ CREATE TABLE TimeRecord (
     EndTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01', 
     TimeHr FLOAT(7,4) NOT NULL, 
     NbPeople FLOAT(3,1) NOT NULL,
-    Attribution ENUM('workorder','event') NOT NULL,
+    Attribution ENUM('workorder','activity') NOT NULL,
     WorkOrder VARCHAR(10),
     ActivityInfoId INT,
     RecordStatus ENUM('entered', 'validated') NOT NULL,

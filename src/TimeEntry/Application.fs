@@ -29,7 +29,7 @@ module Application =
             DBService.getActiveWorkCentersByShopfloor
             |> notForViewer userinfo
         let displayEntryModeNotForViewer userinfo = notForViewer userinfo (fun () -> ["(M)achineOnly"; "(L)abourOnly"])
-        let displayAttributionNotForViewer userinfo = notForViewer userinfo (fun () -> ["(W)orkorder"; "(A)ctivity"])
+        let displayAttributionTypesNotForViewer userinfo = notForViewer userinfo (fun () -> ["(W)orkorder"; "(A)ctivity"])
         let displayActivityCodesNotForViewer userinfo = 
             (fun entryLevel entrymode shopfloor workcenter -> 
                 let timetype = EntryMode.toTimeType entrymode
@@ -47,6 +47,30 @@ module Application =
         let displayWorkOrdersNotForViewer userinfo = 
             (DBService.getWorkOrderByWorkCenter )
             |> notForViewer userinfo
+
+        let addRecordNotForViewer userinfo = 
+            (fun (data: NbPeopleEnteredData) -> 
+                let ctx = data.Context
+                let timetype = EntryMode.toTimeType ctx.EntryMode
+                let timeRecord = TimeRecord.create ctx.Site ctx.ShopFloor ctx.WorkCenter data.Attribution timetype data.Duration data.NbPeople Entered
+                let timeRecords = timeRecord::data.TimeRecords
+                RecordAddedData.create data.Context timeRecords
+            )
+            |> notForViewer userinfo
+
+
+        let saveRecordNotForViewer userinfo =
+            (fun (data: RecordedAddedData) -> 
+                            let ids = DBService.saveTimeRecords data.Context.UserInfo data.TimeRecords
+                            let siteSelectedData = SiteSelectedData.create data.Context.Site data.Context.UserInfo 
+                            match ids with 
+                                | Success ls -> 
+                                        printfn "Saved %d records" <| List.length ls
+                                        Success  siteSelectedData
+                                | Failure msg -> Failure msg
+            )
+            |> notForViewer userinfo
+
 
 
     (* SERVICES IMPLEMENTATION *)
@@ -229,40 +253,37 @@ module Application =
                 |> Success   
         let displayAttributionTypes : DisplayAttributionTypes = 
             fun entrymodedata -> 
-                let displayAttributionCap = displayAttributionNotForViewer entrymodedata.UserInfo
+                let displayAttributionCap = displayAttributionTypesNotForViewer entrymodedata.UserInfo
                 match displayAttributionCap with
                     | Some cap -> cap () |> Success
                     | None -> Failure "You are not authorized to record time."
 
         let selectAttributionType: SelectAttributionType = 
-            fun attr entrymodedata -> 
+            fun attr entrymodedata records  -> 
                 { 
-                    AttributionTypeSelectedData.Site = entrymodedata.Site 
-                    UserInfo            = entrymodedata.UserInfo 
-                    ShopFloor           = entrymodedata.ShopFloor 
-                    EntryMethod         = entrymodedata.EntryMethod
-                    EntryLevel          = entrymodedata.EntryLevel
-                    WorkCenter          = entrymodedata.WorkCenter
-                    EntryMode           = entrymodedata.EntryMode
+                    AttributionTypeSelectedData.Context = entrymodedata
+                    TimeRecords         = records 
                     AttributionType     = attr
                 }
                 |> Success   
 
         let displayActivityCodes : DisplayActivityCodes = 
             fun data -> 
-                let displayActivityCodeCap = displayActivityCodesNotForViewer data.UserInfo
+                let displayActivityCodeCap = displayActivityCodesNotForViewer data.Context.UserInfo
                 match displayActivityCodeCap with
-                    | Some cap -> 
-                        cap data.EntryLevel data.EntryMode data.ShopFloor data.WorkCenter
+                    | Some cap ->
+                        let ctxData = data.Context 
+                        cap ctxData.EntryLevel ctxData.EntryMode ctxData.ShopFloor ctxData.WorkCenter
                         |> Result.failIfMissing "No activity code available." 
 
                     | None -> Failure "You are not authorized to record time."
         let displayWorkOrders : DisplayWorkOrders = 
             fun data -> 
-                let displayWorkOrderCap = displayWorkOrdersNotForViewer data.UserInfo
+                let ctxData = data.Context
+                let displayWorkOrderCap = displayWorkOrdersNotForViewer ctxData.UserInfo
                 match displayWorkOrderCap with
                     | Some cap -> 
-                        match data.WorkCenter with
+                        match ctxData.WorkCenter with
                             | Some wc -> 
                                 let msg = sprintf "No workorder available for workcenter: %s." <| wc.ToString()
                                 cap wc
@@ -273,13 +294,8 @@ module Application =
         let selectAttribution: SelectAttribution = 
             fun attr data -> 
                 { 
-                    AttributionSelectedData.Site = data.Site 
-                    UserInfo            = data.UserInfo 
-                    ShopFloor           = data.ShopFloor 
-                    EntryMethod         = data.EntryMethod
-                    EntryLevel          = data.EntryLevel
-                    WorkCenter          = data.WorkCenter
-                    EntryMode           = data.EntryMode
+                    AttributionSelectedData.Context = data.Context
+                    TimeRecords         = data.TimeRecords 
                     AttributionType     = data.AttributionType
                     Attribution         = attr
                 }
@@ -288,13 +304,8 @@ module Application =
         let enterDuration: EnterDuration = 
             fun duration data -> 
                 { 
-                    DurationEnteredData.Site = data.Site 
-                    UserInfo            = data.UserInfo 
-                    ShopFloor           = data.ShopFloor 
-                    EntryMethod         = data.EntryMethod
-                    EntryLevel          = data.EntryLevel
-                    WorkCenter          = data.WorkCenter
-                    EntryMode           = data.EntryMode
+                    DurationEnteredData.Context = data.Context 
+                    TimeRecords         = data.TimeRecords
                     AttributionType     = data.AttributionType
                     Attribution         = data.Attribution
                     Duration            = duration
@@ -304,13 +315,8 @@ module Application =
         let enterNbPeople: EnterNbPeople =
             fun nb data -> 
                 { 
-                    NbPeopleEnteredData.Site = data.Site 
-                    UserInfo            = data.UserInfo 
-                    ShopFloor           = data.ShopFloor 
-                    EntryMethod         = data.EntryMethod
-                    EntryLevel          = data.EntryLevel
-                    WorkCenter          = data.WorkCenter
-                    EntryMode           = data.EntryMode
+                    NbPeopleEnteredData.Context = data.Context 
+                    TimeRecords         = data.TimeRecords
                     AttributionType     = data.AttributionType
                     Attribution         = data.Attribution
                     Duration            = data.Duration
@@ -318,6 +324,28 @@ module Application =
                 }
                 |> Success   
             
+        let addRecord: AddRecord = 
+            fun data -> 
+                let ctxData = data.Context
+                let addRecordCap = addRecordNotForViewer ctxData.UserInfo
+                match addRecordCap with
+                    | Some cap -> 
+                        cap data
+                        |> Success
+                    | None -> Failure "You are not authorized to record time."
+
+        let saveRecord : SaveRecord = 
+            fun data -> 
+                let ctxData = data.Context
+                let saveRecordCap = saveRecordNotForViewer ctxData.UserInfo
+                match saveRecordCap with
+                    | Some cap -> 
+                        match data.TimeRecords with
+                            | []    -> Failure "No record saved. Time Record list is empty."
+                            | records -> 
+                                cap data
+                    | None -> Failure "You are not authorized to record time."
+
 
     (* IMPLEMENT PROGRAM *)
     module Program = 
@@ -366,7 +394,20 @@ module Application =
                 | AttributionSelected _     ->  Map.ofList ["U", Cap.UnselectAttribution ; "E", Cap.EnterDuration  ; "L", Cap.Logout]
                 
                 | DurationEntered _         -> Map.ofList ["C", Cap.CancelDuration ; "E", Cap.EnterNbPeople  ; "L", Cap.Logout]
-                | NbPeopleEntered _         -> Map.ofList ["C", Cap.CancelNbPeople ; "R", Cap.RecordTime     ; "L", Cap.Logout]
+
+                | NbPeopleEntered data         -> 
+                        match data.Context.EntryMethod with
+                            //Stop recoring time after first recording
+                            | Individual        -> Map.ofList [ "C", Cap.CancelNbPeople; "S", Cap.SaveRecord ; "L", Cap.Logout]
+
+                            //Continue time recording with one record in memory
+                            | ProductionLine    -> Map.ofList [ "C", Cap.CancelNbPeople; "A", Cap.AddRecord; "S", Cap.SaveRecord ; "L", Cap.Logout]
+                
+
+                | RecordAdded data -> Map.ofList [ "S", Cap.SelectAttributionType ; "L", Cap.Logout]
+                
+                | RecordSaved data -> Map.ofList [ "S", Cap.SelectEntryMethod ; "L", Cap.Logout]
+
                 | SiteCreated _             -> Map.ofList ["U", Cap.UnselectSite; "L", Cap.Logout] 
                 | Exit                      -> Map.ofList []  
         
@@ -413,8 +454,12 @@ module Application =
         
         let displayEntryMethodController (displayEntryMethod: DisplayEntryMethod) state = 
             result {
-                let! siteselectedData = SiteSelected.getData state
-                return! displayEntryMethod siteselectedData
+                match state with
+                    | RecordSaved data -> 
+                        return! displayEntryMethod data
+                    | _ -> 
+                        let! siteselectedData = SiteSelected.getData state
+                        return! displayEntryMethod siteselectedData
             }
 
         let selectEntryMethodController (selectEntryMethod: SelectEntryMethod) state input = 
@@ -424,6 +469,7 @@ module Application =
                 let! timemethodData     = selectEntryMethod  method siteselectedData 
                 return (EntryMethodSelected timemethodData)
             }
+
         let unselectEntryMethodController state = 
             EntryMethodSelected.getData state
             |> Result.map(fun data -> {SiteSelectedData.UserInfo = data.UserInfo; Site = data.Site })
@@ -525,32 +571,41 @@ module Application =
                 }) 
             |> Result.map(WorkCenterSelected)
 
-        let displayAttributionsController (displayAttributionTypes : DisplayAttributionTypes) state =
+        let displayAttributionTypesController (displayAttributionTypes : DisplayAttributionTypes) state =
             result {
-                let! entrymodedata = EntryModeSelected.getOrCreateData state
-                return! displayAttributionTypes entrymodedata 
+                match state with
+                    | RecordAdded data -> 
+                        let! data  = RecordAdded.getData state
+                        let entrymodedata = data.Context
+                        return! displayAttributionTypes entrymodedata
+                         
+                    | state -> 
+                        let! entrymodedata = EntryModeSelected.getOrCreateData state
+                        return! displayAttributionTypes entrymodedata 
             }
 
         let selectAttributionTypeController (selectAttributionType: SelectAttributionType) state input = 
             result {
-                    let! entrymodedata  = EntryModeSelected.getOrCreateData state
-                    let! attrType       = AttributionType.validate input
-                    let! attrdata       = selectAttributionType attrType entrymodedata
-                    return (AttributionTypeSelected attrdata)
+                    match state with
+                        | RecordAdded data -> 
+                            //extract context data = entrymode data and time records so far 
+                            let! data           = RecordAdded.getData state
+                            let entrymodedata, timerecords = data.Context, data.TimeRecords
+                            let! attrType       = AttributionType.validate input
+                            let! attrdata       = selectAttributionType attrType entrymodedata timerecords
+                            return (AttributionTypeSelected attrdata)
+
+                        | state -> 
+                            let! entrymodedata  = EntryModeSelected.getOrCreateData state
+                            let! attrType       = AttributionType.validate input
+                            //No time record yet
+                            let! attrdata       = selectAttributionType attrType entrymodedata []
+                            return (AttributionTypeSelected attrdata)
             }
 
         let unselectAttributionTypeController state =
             AttributionTypeSelected.getData state
-            |> Result.map(fun data ->
-                {
-                    EntryModeSelectedData.Site        = data.Site
-                    UserInfo    = data.UserInfo 
-                    EntryMethod = data.EntryMethod
-                    EntryLevel  = data.EntryLevel
-                    ShopFloor   = data.ShopFloor
-                    WorkCenter  = data.WorkCenter
-                    EntryMode   = data.EntryMode
-                }) 
+            |> Result.map(fun data -> data.Context) 
             |> Result.map(EntryModeSelected)
 
         let displayActivityCodesController (displayActivityCodes : DisplayActivityCodes) state =
@@ -569,10 +624,10 @@ module Application =
             result {
                     let! data           = AttributionTypeSelected.getData state
 
-                    let timetype        = EntryMode.toTimeType data.EntryMode
+                    let timetype        = EntryMode.toTimeType data.Context.EntryMode
 
                     let! attribution   = 
-                        DBService.validateActivityCode data.EntryLevel timetype data.ShopFloor data.WorkCenter input
+                        DBService.validateActivityCode data.Context.EntryLevel timetype data.Context.ShopFloor data.Context.WorkCenter input
                         |> Result.map(Attribution.Activity)
 
                     let! attrdata       = selectAttribution attribution data
@@ -584,7 +639,7 @@ module Application =
                     let! data = AttributionTypeSelected.getData state
                                         
                     let! attribution      = 
-                            data.WorkCenter
+                            data.Context.WorkCenter
                             |> Option.map( fun wc -> DBService.validateWorkOrder wc input)
                             |> Result.failIfMissing "Workcenter is not selected."
                             |> flatten
@@ -598,14 +653,10 @@ module Application =
             AttributionSelected.getData state
             |> Result.map(fun data ->
                 {
-                    AttributionTypeSelectedData.Site = data.Site
-                    UserInfo    = data.UserInfo 
-                    EntryMethod = data.EntryMethod
-                    EntryLevel  = data.EntryLevel
-                    ShopFloor   = data.ShopFloor
-                    WorkCenter  = data.WorkCenter
-                    EntryMode   = data.EntryMode
+                    AttributionTypeSelectedData.Context = data.Context
+                    TimeRecords     = data.TimeRecords
                     AttributionType = data.AttributionType
+
                 }) 
             |> Result.map(AttributionTypeSelected)
 
@@ -623,13 +674,8 @@ module Application =
             DurationEntered.getData state
             |> Result.map(fun data ->
                 {
-                    AttributionSelectedData.Site = data.Site
-                    UserInfo    = data.UserInfo 
-                    EntryMethod = data.EntryMethod
-                    EntryLevel  = data.EntryLevel
-                    ShopFloor   = data.ShopFloor
-                    WorkCenter  = data.WorkCenter
-                    EntryMode   = data.EntryMode
+                    AttributionSelectedData.Context = data.Context
+                    TimeRecords = data.TimeRecords
                     AttributionType = data.AttributionType
                     Attribution = data.Attribution
                 }) 
@@ -645,6 +691,40 @@ module Application =
                     return (NbPeopleEntered nbpdata)
             }
 
+        let cancelNbPeopleController state = 
+            NbPeopleEntered.getData state
+            |> Result.map(fun data ->
+                {
+                    DurationEnteredData.Context = data.Context
+                    TimeRecords = data.TimeRecords
+                    AttributionType = data.AttributionType
+                    Attribution = data.Attribution
+                    Duration    = data.Duration
+                }) 
+            |> Result.map(DurationEntered)
+
+        let addRecordController (addRecord: AddRecord) state = 
+            result {
+                let! data = NbPeopleEntered.getData state
+                let! recorddata = addRecord data
+                return (RecordAdded recorddata) 
+            }
+            
+        let saveRecordController (addRecord: AddRecord) (saveRecord: SaveRecord) state = 
+                match state with 
+                    | NbPeopleEntered data -> 
+                        result {
+                            let addAndSave = addRecord >=> saveRecord
+                            let! siteselectedData = addAndSave data
+                            return (SiteSelected siteselectedData)
+                        }
+                    | state -> 
+                        result {
+                            let! data = RecordAdded.getData state
+                            let! siteselectedData = saveRecord data
+                            return (SiteSelected siteselectedData)
+                        }
+
         let siteCreationController state input (createSite: CreateSite) =            
             result {
                 let! loggedInData  = LoggedIn.getData state
@@ -652,3 +732,4 @@ module Application =
                 
                 return (SiteCreated createSiteData)
             }
+            
