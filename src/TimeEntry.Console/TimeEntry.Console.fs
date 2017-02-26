@@ -172,9 +172,9 @@ let useCapability state =
 
         | Cap.CancelNbPeople -> Program.cancelNbPeopleController state
 
-        | Cap.AddRecord      -> Program.addRecordController state
+        | Cap.AddRecord      -> Program.addRecordController Services.addRecord state
 
-        | Cap.SaveRecord     -> Success state
+        | Cap.SaveRecord     -> Program.saveRecordController Services.addRecord Services.saveRecord state
 
         | Cap.CreateSite ->
                 printfn "Not implemented yet. Logging out..."

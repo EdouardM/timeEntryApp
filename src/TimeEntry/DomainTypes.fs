@@ -504,8 +504,8 @@ module DomainTypes =
     type EnterNbPeople = NbPeople -> DurationEnteredData -> Result<NbPeopleEnteredData>
 
     type AddRecord  = NbPeopleEnteredData -> Result<RecordedAddedData>
-
-    type SaveRecord = TimeRecord list -> Result<unit>
+    
+    type SaveRecord = RecordedAddedData -> Result<SiteSelectedData>
 
     //User may not have the right to create one site or input is invalid
     type CreateSite = string -> LoggedInData -> Result<SiteSelectedData>
@@ -532,4 +532,4 @@ module DomainTypes =
         | DurationEntered           of DurationEnteredData
         | NbPeopleEntered           of NbPeopleEnteredData
         | RecordAdded               of RecordedAddedData
-        | RecordPersisted
+        | RecordSaved               of SiteSelectedData

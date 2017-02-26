@@ -317,7 +317,10 @@ module Constructors =
             function
                 | SiteSelected data -> Success data
                 | _                 -> Failure "Not in Selected Site state, cannot access to inner data."
-        
+
+    module SiteSelectedData = 
+        let create site userinfo = { SiteSelectedData.UserInfo = userinfo; Site = site }
+
     module EntryMethodSelected = 
         let getData = 
             function
@@ -440,5 +443,11 @@ module Constructors =
         let getData =
             function
                 | RecordAdded data  -> Success data
-                | _ -> Failure "Unexpected application state. It should be Time Recorded."
+                | _ -> Failure "Unexpected application state. It should be Record Added."
+    
+    module RecordSaved =
+        let getData =
+            function
+                | RecordSaved data  -> Success data
+                | _ -> Failure "Unexpected application state. It should be Record Saved."
     

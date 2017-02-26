@@ -29,7 +29,7 @@ module Application =
             DBService.getActiveWorkCentersByShopfloor
             |> notForViewer userinfo
         let displayEntryModeNotForViewer userinfo = notForViewer userinfo (fun () -> ["(M)achineOnly"; "(L)abourOnly"])
-        let displayAttributionNotForViewer userinfo = notForViewer userinfo (fun () -> ["(W)orkorder"; "(A)ctivity"])
+        let displayAttributionTypesNotForViewer userinfo = notForViewer userinfo (fun () -> ["(W)orkorder"; "(A)ctivity"])
         let displayActivityCodesNotForViewer userinfo = 
             (fun entryLevel entrymode shopfloor workcenter -> 
                 let timetype = EntryMode.toTimeType entrymode
@@ -47,6 +47,30 @@ module Application =
         let displayWorkOrdersNotForViewer userinfo = 
             (DBService.getWorkOrderByWorkCenter )
             |> notForViewer userinfo
+
+        let addRecordNotForViewer userinfo = 
+            (fun (data: NbPeopleEnteredData) -> 
+                let ctx = data.Context
+                let timetype = EntryMode.toTimeType ctx.EntryMode
+                let timeRecord = TimeRecord.create ctx.Site ctx.ShopFloor ctx.WorkCenter data.Attribution timetype data.Duration data.NbPeople Entered
+                let timeRecords = timeRecord::data.TimeRecords
+                RecordAddedData.create data.Context timeRecords
+            )
+            |> notForViewer userinfo
+
+
+        let saveRecordNotForViewer userinfo =
+            (fun (data: RecordedAddedData) -> 
+                            let ids = DBService.saveTimeRecords data.Context.UserInfo data.TimeRecords
+                            let siteSelectedData = SiteSelectedData.create data.Context.Site data.Context.UserInfo 
+                            match ids with 
+                                | Success ls -> 
+                                        printfn "Saved %d records" <| List.length ls
+                                        Success  siteSelectedData
+                                | Failure msg -> Failure msg
+            )
+            |> notForViewer userinfo
+
 
 
     (* SERVICES IMPLEMENTATION *)
@@ -229,7 +253,7 @@ module Application =
                 |> Success   
         let displayAttributionTypes : DisplayAttributionTypes = 
             fun entrymodedata -> 
-                let displayAttributionCap = displayAttributionNotForViewer entrymodedata.UserInfo
+                let displayAttributionCap = displayAttributionTypesNotForViewer entrymodedata.UserInfo
                 match displayAttributionCap with
                     | Some cap -> cap () |> Success
                     | None -> Failure "You are not authorized to record time."
@@ -300,6 +324,28 @@ module Application =
                 }
                 |> Success   
             
+        let addRecord: AddRecord = 
+            fun data -> 
+                let ctxData = data.Context
+                let addRecordCap = addRecordNotForViewer ctxData.UserInfo
+                match addRecordCap with
+                    | Some cap -> 
+                        cap data
+                        |> Success
+                    | None -> Failure "You are not authorized to record time."
+
+        let saveRecord : SaveRecord = 
+            fun data -> 
+                let ctxData = data.Context
+                let saveRecordCap = saveRecordNotForViewer ctxData.UserInfo
+                match saveRecordCap with
+                    | Some cap -> 
+                        match data.TimeRecords with
+                            | []    -> Failure "No record saved. Time Record list is empty."
+                            | records -> 
+                                cap data
+                    | None -> Failure "You are not authorized to record time."
+
 
     (* IMPLEMENT PROGRAM *)
     module Program = 
@@ -355,12 +401,12 @@ module Application =
                             | Individual        -> Map.ofList [ "C", Cap.CancelNbPeople; "S", Cap.SaveRecord ; "L", Cap.Logout]
 
                             //Continue time recording with one record in memory
-                            | ProductionLine    -> Map.ofList [ "C", Cap.CancelNbPeople; "A", Cap.AddRecord ; "L", Cap.Logout]
+                            | ProductionLine    -> Map.ofList [ "C", Cap.CancelNbPeople; "A", Cap.AddRecord; "S", Cap.SaveRecord ; "L", Cap.Logout]
                 
 
                 | RecordAdded data -> Map.ofList [ "S", Cap.SelectAttributionType ; "L", Cap.Logout]
                 
-                | RecordPersisted  -> Map.ofList [ "S", Cap.SelectSite ; "L", Cap.Logout]
+                | RecordSaved data -> Map.ofList [ "S", Cap.SelectEntryMethod ; "L", Cap.Logout]
 
                 | SiteCreated _             -> Map.ofList ["U", Cap.UnselectSite; "L", Cap.Logout] 
                 | Exit                      -> Map.ofList []  
@@ -408,8 +454,12 @@ module Application =
         
         let displayEntryMethodController (displayEntryMethod: DisplayEntryMethod) state = 
             result {
-                let! siteselectedData = SiteSelected.getData state
-                return! displayEntryMethod siteselectedData
+                match state with
+                    | RecordSaved data -> 
+                        return! displayEntryMethod data
+                    | _ -> 
+                        let! siteselectedData = SiteSelected.getData state
+                        return! displayEntryMethod siteselectedData
             }
 
         let selectEntryMethodController (selectEntryMethod: SelectEntryMethod) state input = 
@@ -419,6 +469,7 @@ module Application =
                 let! timemethodData     = selectEntryMethod  method siteselectedData 
                 return (EntryMethodSelected timemethodData)
             }
+
         let unselectEntryMethodController state = 
             EntryMethodSelected.getData state
             |> Result.map(fun data -> {SiteSelectedData.UserInfo = data.UserInfo; Site = data.Site })
@@ -652,18 +703,27 @@ module Application =
                 }) 
             |> Result.map(DurationEntered)
 
-        let addRecordController state = 
+        let addRecordController (addRecord: AddRecord) state = 
             result {
                 let! data = NbPeopleEntered.getData state
-                let ctx = data.Context
-                let timetype = EntryMode.toTimeType ctx.EntryMode
-                let timeRecord = TimeRecord.create ctx.Site ctx.ShopFloor ctx.WorkCenter data.Attribution timetype data.Duration data.NbPeople Entered
-                let timeRecords = timeRecord::data.TimeRecords
-                let recorddata = RecordAddedData.create data.Context timeRecords
+                let! recorddata = addRecord data
                 return (RecordAdded recorddata) 
             }
             
-
+        let saveRecordController (addRecord: AddRecord) (saveRecord: SaveRecord) state = 
+                match state with 
+                    | NbPeopleEntered data -> 
+                        result {
+                            let addAndSave = addRecord >=> saveRecord
+                            let! siteselectedData = addAndSave data
+                            return (SiteSelected siteselectedData)
+                        }
+                    | state -> 
+                        result {
+                            let! data = RecordAdded.getData state
+                            let! siteselectedData = saveRecord data
+                            return (SiteSelected siteselectedData)
+                        }
 
         let siteCreationController state input (createSite: CreateSite) =            
             result {
@@ -672,3 +732,4 @@ module Application =
                 
                 return (SiteCreated createSiteData)
             }
+            

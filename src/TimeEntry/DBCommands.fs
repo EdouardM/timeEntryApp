@@ -1151,8 +1151,8 @@ module DBCommands =
                 |> Seq.toList
                 |> onlyOne "TimeRecord" (string id)
 
-        let private insertDBTimeRecord : ActivityInfoId option -> DBTimeRecord -> Result<uint32> = 
-            fun actInfoId record ->
+        let private insertDBTimeRecord : ActivityInfoId option -> Login -> DBTimeRecord -> Result<uint32> = 
+            fun actInfoId login record ->
                 let ctx = Sql.GetDataContext()
                 let tr = ctx.Timeentryapp.Timerecord.Create()
                 tr.Site             <- record.Site
@@ -1167,6 +1167,7 @@ module DBCommands =
                 tr.WorkOrder        <- record.WorkOrderEntry
                 tr.ActivityInfoId   <- actInfoId
                 tr.RecordStatus     <- record.Status
+                tr.Login            <- login.ToString()
                 tr.LastUpdate       <- System.DateTime.Now
                 tr.Active           <- 1y
                 try 
@@ -1176,17 +1177,17 @@ module DBCommands =
                 with
                 | ex -> Failure <| sprintf "%s" ex.Message
 
-        type InsertTimeRecord = TimeRecord -> Result<uint32>
+        type InsertTimeRecord = UserInfo -> TimeRecord -> Result<uint32>
 
         let insert : InsertTimeRecord =
-            fun timeRecord ->
+            fun userinfo timeRecord ->
                 let ctx = Sql.GetDataContext()
                 match timeRecord.Attribution with
                     | Attribution.WorkOrder wo ->
                         
                         let dbrecords = TimeRecord.toDB timeRecord
                         dbrecords
-                        |> insertDBTimeRecord None
+                        |> insertDBTimeRecord None userinfo.Login
 
                     | Attribution.Activity act -> 
                         let dbrecords = TimeRecord.toDB timeRecord
@@ -1195,7 +1196,7 @@ module DBCommands =
                                 ActivityInfoAPI.insert (Normal act)
                                 //Add User in EventEntry to be sure to get the correct ID!
                                 //|> map lastEventEntryId
-                                |> bind (fun id -> insertDBTimeRecord (Some id) record)
+                                |> bind (fun id -> insertDBTimeRecord (Some id) userinfo.Login record)
                         
                 //Update work ORder to add time...
         
