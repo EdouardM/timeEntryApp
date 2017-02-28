@@ -10,6 +10,9 @@ obj
 bin
 *.exe
 
+### Ignore data directory ###
+data
+
 
 ### Ignore build ###
 build.cmd
