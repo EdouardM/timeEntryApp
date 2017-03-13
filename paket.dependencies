@@ -4,10 +4,11 @@ nuget FAKE
 nuget FsCheck
 nuget FSharp.Configuration
 nuget FSharp.Core
+nuget FSharp.Data
 
 nuget MySQL.Data
-nuget Sqlprovider
 
 nuget Expecto
 nuget Expecto.FsCheck
 nuget Expecto.PerfUtil
+nuget SQLProvider
