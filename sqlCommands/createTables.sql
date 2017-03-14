@@ -10,8 +10,8 @@ Create Site table
 DROP TABLE  IF EXISTS Site;
 
 CREATE TABLE Site (
-    Site VARCHAR(3) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Site VARCHAR(3)     CHARACTER SET utf8  NOT NULL,
+    Active TINYINT(1)                       NOT NULL,
     PRIMARY KEY (Site)
 );
 
@@ -25,9 +25,9 @@ DROP TABLE  IF EXISTS Shopfloor;
 
 
 CREATE TABLE Shopfloor (
-    Shopfloor VARCHAR(5) NOT NULL,
-    Site VARCHAR(3) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Shopfloor VARCHAR(5) CHARACTER SET utf8 NOT NULL,
+    Site VARCHAR(3)      CHARACTER SET utf8 NOT NULL,
+    Active TINYINT(1)                       NOT NULL,
     PRIMARY KEY (Shopfloor)
 );
 
@@ -43,11 +43,11 @@ Create Work Centers table
 DROP TABLE  IF EXISTS WorkCenter;
 
 CREATE TABLE WorkCenter (
-    Shopfloor VARCHAR(5) NOT NULL,
-    WorkCenter VARCHAR(5) NOT NULL,
-    StartHour INT NOT NULL, 
-    EndHour INT NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Shopfloor VARCHAR(5)    CHARACTER SET utf8  NOT NULL,
+    WorkCenter VARCHAR(5)   CHARACTER SET utf8  NOT NULL,
+    StartHour INT                               NOT NULL, 
+    EndHour INT                                 NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (WorkCenter)
 );
 
@@ -62,9 +62,9 @@ Create Machine table
 DROP TABLE IF EXISTS Machine;
 
 CREATE TABLE Machine (
-    Shopfloor VARCHAR(5) NOT NULL,
-    Machine  VARCHAR(10) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Shopfloor VARCHAR(5)    CHARACTER SET utf8  NOT NULL,
+    Machine  VARCHAR(10)    CHARACTER SET utf8  NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (Machine)
 );
 
@@ -80,13 +80,13 @@ Create Work Orders Info table
 DROP TABLE  IF EXISTS WorkOrderInfo;
 
 CREATE TABLE WorkOrderInfo (
-    WorkOrder VARCHAR(10) NOT NULL,
-    WorkCenter VARCHAR(4) NOT NULL,
-    ItemCode VARCHAR(6) NOT NULL,
-    WorkOrderStatus ENUM('open','closed') NOT NULL,
-    TotalMachineTimeHr FLOAT(7,4) NOT NULL,
-    TotalLabourTimeHr FLOAT(7,4) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    WorkOrder VARCHAR(10)   CHARACTER SET utf8  NOT NULL,
+    WorkCenter VARCHAR(4)   CHARACTER SET utf8  NOT NULL,
+    ItemCode VARCHAR(6)     CHARACTER SET utf8  NOT NULL,
+    WorkOrderStatus ENUM('open','closed')       NOT NULL,
+    TotalMachineTimeHr FLOAT(7,4)               NOT NULL,
+    TotalLabourTimeHr FLOAT(7,4)                NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (WorkOrder)
 );
 
@@ -99,15 +99,15 @@ Create Activity table
 DROP TABLE  IF EXISTS Activity;    
 
 CREATE TABLE Activity (
-    Code VARCHAR(4) NOT NULL,
-    Site VARCHAR(3) NOT NULL,
+    Code VARCHAR(4)     CHARACTER SET utf8  NOT NULL,
+    Site VARCHAR(3)     CHARACTER SET utf8  NOT NULL,
     RecordLevel ENUM('workcenter', 'shopfloor') NOT NULL,
-    AccessAll TINYINT(1) NOT NULL,
+    AccessAll TINYINT(1)                    NOT NULL,
     ExtraInfo ENUM('withinfo', 'withoutinfo') NOT NULL,
-    TimeType ENUM('machine', 'labour') NOT NULL,
-    isLinked TINYINT(1) NOT NULL, 
-    LinkedActivity VARCHAR(4), 
-    Active TINYINT(1) NOT NULL,
+    TimeType ENUM('machine', 'labour')      NOT NULL,
+    isLinked TINYINT(1)                     NOT NULL, 
+    LinkedActivity VARCHAR(4) CHARACTER SET utf8, 
+    Active TINYINT(1)                       NOT NULL,
     PRIMARY KEY (Code)
 );
 
@@ -128,9 +128,9 @@ Create Activity WorkCenter Access table
 DROP TABLE  IF EXISTS ActivityWorkCenterAccess;
 
 CREATE TABLE ActivityWorkCenterAccess (
-    Activity VARCHAR(4) NOT NULL,
-    WorkCenter VARCHAR(4) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Activity VARCHAR(4)     CHARACTER SET utf8  NOT NULL,
+    WorkCenter VARCHAR(4)   CHARACTER SET utf8  NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (Activity, WorkCenter)
 );
 
@@ -141,9 +141,9 @@ Create Activity ShopFloor Access table
 DROP TABLE  IF EXISTS ActivityShopFloorAccess;
 
 CREATE TABLE ActivityShopFloorAccess (
-    Activity VARCHAR(4) NOT NULL,
-    ShopFloor VARCHAR(5) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Activity VARCHAR(4)     CHARACTER SET utf8  NOT NULL,
+    ShopFloor VARCHAR(5)    CHARACTER SET utf8  NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (Activity, ShopFloor)
 );
 
@@ -155,12 +155,12 @@ DROP TABLE  IF EXISTS ActivityInfo;
 
 CREATE TABLE ActivityInfo (
     ActivityInfoId INT NOT NULL auto_increment,
-    Activity VARCHAR(4) NOT NULL,
-    Machine VARCHAR(10),
-    Cause VARCHAR(50),
-    Solution VARCHAR(50),
-    Comments VARCHAR(200),
-    Active TINYINT(1) NOT NULL,
+    Activity VARCHAR(4)     CHARACTER SET utf8  NOT NULL,
+    Machine VARCHAR(10)     CHARACTER SET utf8,
+    Cause VARCHAR(50)       CHARACTER SET utf8,
+    Solution VARCHAR(50)    CHARACTER SET utf8,
+    Comments VARCHAR(200)   CHARACTER SET utf8,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (ActivityInfoId)
 );
 
@@ -174,21 +174,21 @@ DROP TABLE  IF EXISTS TimeRecord;
 
 CREATE TABLE TimeRecord (
     TimeRecordId INT NOT NULL auto_increment,
-    Site VARCHAR(4) NOT NULL,
-    Shopfloor VARCHAR(5) NOT NULL,
-    WorkCenter VARCHAR(4),
+    Site VARCHAR(4)         CHARACTER SET utf8  NOT NULL,
+    Shopfloor VARCHAR(5)    CHARACTER SET utf8  NOT NULL,
+    WorkCenter VARCHAR(4)   CHARACTER SET utf8          ,
     TimeType ENUM('machine', 'labour') NOT NULL,
-    StartTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
-    EndTime TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01', 
-    TimeHr FLOAT(7,4) NOT NULL, 
-    NbPeople FLOAT(3,1) NOT NULL,
-    Attribution ENUM('workorder','activity') NOT NULL,
-    WorkOrder VARCHAR(10),
+    StartTime TIMESTAMP                         NOT NULL DEFAULT '2016-01-01 00:00:01',
+    EndTime TIMESTAMP                           NOT NULL DEFAULT '2016-01-01 00:00:01', 
+    TimeHr FLOAT(7,4)                           NOT NULL, 
+    NbPeople FLOAT(3,1)                         NOT NULL,
+    Attribution ENUM('workorder','activity')    NOT NULL,
+    WorkOrder VARCHAR(10)   CHARACTER SET utf8,
     ActivityInfoId INT,
-    RecordStatus ENUM('entered', 'validated') NOT NULL,
-    Active TINYINT(1) NOT NULL,
-    Login VARCHAR(8) NOT NULL,
-    LastUpdate TIMESTAMP NOT NULL DEFAULT '2016-01-01 00:00:01',
+    RecordStatus ENUM('entered', 'validated')   NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
+    Login VARCHAR(8)    CHARACTER SET utf8      NOT NULL,
+    LastUpdate TIMESTAMP                        NOT NULL DEFAULT '2016-01-01 00:00:01',
     PRIMARY KEY (TimeRecordId)
 );
 
@@ -207,11 +207,11 @@ DROP TABLE  IF EXISTS User;
 
 CREATE TABLE User (
     Login VARCHAR(8),
-    UserRealName VARCHAR(50) NOT NULL,
-    Password VARCHAR(50) NOT NULL,
-    AllSites TINYINT(1) NOT NULL,
+    UserRealName VARCHAR(50)    CHARACTER SET utf8  NOT NULL,
+    Password VARCHAR(50)        CHARACTER SET utf8  NOT NULL,
+    AllSites TINYINT(1)                             NOT NULL,
     AuthLevel ENUM('viewer', 'user', 'keyuser', 'admin') NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Active TINYINT(1)                               NOT NULL,
     PRIMARY KEY (Login)
 );
 
@@ -224,9 +224,9 @@ Create User Site Authorization table
 DROP TABLE  IF EXISTS UserAuthorization;
 
 CREATE TABLE UserAuthorization (
-    Login VARCHAR(8) NOT NULL,
-    Site VARCHAR(3) NOT NULL,
-    Active TINYINT(1) NOT NULL,
+    Login VARCHAR(8)    CHARACTER SET utf8      NOT NULL,
+    Site VARCHAR(3)     CHARACTER SET utf8      NOT NULL,
+    Active TINYINT(1)                           NOT NULL,
     PRIMARY KEY (Login, Site)
 );
 
