@@ -29,6 +29,20 @@ module Etl =
             | Choice2Of2 (name,err) -> return compensation name err
         }
 
+
+    let rec retry count interval comp = 
+        async {  
+                let! result = comp
+                match result with
+                | Choice1Of2 r -> return Choice1Of2 r
+                | Choice2Of2 (name, err) -> 
+                    if count > 0 then
+                        do! Async.Sleep interval  
+                        return! retry (count - 1) interval comp
+                    else 
+                        return Choice2Of2 (name, err)
+        }
+
     let etl = EtlBuilder()
 
 

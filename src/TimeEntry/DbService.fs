@@ -8,7 +8,7 @@ module DBService =
     open DBCommands
     open DTO
 
-    let removeExistingData = 
+    let removeExistingData: unit -> Result<unit> = 
         TimeRecordAPI.deleteAll 
         >=> ActivityInfoAPI.deleteAll
         >=> UserAuthAPI.deleteAll
@@ -128,7 +128,6 @@ module DBService =
 
         UserInfoAPI.getUser login
         |> Result.bind (DBConversions.UserInfo.fromDB sites logins)
-
     
     let updatePassword 
         login 
@@ -162,6 +161,8 @@ module DBService =
     let activateSite = SiteAPI.activate
 
     let getActiveShopFloorCodesBySite site = ShopFloorAPI.getShopFloorCodesBySite Active site
+
+    let getActiveWorkCenters () = async { return WorkCenterAPI.getWorkCenterCodes Active }
 
     let getActiveWorkCentersByShopfloor shopfloor = 
         WorkCenterAPI.getWorkCenterCodesByShopfloor Active shopfloor
@@ -209,7 +210,11 @@ module DBService =
         let workorders = getWorkOrderByWorkCenter workcenter
         WorkOrder.validate workorders input
 
-    
+    let insertOrUpdateWorkOrder wo = 
+         WorkOrderInfoAPI.updateStatus wo
+         |> Result.either succeed (fun _ -> WorkOrderInfoAPI.insert wo)
+
+
     let saveTimeRecords userinfo (timerecords: TimeRecord list) = 
         timerecords
         |> Result.traverse (TimeRecordAPI.insert userinfo)

@@ -223,8 +223,8 @@ module DomainTypes =
 
     type WorkOrderInfo =
         {
-            WorkOrder           : WorkOrder
             WorkCenter          : WorkCenter              
+            WorkOrder           : WorkOrder
             ItemCode            : ItemCode
             TotalMachineTimeHr  : TimeHr
             TotalLabourTimeHr   : TimeHr

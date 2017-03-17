@@ -2,6 +2,10 @@
 #r "../../packages/FSharp.Data/lib/net40/FSharp.Data.dll" 
 open FSharp.Data
 
+#r "../../packages/SQLProvider/lib/FSharp.Data.SqlProvider.dll"
+open FSharp.Data.Sql
+
+
 #load "./Helpers.fs"
 #load "./ConstrainedTypes.fs"
 #load "./DomainTypes.fs"
@@ -9,6 +13,7 @@ open FSharp.Data
 #load "./DBConversions.fs"
 
 #load "./DBCommands.fs"
+#load "./DTOTypes.fs"
 #load "./DbService.fs"
 
 open TimeEntry.Result
@@ -19,6 +24,7 @@ open TimeEntry.Constructors
 open TimeEntry.DBConversions
 
 open TimeEntry.DBCommands
+open TimeEntry.DTO
 open TimeEntry.DBService
 
 #load "./AgentTypes.fs"
@@ -34,6 +40,26 @@ open TimeEntry
 
 open System
 open System.IO
+
+//Connection string described here: https://www.connectionstrings.com/mysql/
+let [<Literal>] ConnectionString  = "Server=localhost;Port=3306;Database=timeentryapp;User=root;Password="
+
+//Path to mysql ODBC divers: http://fsprojects.github.io/SQLProvider/core/parameters.html
+let [<Literal>] ResolutionPath = __SOURCE_DIRECTORY__ + @"/../../packages/MySql.Data/lib/net45"
+
+type Sql = SqlDataProvider<
+            ConnectionString = ConnectionString,
+            DatabaseVendor = Common.DatabaseProviderTypes.MYSQL,
+            ResolutionPath = ResolutionPath,
+            IndividualsAmount = 1000,
+            UseOptionTypes = true,
+            Owner = "timeentryapp" >
+
+
+type DBContext = Sql.dataContext
+
+FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent |> Event.add (printfn "Executing SQL: %s")
+
 
 (* CSV FILE TYPES *)
 type WorkOrderData = 
@@ -82,19 +108,16 @@ module WorkOrderCSV  =
         WorkOrderData.create row.WorkCenter row.WorkOrder row.ItemCode row.Status
 
     let parseFileContent (input: string) = 
-        async {
-            let rows = WorkOrderCSVFile.Parse(input).Rows
-            return
-                rows
-                |> Seq.toList
-                |> List.map(toWorkOrderData) 
-        }
+        WorkOrderCSVFile.Parse(input).Rows
+        |> Seq.toList
+        |> List.map(toWorkOrderData) 
+
 
 (* DB SERVICE *)
 //should go to DBService
 let validateWorkOrder (wos: WorkOrderData list)= 
     async { 
-        let workcenters = ["F1"]//getActiveWorkCenters()        
+        let! workcenters = getActiveWorkCenters()        
         let res = 
                 wos
                 |> List.mapi(fun i x  -> (i, x) )
@@ -105,6 +128,13 @@ let validateWorkOrder (wos: WorkOrderData list)=
                 |> Result.sequence
         return res
     }
+
+let insertOrUpdateWorkOrderList (wos: WorkOrderInfo list) = 
+    async {
+        return (List.head <!> Result.traverse insertOrUpdateWorkOrder wos)
+    }
+
+
 //FSharp Deep Dive Chapter 8
 (* ETL FUNCTION *)
 let readFileAsync filepath = 
@@ -114,33 +144,58 @@ let readFileAsync filepath =
         return! sr.ReadToEndAsync() |> Async.AwaitTask
     }
 
-let parseCsvAsync (input: string) = WorkOrderCSV.parseFileContent input
+let writeFileAsync filepath (content: string) =
+    async {
+        use stream = new System.IO.FileStream(filepath,System.IO.FileMode.Create)
+        let chars = content |> Seq.toArray 
+        let bytes = System.Text.Encoding.UTF8.GetBytes chars
+        return! stream.WriteAsync(bytes, 0, bytes.Length ) |> Async.AwaitTask
+    }
+let parseCsvAsync input = 
+    async {
+            return WorkOrderCSV.parseFileContent input
+    }
 
-let work filepath = 
+let failAsync x = 
+    async {
+            return  Result.bimap (id) (failwith) x
+    }
+
+let work sourceFilePath destFilePath= 
     etl {
-        let! extracted = "extractCsv", (readFileAsync filepath)
+        let! extracted = "extractCsv", (readFileAsync sourceFilePath)
         let! parsedCsv = "parseCsv", (parseCsvAsync extracted)
         let! validated = "validate list", (validateWorkOrder parsedCsv)
-        return validated
+
+        //Stops the workflow with Choice2Of2 in cas of validation failure
+        let! res = "validation failure", failAsync validated
+        let! copy = "write file", (writeFileAsync destFilePath <| "Success" )
+        return copy
     }
     |> TimeEntry.Etl.toAsync id (fun name ex -> 
-            Failure <| sprintf "Error: %s - %A" name ex.Message)
+            printfn "Error: %s - %A" name ex.Message)
 
 let path = @"C:\Users\Edouard\Documents\01.Dev\TimeEntryApp\data"
 
 //Test
-work  (path + @"\sample.csv") |> Async.RunSynchronously
+work  (path + @"\sample.csv") (path + @"\validated.csv") |> Async.RunSynchronously
+
 
 (* DEFINE AGENTS *)
 let fileExtractor = Agent.create "extractCsv" readFileAsync
 let parser = Agent.create "parseCsv" parseCsvAsync
 
 let validator = Agent.create "validate list" validateWorkOrder
+let insertOrUpdater = Agent.create "insert update Workorder" insertOrUpdateWorkOrderList
+
+let failer: AgentRef<Replyable<Result<_>, Choice<Result<unit>,exn>>> = Agent.create "validation failure" failAsync
+
 let workOrderETL filepath = 
     etl {
         let! extracted = Agent.pipelined fileExtractor filepath
         let! parsedCsv = Agent.pipelined parser extracted
         let! validated = Agent.pipelined validator parsedCsv
+
         return validated
     }
 
@@ -152,11 +207,22 @@ let worker filepath =
 //Test
 worker (path + @"\sample.csv")   |> Async.RunSynchronously
 
+let dbfailer: AgentRef<Replyable<Result<_>, Choice<Result<unit>,exn>>> = Agent.create "database failure" failAsync
+
+let dBUpdaterETL wos = 
+    etl {
+        let! dbReply = Agent.pipelined insertOrUpdater wos
+        let! res = Agent.pipelined failer dbReply
+        return res
+    }
+
+
 type ReadFailure = 
     {
         FilePath   : string
         NbAttempts : int 
     }
+
 type FileReadReply = 
     | FileContent of Result<WorkOrderInfo list>
     | Failures    of ReadFailure list
@@ -168,7 +234,6 @@ type FileMessage =
 
 type WorkOrderETL (workOrderETL) =   
     //let readSuccessEvent     = new Event<string>()
-
     let updateState (readFailures : ReadFailure list) (path, cnt) = 
         ({ FilePath = path; NbAttempts =  cnt})::readFailures
     let successFunc (replyChannel: AsyncReplyChannel<_>) (state: ReadFailure list) res = 
@@ -211,7 +276,6 @@ type WorkOrderETL (workOrderETL) =
                     return! messageLoop newState
 
                 | GetFailures (replyChannel) -> 
-                    
                     replyChannel.Reply (Failures state)
                     return! messageLoop []
             }
@@ -220,7 +284,7 @@ type WorkOrderETL (workOrderETL) =
         )
     
     member x.Post = agent.Post
-    member x.PostAndReply  = agent.PostAndReply
+    member x.PostAndReply : ((AsyncReplyChannel<FileReadReply> -> FileMessage) -> FileReadReply) = agent.PostAndReply
 
 type FailedFilesMessage = FailedFiles of ReadFailure list * AsyncReplyChannel<Result<WorkOrderInfo list>>
 
@@ -244,10 +308,10 @@ type FailedFileReader (fr : WorkOrderETL) =
                         |> List.map(fun readfailure -> 
                                 //Stop after the third attempt
                                 if readfailure.NbAttempts <= 3 then
-                                    let reply = fr.PostAndReply(fun replyChannel -> Retry ( readfailure, replyChannel) )
+                                    let reply = fr.PostAndReply(fun (rc:AsyncReplyChannel<FileReadReply>) -> Retry ( readfailure, rc) )
                                     match reply with 
-                                        | FileContent res -> replyChannel.Reply(res))
-                                        | _ -> ()
+                                        | FileContent res -> replyChannel.Reply(res)
+                                        | _ -> ())
                         |> ignore
                         []
             return! messageLoop newState           
@@ -257,6 +321,55 @@ type FailedFileReader (fr : WorkOrderETL) =
         messageLoop []
         )
     member x.PostAndReply : ((AsyncReplyChannel<Result<WorkOrderInfo list>> -> FailedFilesMessage) -> Result<WorkOrderInfo list>) = agent.PostAndReply
+
+type ValidatedWOMessage = ValidatedWorkOrders of (WorkOrderInfo list) * AsyncReplyChannel<Result<unit>>
+
+type DBUpdaterETL (dBUpdaterETL) =   
+    let successFunc (replyChannel: AsyncReplyChannel<Result<unit>>) res = 
+        replyChannel.Reply(res)
+        
+    let failureFunc 
+        ( replyChannel   : AsyncReplyChannel<Result<unit>> ) 
+        ( wos            : WorkOrderInfo list )
+        ( name           : string ) 
+        ( ex             : exn )    = 
+                let failure = Failure <| sprintf "Error: %s - %A" name ex.Message
+                replyChannel.Reply(failure)
+        
+    let computeNewState 
+        ( replyChannel  : AsyncReplyChannel<_> )
+        ( wos           : WorkOrderInfo list )  = 
+        dBUpdaterETL wos 
+        |> TimeEntry.Etl.retry 3 1000
+        |> TimeEntry.Etl.toAsync 
+            (successFunc replyChannel)
+            (failureFunc replyChannel wos)
+    let agent = MailboxProcessor.Start(fun inbox -> 
+
+        // the message processing function
+        let rec loop() = async {
+            
+            // read a message
+            let! (ValidatedWorkOrders (wos, replyChannel)) = inbox.Receive()
+            
+            let! newState = computeNewState replyChannel wos
+            
+            return! loop ()
+            }
+        loop ()
+        )
+    
+    member x.Post = agent.Post
+    member x.PostAndReply : ((AsyncReplyChannel<Result<unit>> -> ValidatedWOMessage) -> Result<unit>)   = agent.PostAndReply
+
+//Test Agents:
+let filepath = path + @"\sample.csv"
+
+let agentWorkOrderETL = WorkOrderETL(workOrderETL)
+let agentFailedFile = FailedFileReader(agentWorkOrderETL)
+let agentDBUpdaterETL = DBUpdaterETL(dBUpdaterETL)
+
+let reply = agentWorkOrderETL.PostAndReply (fun rc -> NewFile(filepath, rc))
 
 //https://fsharpforfunandprofit.com/posts/concurrency-reactive/
 let createTimerObservable timerInterval =
@@ -294,6 +407,10 @@ let onCreation = (fun (e:FileSystemEventArgs) ->
             printfn "File: %s %s" e.FullPath <| e.ChangeType.ToString()
             Trigger.File(e.FullPath))
 
+let onModification = (fun (e:FileSystemEventArgs) ->  
+            printfn "File: %s %s" e.FullPath <| e.ChangeType.ToString()
+            Trigger.File(e.FullPath))
+
 let onDeletion = (fun (e:FileSystemEventArgs) ->  
             printfn "File: %s %s" e.FullPath <| e.ChangeType.ToString() )
 let filewatcher path =
@@ -301,13 +418,14 @@ let filewatcher path =
     watcher.EnableRaisingEvents <- true
 
     let created = watcher.Created |> Observable.map(onCreation)
+    let modified = watcher.Changed |> Observable.map(onModification)
     let deleted = watcher.Deleted |> Observable.map(onDeletion)
 
-    [created]
+    [created; modified]
     |> List.reduce Observable.merge 
 
 
-let timerEventStream = createTimerObservable 5000
+let timerEventStream = createTimerObservable 60000
 let printTick = 
     Observable.subscribe(fun _ -> printfn "tick %A" System.DateTime.Now) timerEventStream
 
@@ -318,23 +436,33 @@ let timer =
 printTick.Dispose()
 let tokenSource = new Threading.CancellationTokenSource()
 let run comp = Async.StartImmediate(comp, tokenSource.Token)
-let agentWorkOrderETL = WorkOrderETL(workOrderETL)
-let agentFailedFile = FailedFileReader(agentWorkOrderETL)
 
 let reactEvent = 
     function
     | Trigger.Timer      ->  
                             let reply = agentWorkOrderETL.PostAndReply(fun (rc:AsyncReplyChannel<FileReadReply>) -> GetFailures (rc) )
                             match reply with    
-                                | Failures failures ->  agentFailedFile.PostAndReply(fun (rc:AsyncReplyChannel<Result<WorkOrderInfo list>>) -> FailedFiles (failures, rc))
-                                | FileContent res   ->  res
+                                | Failures failures ->  
+                                    result {
+                                        let! res = agentFailedFile.PostAndReply(fun (rc:AsyncReplyChannel<Result<WorkOrderInfo list>>) -> FailedFiles (failures, rc))
+                                        return! agentDBUpdaterETL.PostAndReply(fun rc-> ValidatedWorkOrders (res, rc))
+                                    }
+                                    
+                                | FileContent res   ->  
+                                    result {
+                                        let! wos = res
+                                        return! agentDBUpdaterETL.PostAndReply(fun rc-> ValidatedWorkOrders (wos, rc))
+                                    }
 
     | Trigger.File filepath ->  
                             let reply = agentWorkOrderETL.PostAndReply (fun (rc:AsyncReplyChannel<FileReadReply>)  -> NewFile ( filepath, rc) )
                             match reply with    
                                 | Failures failures ->  Failure "Wrong reply type Failures. FileContent was expected."
-                                | FileContent res   ->  res    
-
+                                | FileContent res   ->  
+                                    result {
+                                        let! wos = res
+                                        return! agentDBUpdaterETL.PostAndReply(fun rc-> ValidatedWorkOrders (wos, rc))
+                                    }
 let triggers = [
     filewatcher path
     timer
