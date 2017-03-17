@@ -201,13 +201,14 @@ module Constructors =
         let create = stringExactNum10 >>= WorkOrder
         let validate = validate (stringExact10 >>= WorkOrder) "work order number"
     module ItemCode = 
+        let create = stringMax6 >>= ItemCode >> bimap id (fun msg -> "Validation Failure - Item Code : " + msg)  
         let validate = validate (stringMax6 >>= ItemCode) "item code"
     module WorkOrderStatus = 
         let validate =
             function
             | "open"    ->  Success Open
             | "closed"  ->  Success Closed
-            | _         ->  Failure "Invalid workorder status."
+            | input     ->  Failure <| sprintf "'%s' is not a valid workorder status. Expected values : 'open' , 'closed'." input
 
     module TimeHr =
         let validate = 
@@ -217,7 +218,7 @@ module Constructors =
                 | h -> Success (TimeHr h)
 
     module WorkOrderInfo = 
-        let validate workOrder workCenter itemCode totalMachine totalLabour status = 
+        let create workOrder workCenter itemCode totalMachine totalLabour status = 
             { 
                 WorkOrder = workOrder; 
                 WorkCenter = workCenter; 

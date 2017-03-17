@@ -11,13 +11,18 @@ module Option =
             | Some x    -> x.ToString()
             | None      -> ""
 
+    let stringToOption input = 
+        if System.String.IsNullOrEmpty input then 
+            None 
+        else Some input
+
 module Result =
 
     type FailureMessage = string
     
     type Result<'T> = 
         | Success of 'T 
-        | Failure of FailureMessage
+        | Failure of string
 
     let succeed x = Success x  
 
@@ -32,7 +37,7 @@ module Result =
             | Success f, Success x -> Success (f x)
             | Failure e, Success _ -> Failure e
             | Success _, Failure e -> Failure e
-            | Failure e, Failure e' -> Failure (e + "\n" + e')
+            | Failure e, Failure e' -> Failure (e + "; " + e')
 
     let (<!>) = map
     let (<*>) = apply
@@ -137,6 +142,11 @@ module Result =
     
     //https://fsharpforfunandprofit.com/posts/elevated-world-4/#sequence
     let sequence x = traverse id x
+
+    let resultToChoice = 
+        function 
+            | Success x     -> Choice1Of2 x
+            | Failure msg   -> Choice2Of2 <| failwith msg
 
     type ResultBuilder() =
         member this.Bind(m, f) = bind f m

@@ -47,12 +47,12 @@ module ConstrainedTypes =
     /// A validation function based on maximum length
     let maxLengthValidator len (s:string) =
         if s.Length <= len then Success s 
-        else Failure <| sprintf "Your input: %s is longer than expected (Limit: %d)"  s len
+        else Failure <| sprintf "Your input '%s' is longer than expected (Max Length: %d)"  s len
 
     /// A validation function based on maximum length
     let exactLengthValidator len (s:string) =
         if s.Length = len then Success s 
-        else Failure <| sprintf "Your input: %s does not have the expected length (Length : %d)"  s len
+        else Failure <| sprintf "Your input '%s' does not have the expected length (Length : %d)"  s len
 
     /// A validation function allowing only alphnumerical characters
     let regexFailIfMatch pattern msg (s: string)  = 
@@ -71,13 +71,15 @@ module ConstrainedTypes =
         if nb <> 0 then Success s
         else Failure msg
 
-    let alphanumCharacterValidator = 
+    let alphanumCharacterValidator input = 
         let pattern =  "[^0-9a-zA-Z]+" 
-        regexFailIfMatch pattern "Only alphanumerical characters are allowed."
+        let msg = sprintf "Your input '%s' contains one special character or more." input
+        regexFailIfMatch pattern msg input
 
-    let onlyNumCharacterValidator = 
+    let onlyNumCharacterValidator input = 
         let pattern =  "[^0-9]+" 
-        regexFailIfMatch pattern "Only numerical characters are allowed."
+        let msg = sprintf "Your input '%s' contains one non-numerical character or more." input
+        regexFailIfMatch pattern msg input
 
  
     /// A string of length 3

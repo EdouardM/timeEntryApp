@@ -348,7 +348,7 @@ namespace TimeEntry
                     let totalMachineTimeHrRes   = TimeHr.validate wo.TotalMachineTimeHr
                     let totalLabourTimeHrRes    = TimeHr.validate wo.TotalLabourTimeHr
                     let statusRes               = WorkOrderStatus.validate wo.WorkOrderStatus
-                    WorkOrderInfo.validate 
+                    WorkOrderInfo.create 
                     <!> workOrderRes
                     <*> workCenterRes
                     <*> itemCodeRes

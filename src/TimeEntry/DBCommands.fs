@@ -4,6 +4,7 @@ module DBCommands =
     
     open System.Linq
     open FSharp.Data.Sql
+    open TimeEntry.Option
     open TimeEntry.Result
     open TimeEntry.Conversions
     open TimeEntry.ConstrainedTypes
@@ -948,7 +949,15 @@ module DBCommands =
                     let ctx = Sql.GetDataContext()
                     result {
                         let! record = getActivityInfoEntity ctx activityInfoId
-                        return record.MapTo<DBActivityInfo>() 
+                        let res = 
+                            {
+                                Activity = record.Activity
+                                Machine  = record.Machine
+                                Cause    = record.Cause
+                                Solution = record.Solution
+                                Comments = record.Comments
+                            }
+                        return res
                     }
         
         type UpdatActivityInfo = ActivityInfoId -> ActivityInfo -> Result<unit>
@@ -1094,6 +1103,21 @@ module DBCommands =
                         wo.WorkOrderStatus       <- dbwo.WorkOrderStatus
                         
                         trySubmit "Update WorkOrder Info" ctx 
+
+                    | Failure msg -> Failure msg
+
+        let updateStatus: UpdateworkOrderInfo =
+            fun workOrderInfo -> 
+                let wo =  workOrderInfo.WorkOrder
+                let ctx = Sql.GetDataContext()
+                let workOrderInfoRes =  getWorkOrderEntity ctx Active wo
+
+                let dbwo = WorkOrderInfo.toDB workOrderInfo
+                match workOrderInfoRes with
+                    | Success wo -> 
+                        wo.WorkOrderStatus       <- dbwo.WorkOrderStatus
+                        
+                        trySubmit "Update WorkOrder Info Status" ctx 
 
                     | Failure msg -> Failure msg
 
