@@ -140,12 +140,25 @@ ActivityAPI.insert mdivF21
 ActivityAPI.getActivityCodes Active
 
 //TESTS
-let formatF21'= {formatF21 with ExtraInfo = WithoutInfo}
+let formatF21'= {formatF21 with ExtraInfo = WithInfo}
 ActivityAPI.update formatF21'
 ActivityAPI.getActivity (ActivityCode (String4 "FOR"))
 
 ActivityAPI.desactivate "FOR"
 ActivityAPI.activate    "FOR"
+
+let activityDetails = {
+    Machine = m1.Machine
+    Cause = String50 "Problème de branchement"
+    Solution = String50 "Intervention à l'arrache"
+    Comments = String200 "Le problème a occasionné l'arrêt de la ligne pendant 2h."
+}
+
+let ac1 = Detailed (formatF21.Code, activityDetails)
+
+ActivityInfoAPI.insert ac1
+ActivityInfoAPI.getActivityInfo 1u
+
 
 let wo1 = { WorkOrder = WorkOrder (String10 "12243"); 
             ItemCode = ItemCode (String6 "099148");
@@ -194,8 +207,8 @@ TimeRecordAPI.getTimeRecord 1u
 
 let d = "29/02/2017"
 stringDate d
-let t = "23:10"
-stringTime t
+let t' = "23:10"
+stringTime t'
 
 open System.Text.RegularExpressions
 
@@ -221,8 +234,8 @@ let stringTime =
         printfn "hour %s / minutes: %s / seconds: %s" hour minutes seconds
     | input -> 
         printfn "Your input: '%s' is not recognized as a time. Expected formats are: 'hh', 'hh:mm', 'hh:mm:ss'." input
-let t = "23:23"
-stringTime t 
+let t'' = "23:23"
+stringTime t''
 
 
 let stringDate = 
@@ -232,12 +245,12 @@ let stringDate =
     | input -> 
         printfn "Your input: '%s' is not recognized as a date. Expected formats is 'dd/mm/yyyy'" input       
 
-let d = " 19/02/2017"
-let t = "23:23:2322"
+let d' = " 19/02/2017"
+let t3 = "23:23:2322"
 
-TimeEntry.Constructors.Time.validate t
+TimeEntry.Constructors.Time.validate t'
 
-TimeEntry.Constructors.DateTime.validate d t 
+TimeEntry.Constructors.DateTime.validate d t' 
 
 TimeEntry.DBService.getActivityCodeByTimeTypeAndShopFloor MachineTime (ShopFloor (String5 "F211A"))
 
